@@ -18,6 +18,8 @@ const syncEnabled = document.getElementById("syncEnabled");
 const workspaceListEl = document.getElementById("workspaceList");
 const snapshotWorkspaceButton = document.getElementById("snapshotWorkspace");
 const cloneWorkspaceButton = document.getElementById("cloneWorkspace");
+const importWorkspaceButton = document.getElementById("importWorkspace");
+const importWorkspaceFile = document.getElementById("importWorkspaceFile");
 
 const HOST_POLICIES_KEY = "fwm.hostPolicies";
 const KNOWN_HOSTS_KEY = "fwm.knownHosts";
@@ -44,6 +46,7 @@ let urlPolicies = [];
 let hostPolicies = {};
 let workspaces = {};
 let activeWorkspaceId = null;
+let expandedWorkspaceId = null;
 
 function esc(value) {
   return String(value ?? "")
@@ -318,6 +321,31 @@ function workspaceStats(workspace) {
   };
 }
 
+
+function renderWorkspaceTree(workspace) {
+  const windows = Object.values(workspace?.windows ?? {});
+  if (!windows.length) return '<div class="workspace-tree-empty">Workspace nemá uložená okna.</div>';
+
+  return `
+    <div class="workspace-tree">
+      <div class="workspace-tree-name">${esc(workspace.name || "Workspace")}</div>
+      ${windows.map((win, index) => {
+        const tabs = (win.tabs ?? []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+        return `
+          <div class="workspace-tree-window">
+            <strong>window${index}</strong>
+            <ul>
+              ${tabs.map(tab => `
+                <li>
+                  <span>${esc(tab.title || "(bez názvu)")}</span>
+                  <code>${esc(tab.url || "")}</code>
+                </li>`).join("")}
+            </ul>
+          </div>`;
+      }).join("")}
+    </div>`;
+}
+
 function renderWorkspaces() {
   const entries = Object.values(workspaces ?? {}).sort((a, b) => {
     if (a.id === activeWorkspaceId) return -1;
@@ -348,6 +376,8 @@ function renderWorkspaces() {
             </div>
           </div>
           <div class="workspace-actions">
+            <button type="button" data-workspace-action="details" data-workspace-id="${esc(workspace.id)}">${expandedWorkspaceId === workspace.id ? "Skrýt" : "👁 Detail"}</button>
+            <button type="button" data-workspace-action="export" data-workspace-id="${esc(workspace.id)}">Export JSON</button>
             <button type="button" data-workspace-action="switch" data-workspace-id="${esc(workspace.id)}" ${active ? "disabled" : ""}>
               ${workspace.open ? "Přepnout" : "Obnovit"}
             </button>
@@ -355,6 +385,7 @@ function renderWorkspaces() {
             <button type="button" data-workspace-action="delete" data-workspace-id="${esc(workspace.id)}">Smazat</button>
           </div>
         </div>
+        ${expandedWorkspaceId === workspace.id ? renderWorkspaceTree(workspace) : ""}
       </section>`;
   }).join("");
 }
@@ -575,6 +606,25 @@ workspaceListEl.addEventListener("click", async event => {
   const workspace = workspaces[workspaceId];
   if (!workspace) return;
 
+  if (button.dataset.workspaceAction === "details") {
+    expandedWorkspaceId = expandedWorkspaceId === workspaceId ? null : workspaceId;
+    renderWorkspaces();
+    return;
+  }
+
+  if (button.dataset.workspaceAction === "export") {
+    const payload = await browser.runtime.sendMessage({ type: "exportWorkspace", workspaceId });
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const safeName = (workspace.name || "workspace").replace(/[^a-z0-9._-]+/gi, "_");
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = safeName + ".workspace.json";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return;
+  }
+
   if (button.dataset.workspaceAction === "switch") {
     const ok = confirm(
       "Přepnout na workspace \"" + (workspace.name || "Workspace") +
@@ -602,6 +652,25 @@ workspaceListEl.addEventListener("click", async event => {
     if (!confirm(message)) return;
     await browser.runtime.sendMessage({ type: "deleteWorkspace", workspaceId });
     await load();
+  }
+});
+
+
+importWorkspaceButton.addEventListener("click", () => importWorkspaceFile.click());
+
+importWorkspaceFile.addEventListener("change", async () => {
+  const file = importWorkspaceFile.files?.[0];
+  if (!file) return;
+
+  try {
+    const payload = JSON.parse(await file.text());
+    await browser.runtime.sendMessage({ type: "importWorkspace", payload });
+    await load();
+  } catch (error) {
+    console.error("Workspace import failed", error);
+    alert("Import workspace selhal: " + (error?.message ?? error));
+  } finally {
+    importWorkspaceFile.value = "";
   }
 });
 
