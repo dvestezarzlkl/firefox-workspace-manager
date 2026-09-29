@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- 30-second watchdog now covers both DEEP ALWAYS enforcement and AUTO self-healing.
+- AUTO tabs missing lifecycle/deadline state are recreated by watchdog; existing inactiveSince is preserved when available.
+- Per-tab discard diagnostics exposed in manager: attempt time, reason, result and discardedAt.
+
 - AUTO timeout changes now preserve each tab's original inactiveSince; changing timeout no longer restarts countdowns from zero.
 - Pending inactive tabs are recomputed against the new timeout and overdue tabs are swept immediately.
 
@@ -71,11 +75,11 @@ branch = dev
 
 ## Next
 
-1. Pull latest dev and verify changing AUTO timeout preserves elapsed inactivity time.
-2. Example: tab inactive for ~90 s, change timeout to 2 min -> countdown should continue at ~0:30, not restart at 2:00.
-3. Verify overdue tabs deep immediately after shortening timeout.
-4. Continue checking about:processes versus tab.discarded state; Firefox may retain/reuse content processes even after a tab is discarded.
-5. Continue accumulating usage statistics before defining recommendation heuristics.
+1. Pull latest dev and verify an AUTO tab without a deadline is repaired within 30 seconds.
+2. Verify DEEP ALWAYS tabs are re-discarded by watchdog if they become loaded while inactive.
+3. Inspect discard diagnostics on Google after watchdog runs.
+4. Verify manager reopen does not reset existing AUTO countdowns.
+5. Continue monitoring watchdog overhead and multi-window behavior.
 
 ## localCommand
 
