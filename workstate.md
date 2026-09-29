@@ -9,6 +9,13 @@ branch = dev
 
 ## Done
 
+- Multi-window listing verified with two Firefox windows; groups and ungrouped tabs render separately per window.
+- Countdown persistence fixed across manager close/reopen by preserving existing inactiveSince/deadline state.
+- Extension manager no longer replaces logical active content tab for lifecycle/statistics.
+- Per-host statistics now track both foreground and background time.
+- Host settings show active/background utilization ratio and total observed time.
+- Tab rows now show DEEP ALWAYS / KEEP ALWAYS / EXCEPT; countdown is reserved for AUTO.
+
 - Per-tab EXCEPT toggle added next to DEEP.
 - EXCEPT now stores exact full URL KEEP exceptions, not hostname or URL prefix.
 - Exact URL exception is visibly marked on the tab row and honored by single-tab, group, bulk and automatic DEEP.
@@ -61,12 +68,12 @@ branch = dev
 
 ## Next
 
-1. Pull latest dev and verify EXCEPT on an exact URL.
-2. Verify confirmation appears both when adding and removing an exception.
-3. Verify the EXCEPT badge is shown on the tab row.
-4. Verify DEEP, DEEP group, DEEP ALL and AUTO never discard an exact-URL exception.
-5. Verify the specific is.zlkl.cz event page remains alive while other is.zlkl.cz pages may deep.
-6. Continue tuning AUTO recommendation heuristics after enough usage statistics accumulate.
+1. Pull latest dev and verify countdowns do not reset when manager is closed and reopened.
+2. Verify multi-window countdowns remain independent.
+3. Verify DEEP ALWAYS, KEEP ALWAYS and EXCEPT badges appear correctly on tab rows.
+4. Verify host statistics show active/background ratio and total observed time.
+5. Let statistics accumulate, then define a conservative recommendation rule for AUTO -> DEEP ALWAYS candidates.
+6. Continue testing exact URL exception behavior on the is.zlkl.cz event page.
 
 ## localCommand
 
