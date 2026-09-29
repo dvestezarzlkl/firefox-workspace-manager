@@ -9,6 +9,12 @@ branch = dev
 
 ## Done
 
+- 0.4.11: Uložit jako nový replaced by Uložit akt. stav jako nový.
+- New workspace creation no longer depends on activeWorkspaceId or an existing workspace snapshot.
+- The action captures the current live Firefox normal windows directly, including tabs and native tab groups.
+- Current runtime windows are remapped to the new workspace; previous saved workspace definitions remain intact as closed snapshots.
+- The new workspace is persisted, read-back verified, and automatically activated only after successful validation.
+
 - 0.4.10: Added VS Code task FF: Podepsat unlisted XPI, running npm run sign:unlisted with visible dedicated terminal output.
 
 - 0.4.9: Public add-on name changed from Firefox Workspace Manager to Workspace Manager to satisfy AMO trademark validation.
