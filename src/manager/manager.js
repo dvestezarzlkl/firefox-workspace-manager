@@ -324,6 +324,27 @@ function workspaceStats(workspace) {
 }
 
 
+function workspaceDebugText(workspace) {
+  const version = browser.runtime.getManifest().version;
+  const relatedLog = workspaceDebugLog
+    .filter(item => item?.data?.workspaceId === workspace.id)
+    .slice(-100);
+
+  const lines = [
+    "Firefox Workspace Manager v" + version,
+    "Workspace: " + (workspace.name || "Workspace"),
+    "Workspace ID: " + workspace.id,
+    ""
+  ];
+
+  for (const item of relatedLog) {
+    const ts = item?.at ? new Date(item.at).toLocaleTimeString("cs-CZ", { hour12: false }) : "--:--:--";
+    lines.push(ts + " | " + (item?.event || "event") + " | " + JSON.stringify(item?.data ?? {}));
+  }
+
+  return lines.join("\n");
+}
+
 function renderWorkspaceTree(workspace) {
   const windows = Object.values(workspace?.windows ?? {});
   if (!windows.length) return '<div class="workspace-tree-empty">Workspace nemá uložená okna.</div>';
@@ -381,7 +402,10 @@ function renderWorkspaceTree(workspace) {
       <div class="workspace-tree-name">${esc(workspace.name || "Workspace")}</div>
       ${treeHtml}
       <details class="workspace-debug">
-        <summary>Debug log (${relatedLog.length})</summary>
+        <summary>
+          <span>Debug log (${relatedLog.length})</span>
+          <button type="button" class="workspace-debug-copy" data-copy-workspace-log="${esc(workspace.id)}">Copy</button>
+        </summary>
         <div class="workspace-debug-list">
           ${relatedLog.length ? relatedLog.map(item => `
             <div class="workspace-debug-row">
@@ -648,6 +672,28 @@ hostPoliciesEl.addEventListener("change", async event => {
 
 
 workspaceListEl.addEventListener("click", async event => {
+  const copyButton = event.target.closest("button[data-copy-workspace-log]");
+  if (copyButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    const workspace = workspaces[copyButton.dataset.copyWorkspaceLog];
+    if (!workspace) return;
+
+    const text = workspaceDebugText(workspace);
+    try {
+      await navigator.clipboard.writeText(text);
+      const oldText = copyButton.textContent;
+      copyButton.textContent = "Copied";
+      setTimeout(() => {
+        copyButton.textContent = oldText;
+      }, 1200);
+    } catch (error) {
+      console.error("Copy debug log failed", error);
+      alert("Kopírování logu selhalo: " + (error?.message ?? error));
+    }
+    return;
+  }
+
   const windowButton = event.target.closest("button[data-workspace-window-action]");
   if (windowButton) {
     const workspaceId = windowButton.dataset.workspaceId;
