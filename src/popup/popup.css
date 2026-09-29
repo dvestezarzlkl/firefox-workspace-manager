@@ -1,93 +1,63 @@
+html {
+  color-scheme: light dark;
+}
+
 body {
   font: 13px/1.4 system-ui, sans-serif;
   margin: 0;
-  width: 560px;
-  max-height: 700px;
-  overflow: auto;
+  width: 420px;
   background: Canvas;
   color: CanvasText;
 }
 
 header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
-  border-bottom: 1px solid color-mix(in srgb, CanvasText 20%, transparent);
+  padding: 11px 12px;
+  border-bottom: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
   background: Canvas;
 }
 
 main {
-  padding: 8px;
+  padding: 12px;
 }
 
-.window, .group, .ungrouped {
-  border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
-  border-radius: 6px;
-  margin: 8px 0;
-  overflow: hidden;
-}
-
-.window > h2, .group > h3, .ungrouped > h3 {
-  margin: 0;
-  padding: 7px 9px;
-  font-size: 13px;
-  background: color-mix(in srgb, CanvasText 6%, Canvas);
-}
-
-.tab {
+.stats {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  align-items: center;
-  padding: 6px 9px;
-  border-top: 1px solid color-mix(in srgb, CanvasText 10%, transparent);
 }
 
-.tab:first-of-type {
-  border-top: 0;
+.stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, CanvasText 14%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, CanvasText 4%, Canvas);
 }
 
-.tab-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.stat strong {
+  font-size: 18px;
+  line-height: 1;
 }
 
-.meta {
-  margin-top: 2px;
-  opacity: .65;
-  font-size: 11px;
+.stat span {
+  opacity: .75;
 }
 
-.badge {
-  display: inline-block;
-  margin-right: 4px;
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 button {
   font: inherit;
-}
-
-button.deep {
-  white-space: nowrap;
-}
-
-.empty {
-  padding: 8px 9px;
-  opacity: .7;
-}
-
-.header-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-#deepAll {
-  font-weight: 600;
+  padding: 7px 9px;
 }
