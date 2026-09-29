@@ -9,6 +9,8 @@ branch = dev
 
 ## Done
 
+- 0.4.10: Added VS Code task FF: Podepsat unlisted XPI, running npm run sign:unlisted with visible dedicated terminal output.
+
 - 0.4.9: Public add-on name changed from Firefox Workspace Manager to Workspace Manager to satisfy AMO trademark validation.
 - Gecko extension ID remains firefox-workspace-manager@dvestezar.cz so extension identity/storage stays stable.
 - Manager/popup branding updated and malformed Refresh button markup fixed.
