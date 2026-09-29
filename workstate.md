@@ -9,6 +9,11 @@ branch = dev
 
 ## Done
 
+- 0.3.4: Workspace detail now shows window -> group -> tabs.
+- Workspace debug log is visible directly under the expanded workspace.
+- Restore/switch request has a 20s UI timeout, so a stuck background call cannot leave the button disabled forever.
+- Restore API calls are instrumented and have per-step timeouts.
+
 - Prevented automatic creation of a new workspace when closed workspaces already exist but none is active.
 - Added workspace debug log in background for create/snapshot/close/restore operations.
 - Added simple workspace detail tree: workspace name -> window0/windowN -> tab title + URL.
