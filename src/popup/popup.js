@@ -2,6 +2,7 @@ const stats = document.getElementById("stats");
 const refreshButton = document.getElementById("refresh");
 const deepAllButton = document.getElementById("deepAll");
 const openManagerButton = document.getElementById("openManager");
+const versionEl = document.getElementById("version");
 
 const HOST_POLICIES_KEY = "fwm.hostPolicies";
 const URL_POLICIES_KEY = "fwm.urlPolicies";
@@ -129,3 +130,5 @@ load().catch(error => {
   console.error(error);
   stats.textContent = "Chyba při načítání.";
 });
+
+versionEl.textContent = "v" + browser.runtime.getManifest().version;
