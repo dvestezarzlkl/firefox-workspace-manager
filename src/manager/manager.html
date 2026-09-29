@@ -21,12 +21,28 @@
 
   <nav class="page-tabs" aria-label="Sekce správce">
     <button class="page-tab active" type="button" data-page="panels">Panely</button>
+    <button class="page-tab" type="button" data-page="workspaces">Workspaces</button>
     <button class="page-tab" type="button" data-page="settings">Nastavení</button>
+    <button class="page-tab" type="button" data-page="help">Nápověda</button>
   </nav>
 
   <main id="panelsPage" class="page active">
     <div id="closedWorkspaces" class="closed-workspaces"></div>
     <div id="app">Načítám…</div>
+  </main>
+
+  <main id="workspacesPage" class="page">
+    <section class="settings-card workspace-toolbar">
+      <div>
+        <h2>Workspaces</h2>
+        <p>Workspace obsahuje všechna jeho okna, skupiny a panely.</p>
+      </div>
+      <div class="actions">
+        <button id="snapshotWorkspace" type="button">Uložit stav</button>
+        <button id="cloneWorkspace" type="button">Uložit jako nový</button>
+      </div>
+    </section>
+    <div id="workspaceList">Načítám…</div>
   </main>
 
   <main id="settingsPage" class="page">
@@ -85,6 +101,61 @@
       </div>
       <div id="hostPolicies">Načítám…</div>
       <div id="hostResultInfo" class="hint"></div>
+    </section>
+  </main>
+
+  <main id="helpPage" class="page">
+    <section class="settings-card help-card">
+      <h2>Základní princip</h2>
+      <p>Firefox Workspace Manager drží pracovní prostředí jako sadu oken, skupin a panelů. Panely mohou zůstat načtené, automaticky přejít do DEEP nebo být chráněné před discardem.</p>
+    </section>
+
+    <section class="settings-card help-card">
+      <h2>Stavy panelů</h2>
+      <dl>
+        <dt>KEEP ALWAYS</dt><dd>Hostname je chráněný a zůstává načtený.</dd>
+        <dt>AUTO</dt><dd>Panel se po nastavené době neaktivity automaticky discardne. Odpočet je vidět přímo u panelu.</dd>
+        <dt>DEEP ALWAYS</dt><dd>Neaktivní panel tohoto hostname má být vždy discarded. 30s watchdog tento stav průběžně kontroluje.</dd>
+        <dt>EXCEPT</dt><dd>Přesná celá URL je výjimka KEEP, i když má její hostname například DEEP ALWAYS.</dd>
+      </dl>
+      <p class="hint">Aktivní panel v každém Firefox okně, pinned panel a hrající audio jsou podle nastavení chráněné.</p>
+    </section>
+
+    <section class="settings-card help-card">
+      <h2>Panely</h2>
+      <p><strong>DEEP</strong> ručně uvolní obsah konkrétního panelu z paměti, ale panel, jeho pozice a skupina zůstanou zachované.</p>
+      <p><strong>DEEP skupinu</strong> provede totéž pro vhodné panely skupiny. <strong>DEEP ALL</strong> provede hromadný discard s respektováním ochran, KEEP a EXCEPT.</p>
+      <p><strong>EXCEPT</strong> vedle panelu přidá nebo odebere přesnou aktuální URL z výjimek po potvrzení.</p>
+    </section>
+
+    <section class="settings-card help-card">
+      <h2>Workspaces</h2>
+      <p>Workspace je uložená sada více Firefox oken. Každé okno obsahuje své pořadí panelů a tab groups.</p>
+      <dl>
+        <dt>Uložit stav</dt><dd>Aktualizuje snapshot právě aktivního workspace.</dd>
+        <dt>Uložit jako nový</dt><dd>Vytvoří kopii aktuálního workspace pod novým názvem.</dd>
+        <dt>Přepnout / Obnovit</dt><dd>Uloží aktuální stav, zavře okna současného workspace a obnoví všechna okna cílového workspace.</dd>
+        <dt>Přejmenovat</dt><dd>Změní jen uživatelský název workspace.</dd>
+        <dt>Smazat</dt><dd>Smaže uloženou definici. Při smazání aktivního workspace zůstanou aktuální okna otevřená a převezme je nový workspace.</dd>
+      </dl>
+      <p class="hint">Zavření jednoho okna přes X workspace nesmaže. Záměr native X Firefox API neumí sdělit, takže bezpečné výchozí chování je stav okna zachovat.</p>
+    </section>
+
+    <section class="settings-card help-card">
+      <h2>Nastavení a Sync</h2>
+      <p>Politika hostname platí pro celý přesný hostname/subdoménu. URL výjimka má vyšší prioritu než hostname.</p>
+      <p>Firefox Sync je volitelný. Synchronizuje AUTO nastavení, hostname politiky a URL výjimky. Runtime ID, countdowny, statistiky používání a snapshoty workspace zůstávají lokální.</p>
+    </section>
+
+    <section class="settings-card help-card">
+      <h2>Popup a statistiky</h2>
+      <p>Popup je rychlý dashboard: aktivní workspace, počet oken, panelů a skupin, loaded/deep stav a počty AUTO, KEEP, DEEP ALWAYS a EXCEPT.</p>
+      <p>Statistika hostname sleduje aktivní a neaktivní čas. Slouží jako podklad pro budoucí návrhy, zda má být málo používaný hostname převeden z AUTO na DEEP ALWAYS.</p>
+    </section>
+
+    <section class="settings-card help-card">
+      <h2>Vývojová verze</h2>
+      <p>Při běhu přes <code>web-ext</code> se při změně runtime souborů extension reloadne. Otevřený <code>moz-extension://</code> manager tab se při takovém reloadu může zavřít; v běžné nainstalované verzi watcher neběží.</p>
     </section>
   </main>
 
