@@ -312,6 +312,7 @@ function workspaceStats(workspace) {
   return {
     windows: windows.length,
     openWindows: windows.filter(win => win.open).length,
+    closedWindows: windows.filter(win => !win.open).length,
     tabs: windows.reduce((sum, win) => sum + (win.tabs ?? []).length, 0),
     groups: windows.reduce((sum, win) => sum + (win.groups ?? []).length, 0)
   };
@@ -343,7 +344,7 @@ function renderWorkspaces() {
               <span class="workspace-status">${status}</span>
             </div>
             <div class="workspace-meta">
-              ${stat.windows} oken · ${stat.tabs} panelů · ${stat.groups} skupin
+              ${stat.openWindows} otevřená / ${stat.windows} uložená okna · ${stat.tabs} panelů · ${stat.groups} skupin
             </div>
           </div>
           <div class="workspace-actions">
