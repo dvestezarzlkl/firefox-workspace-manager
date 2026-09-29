@@ -9,6 +9,8 @@ branch = dev
 
 ## Done
 
+- Bulk DEEP action added: discards all eligible inactive tabs while protecting active, pinned and audible tabs.
+
 - Diagnostic popup added: windows, groups, tab state flags and manual DEEP discard.
 
 - Repository initialized.
@@ -38,7 +40,7 @@ branch = dev
 
 status = pending
 owner = local-user
-task = Pull latest dev, open the extension popup, verify grouped tabs are listed correctly, then press DEEP on one non-active test tab. Confirm the tab remains in its group, changes to discarded, and reloads normally when activated.
+task = Pull latest dev and test DEEP ALL EXCEPT ACTIVE. Verify active, pinned and audible tabs stay loaded while other eligible tabs become discarded and remain in their groups.
 
 ## localResult
 
