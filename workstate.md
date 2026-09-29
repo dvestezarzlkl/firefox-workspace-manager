@@ -9,6 +9,8 @@ branch = dev
 
 ## Done
 
+- 0.4.15: Fixed empty manager footer metadata by moving manager.js after the footer DOM, so version/developer elements exist before script initialization.
+
 - 0.4.14: Fixed manager startup regression introduced by footer metadata: managerVersion and managerDeveloper DOM elements are now declared before use.
 
 - 0.4.13: Added standard Firefox manifest developer metadata (dvestezar.cz + homepage URL).
