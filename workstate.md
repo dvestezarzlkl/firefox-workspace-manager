@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- Per-tab EXCEPT toggle added next to DEEP.
+- EXCEPT now stores exact full URL KEEP exceptions, not hostname or URL prefix.
+- Exact URL exception is visibly marked on the tab row and honored by single-tab, group, bulk and automatic DEEP.
+
 - AUTO lifecycle engine added: per-tab inactiveSince/deadline state, one next-deadline browser alarm, automatic discard when due.
 - Manager shows live countdown to automatic DEEP.
 - Per-host usage statistics collected: activations, total foreground time, last activation/deactivation, auto-deep count.
@@ -57,12 +61,12 @@ branch = dev
 
 ## Next
 
-1. Pull latest dev and verify icon, countdown and URL KEEP exception UI.
-2. Verify inactive tabs receive deadlines immediately after extension reload.
-3. Verify switching back to a tab clears its countdown; leaving it starts a new deadline.
-4. Verify is.zlkl.cz can be DEEP while a specific sensor/event page prefix is KEEP.
-5. Let usage statistics accumulate before defining any automatic DEEP recommendation heuristic.
-6. Verify last active content tab remains protected while manager is open.
+1. Pull latest dev and verify EXCEPT on an exact URL.
+2. Verify confirmation appears both when adding and removing an exception.
+3. Verify the EXCEPT badge is shown on the tab row.
+4. Verify DEEP, DEEP group, DEEP ALL and AUTO never discard an exact-URL exception.
+5. Verify the specific is.zlkl.cz event page remains alive while other is.zlkl.cz pages may deep.
+6. Continue tuning AUTO recommendation heuristics after enough usage statistics accumulate.
 
 ## localCommand
 
