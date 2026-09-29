@@ -33,6 +33,7 @@ const HOST_RESULT_LIMIT = 30;
 const WORKSPACES_KEY = "fwm.workspaces";
 const SYNC_ENABLED_KEY = "fwm.sync.enabled";
 const ACTIVE_WORKSPACE_KEY = "fwm.activeWorkspaceId";
+const WORKSPACE_DEBUG_KEY = "fwm.workspaceDebugLog";
 
 let managerTabId = null;
 let managerWindowId = null;
@@ -47,6 +48,7 @@ let hostPolicies = {};
 let workspaces = {};
 let activeWorkspaceId = null;
 let expandedWorkspaceId = null;
+let workspaceDebugLog = [];
 
 function esc(value) {
   return String(value ?? "")
@@ -326,23 +328,66 @@ function renderWorkspaceTree(workspace) {
   const windows = Object.values(workspace?.windows ?? {});
   if (!windows.length) return '<div class="workspace-tree-empty">Workspace nemá uložená okna.</div>';
 
+  const treeHtml = windows.map((win, index) => {
+    const tabs = (win.tabs ?? []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+    const groups = win.groups ?? [];
+    const groupedRuntimeIds = new Set();
+
+    const groupsHtml = groups.map((group, groupIndex) => {
+      const groupTabs = tabs.filter(tab => tab.runtimeGroupId === group.runtimeGroupId);
+      groupTabs.forEach(tab => groupedRuntimeIds.add(tab.runtimeTabId));
+      if (!groupTabs.length) return "";
+
+      return `
+        <div class="workspace-tree-group">
+          <strong>${esc(group.title || ("group" + groupIndex))}</strong>
+          <ul>
+            ${groupTabs.map(tab => `
+              <li><span>${esc(tab.title || "(bez názvu)")}</span> <code>${esc(tab.url || "")}</code></li>
+            `).join("")}
+          </ul>
+        </div>`;
+    }).join("");
+
+    const ungrouped = tabs.filter(tab => !groupedRuntimeIds.has(tab.runtimeTabId));
+    const ungroupedHtml = ungrouped.length ? `
+      <div class="workspace-tree-group">
+        <strong>Bez skupiny</strong>
+        <ul>
+          ${ungrouped.map(tab => `
+            <li><span>${esc(tab.title || "(bez názvu)")}</span> <code>${esc(tab.url || "")}</code></li>
+          `).join("")}
+        </ul>
+      </div>` : "";
+
+    return `
+      <div class="workspace-tree-window">
+        <strong>window${index}</strong>
+        ${groupsHtml}
+        ${ungroupedHtml}
+      </div>`;
+  }).join("");
+
+  const relatedLog = workspaceDebugLog
+    .filter(item => item?.data?.workspaceId === workspace.id)
+    .slice(-30)
+    .reverse();
+
   return `
     <div class="workspace-tree">
       <div class="workspace-tree-name">${esc(workspace.name || "Workspace")}</div>
-      ${windows.map((win, index) => {
-        const tabs = (win.tabs ?? []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-        return `
-          <div class="workspace-tree-window">
-            <strong>window${index}</strong>
-            <ul>
-              ${tabs.map(tab => `
-                <li>
-                  <span>${esc(tab.title || "(bez názvu)")}</span>
-                  <code>${esc(tab.url || "")}</code>
-                </li>`).join("")}
-            </ul>
-          </div>`;
-      }).join("")}
+      ${treeHtml}
+      <details class="workspace-debug">
+        <summary>Debug log (${relatedLog.length})</summary>
+        <div class="workspace-debug-list">
+          ${relatedLog.length ? relatedLog.map(item => `
+            <div class="workspace-debug-row">
+              <code>${esc(formatClock(item.at))}</code>
+              <strong>${esc(item.event)}</strong>
+              <code>${esc(JSON.stringify(item.data ?? {}))}</code>
+            </div>`).join("") : '<div class="empty">Pro tento workspace zatím není debug záznam.</div>'}
+        </div>
+      </details>
     </div>`;
 }
 
@@ -393,13 +438,14 @@ function renderWorkspaces() {
 async function load() {
   app.textContent = "Načítám…";
 
-  const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY, URL_POLICIES_KEY, HOST_POLICIES_KEY, WORKSPACES_KEY, ACTIVE_WORKSPACE_KEY]);
+  const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY, URL_POLICIES_KEY, HOST_POLICIES_KEY, WORKSPACES_KEY, ACTIVE_WORKSPACE_KEY, WORKSPACE_DEBUG_KEY]);
   lifecycleMap = stored[TAB_LIFECYCLE_KEY] ?? {};
   hostStats = stored[HOST_STATS_KEY] ?? {};
   urlPolicies = Array.isArray(stored[URL_POLICIES_KEY]) ? stored[URL_POLICIES_KEY] : [];
   hostPolicies = stored[HOST_POLICIES_KEY] ?? {};
   workspaces = stored[WORKSPACES_KEY] ?? {};
   activeWorkspaceId = stored[ACTIVE_WORKSPACE_KEY] ?? null;
+  workspaceDebugLog = Array.isArray(stored[WORKSPACE_DEBUG_KEY]) ? stored[WORKSPACE_DEBUG_KEY] : [];
   renderUrlPolicies();
   renderWorkspaces();
 
@@ -742,7 +788,7 @@ browser.tabGroups.onRemoved.addListener(() => load().catch(console.error));
 
 browser.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
-  if (changes[TAB_LIFECYCLE_KEY] || changes[HOST_STATS_KEY] || changes[URL_POLICIES_KEY] || changes[HOST_POLICIES_KEY] || changes[WORKSPACES_KEY] || changes[ACTIVE_WORKSPACE_KEY]) {
+  if (changes[TAB_LIFECYCLE_KEY] || changes[HOST_STATS_KEY] || changes[URL_POLICIES_KEY] || changes[HOST_POLICIES_KEY] || changes[WORKSPACES_KEY] || changes[ACTIVE_WORKSPACE_KEY] || changes[WORKSPACE_DEBUG_KEY]) {
     load().catch(console.error);
   }
 });
