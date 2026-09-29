@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- 0.4.4: Startup reconciliation now clears fwm.activeWorkspaceId when the active workspace has no live mapped Firefox windows.
+- inferActiveWorkspaceFromRuntime validates the stored active workspace against live runtime mappings instead of trusting stale state.
+- Manager UI only labels a workspace AKTIVNÍ when it has at least one open logical window; a zero-window workspace remains recoverable.
+
 - 0.4.3: VS Code FF tasks no longer depend on the built-in npm task provider.
 - All FF tasks are plain shell tasks using npm commands and explicit workspace cwd.
 - Task terminals always reveal, so npm install/dev/lint/build output is visible.
@@ -188,13 +192,12 @@ branch = dev
 
 ## Next
 
-1. Pull 0.4.0 and restart the dev task.
-2. Close all workspace windows and use Recover session on Práce.
-3. Verify restore-shells-complete lists two runtime window IDs before any restore-window-populate events.
-4. Verify both windows appear, then groups are restored in each.
-5. Verify Práce becomes AKTIVNÍ and repeated Recover session does not duplicate windows.
-6. Verify AUTO/DEEP starts only after restore-end.
-7. If successful, continue with Uložit jako workspace for individual window and post-close intent dialog.
+1. Pull 0.4.4 and restart the dev Firefox.
+2. With Práce stored as 2 windows / 16 tabs / 4 groups, close Firefox completely.
+3. Start Firefox without restoring its native session so only a blank Firefox window exists.
+4. Verify Práce shows ZAVŘENÝ, 0 otevřená / 2 uložená okna, and Recover session is enabled.
+5. Run Recover session and verify exactly two mapped workspace windows restore without ghost logical windows.
+6. Restart once more without native session and verify stored workspace definition remains unchanged.
 
 ## localCommand
 
