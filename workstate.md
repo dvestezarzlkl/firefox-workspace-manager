@@ -9,6 +9,13 @@ branch = dev
 
 ## Done
 
+- 0.4.0: Workspace recovery is now two-phase.
+- Phase 1 creates and maps all Firefox windows as about:blank shells before any tabs/groups are populated.
+- Phase 2 populates each shell with saved tabs, groups, active tab and geometry.
+- AUTO/DEEP lifecycle handlers, watchdog and alarms are paused while workspace recovery is active.
+- Saved discarded state is applied only after all windows/tabs/groups are fully restored.
+- Runtime lifecycle state is re-seeded only after the entire recovery completes.
+
 - 0.3.13: Workspace Debug log has a Copy button.
 - Copied log format is plain text: HH:MM:SS | event | JSON data.
 - Clipboard output includes extension version, workspace name and workspace ID header for easier debugging in chat.
@@ -166,13 +173,13 @@ branch = dev
 
 ## Next
 
-1. Pull 0.3.1 and restart the dev task.
-2. From the current state, click Obnovit on Práce.
-3. Verify no new Workspace 4/5 is created.
-4. Verify Práce becomes AKTIVNÍ and all of its saved windows return.
-5. If successful, delete the stale Workspace 2 and Workspace 3 records manually.
-6. Re-test closing both windows sequentially, reopening Firefox/manager, and restoring Práce.
-7. Then continue with the close-intent dialog: Ponechat ve workspace / Odebrat z workspace / Zavřít celý workspace.
+1. Pull 0.4.0 and restart the dev task.
+2. Close all workspace windows and use Recover session on Práce.
+3. Verify restore-shells-complete lists two runtime window IDs before any restore-window-populate events.
+4. Verify both windows appear, then groups are restored in each.
+5. Verify Práce becomes AKTIVNÍ and repeated Recover session does not duplicate windows.
+6. Verify AUTO/DEEP starts only after restore-end.
+7. If successful, continue with Uložit jako workspace for individual window and post-close intent dialog.
 
 ## localCommand
 
