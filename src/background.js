@@ -235,7 +235,7 @@ async function markInactive(tab) {
       else if (policy === "AUTO") {
         deadline = config.auto.deepOnLeave
           ? now
-          : now + Math.max(1, Number(config.auto.minutes) || 60) * 60_000;
+          : now + Math.max(2, Number(config.auto.minutes) || 60) * 60_000;
       }
     }
 
