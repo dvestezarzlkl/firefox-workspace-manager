@@ -255,6 +255,44 @@ async function markInactive(tab) {
   await scheduleNextDeep();
 }
 
+async function recomputeInactivePolicy(tab) {
+  if (!tab || tab.id == null || !isHttpUrl(tab.url) || tab.active) return;
+
+  const config = await getConfig();
+  const policy = resolvePolicy(tab, config);
+  const host = hostnameFromUrl(tab.url);
+  const now = Date.now();
+
+  await mutateLifecycle(async (lifecycle) => {
+    const key = String(tab.id);
+    const previous = lifecycle[key] ?? {};
+    const inactiveSince = previous.inactiveSince || now;
+
+    let deadline = null;
+    if (!protectedByRuntime(tab, config.auto)) {
+      if (policy === "DEEP") {
+        deadline = now;
+      } else if (policy === "AUTO") {
+        deadline = config.auto.deepOnLeave
+          ? now
+          : inactiveSince + Math.max(2, Number(config.auto.minutes) || 60) * 60_000;
+      }
+    }
+
+    lifecycle[key] = {
+      ...previous,
+      tabId: tab.id,
+      windowId: tab.windowId,
+      url: tab.url,
+      host,
+      activeSince: null,
+      inactiveSince,
+      deadline,
+      policy
+    };
+  });
+}
+
 async function handleActivation(activeInfo) {
   let nextTab;
   try {
@@ -446,12 +484,14 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 browser.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
   if (changes[HOST_POLICIES_KEY] || changes[URL_POLICIES_KEY] || changes[AUTO_SETTINGS_KEY]) {
-    // Recalculate inactive deadlines after policy changes.
+    // Recalculate only currently pending inactive lifecycle entries. Preserve
+    // their original inactiveSince so changing the timeout does not restart it.
     browser.tabs.query({}).then(async tabs => {
       for (const tab of tabs) {
-        if (!tab.active && isHttpUrl(tab.url)) await markInactive(tab);
+        if (!tab.active && isHttpUrl(tab.url)) await recomputeInactivePolicy(tab);
       }
       await scheduleNextDeep();
+      await sweepDueTabs();
     }).catch(console.error);
   }
 });
