@@ -1,11 +1,11 @@
 {
   "name": "firefox-workspace-manager",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "private": true,
   "description": "Development tooling for Firefox Workspace Manager",
   "scripts": {
-    "predev": "node -e \"require('fs').mkdirSync('.dev',{recursive:true})\"",
-    "dev": "web-ext run --source-dir=. --firefox-profile=.dev/firefox-profile --profile-create-if-missing --keep-profile-changes --browser-console --watch-ignored=node_modules/** --watch-ignored=.dev/** --watch-ignored=.git/** --watch-ignored=.vscode/** --watch-ignored=docs/** --watch-ignored=workstate.md --watch-ignored=AGENTS.md --watch-ignored=README.md --watch-ignored=package-lock.json",
+    "predev": "node -e \"require('fs').mkdirSync('../.dev',{recursive:true})\"",
+    "dev": "web-ext run --source-dir=. --firefox-profile=../.dev/firefox-profile --profile-create-if-missing --keep-profile-changes --browser-console --watch-ignored=node_modules/** --watch-ignored=.git/** --watch-ignored=.vscode/** --watch-ignored=docs/** --watch-ignored=workstate.md --watch-ignored=AGENTS.md --watch-ignored=README.md --watch-ignored=package-lock.json",
     "lint": "web-ext lint --source-dir=.",
     "build": "web-ext build --source-dir=. --overwrite-dest"
   },
