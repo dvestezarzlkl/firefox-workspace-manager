@@ -9,6 +9,12 @@ branch = dev
 
 ## Done
 
+- 0.4.19: Window SHA-256 fingerprint is now the primary content identity across snapshot, native reattach, startup/session reconciliation, export and import.
+- Workspace JSON export now stores fingerprintVersion and fingerprint per window.
+- Import never blindly trusts exported fingerprints: it recomputes from group-name/URL content and logs mismatches.
+- Startup reconciliation can reattach Firefox-native restored windows that existed before the extension background started, but only on a unique exact fingerprint match.
+- runtimeWindowId remains ephemeral; logicalWindowId remains internal persistent identity; fingerprint represents persistent window content identity.
+
 - 0.4.18: Added deterministic SHA-256 fingerprints for logical Firefox windows.
 - Fingerprint input is a sorted canonical list of "normalized group title | normalized URL" rows; runtime tab/group IDs are excluded.
 - Saved window snapshots now persist fingerprintVersion=1 + fingerprint.
@@ -247,13 +253,12 @@ branch = dev
 
 ## Next
 
-1. Pull 0.4.18 and reload the extension.
-2. Save/update the active workspace once so current windows receive persistent fingerprints immediately (legacy snapshots also fingerprint lazily).
-3. Close one mapped Firefox window.
-4. Reopen it with Ctrl+Shift+N.
-5. Verify Debug log reports window-reattached with matchMethod=fingerprint and manager returns to 2 otevřená / 2 uložená okna.
-6. Verify no ghost logical window is created.
-7. If exact fingerprint misses because Firefox altered one URL, fuzzy fallback should still reattach and log matchMethod=fuzzy.
+1. Pull 0.4.19 and reload the extension.
+2. Click Uložit stav once so all current logical windows persist fingerprintVersion=1/fingerprint.
+3. Export Workspace 2 and verify each exported window contains fingerprintVersion and fingerprint.
+4. Close one mapped window and reopen it with Ctrl+Shift+N; Debug should prefer matchMethod=fingerprint.
+5. Restart Firefox with native session restore enabled and verify startup-fingerprint-reattached can recover mappings when Firefox restores windows before the extension background starts.
+6. Re-import the new export and verify fingerprints are recomputed and preserved semantically without mismatch logs.
 
 ## localCommand
 
