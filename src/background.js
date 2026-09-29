@@ -85,6 +85,67 @@ function newLogicalWindowId() {
   return crypto.randomUUID();
 }
 
+
+async function reconcileWorkspaceRuntimeState() {
+  const stored = await browser.storage.local.get([
+    WORKSPACES_KEY,
+    WINDOW_WORKSPACE_MAP_KEY,
+    "fwm.activeWorkspaceId"
+  ]);
+
+  const workspaces = stored[WORKSPACES_KEY] ?? {};
+  const windowMap = stored[WINDOW_WORKSPACE_MAP_KEY] ?? {};
+  const activeWorkspaceId = stored["fwm.activeWorkspaceId"] ?? null;
+  const liveWindows = await browser.windows.getAll({ windowTypes: ["normal"] });
+  const liveIds = new Set(liveWindows.map(win => String(win.id)));
+
+  let changed = false;
+
+  for (const [runtimeId, mapping] of Object.entries(windowMap)) {
+    if (liveIds.has(runtimeId)) continue;
+    delete windowMap[runtimeId];
+    const workspace = workspaces[mapping?.workspaceId];
+    const logicalWindow = workspace?.windows?.[mapping?.logicalWindowId];
+    if (logicalWindow?.open) {
+      logicalWindow.open = false;
+      logicalWindow.runtimeWindowId = null;
+      logicalWindow.closedAt = Date.now();
+      changed = true;
+    }
+  }
+
+  for (const workspace of Object.values(workspaces)) {
+    if (!workspace?.windows) continue;
+    for (const logicalWindow of Object.values(workspace.windows)) {
+      if (!logicalWindow?.open || logicalWindow.runtimeWindowId == null) continue;
+      if (liveIds.has(String(logicalWindow.runtimeWindowId))) continue;
+      logicalWindow.open = false;
+      logicalWindow.runtimeWindowId = null;
+      logicalWindow.closedAt = Date.now();
+      changed = true;
+    }
+
+    const anyOpen = Object.values(workspace.windows).some(win => win?.open);
+    if (workspace.open !== anyOpen) {
+      workspace.open = anyOpen;
+      changed = true;
+    }
+    if (workspace.active && workspace.id !== activeWorkspaceId) {
+      workspace.active = false;
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    await browser.storage.local.set({
+      [WORKSPACES_KEY]: workspaces,
+      [WINDOW_WORKSPACE_MAP_KEY]: windowMap
+    });
+  }
+
+  return { workspaces, windowMap, activeWorkspaceId };
+}
+
 async function loadWorkspaceStore() {
   const stored = await browser.storage.local.get([
     WORKSPACES_KEY,
@@ -1156,6 +1217,7 @@ browser.windows.onRemoved.addListener(async windowId => {
   }
 });
 
+reconcileWorkspaceRuntimeState().catch(console.error);
 snapshotAllWindows().catch(console.error);
 seedRuntimeState().catch(console.error);
 ensureWatchdogAlarm().catch(console.error);
