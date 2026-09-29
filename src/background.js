@@ -60,7 +60,9 @@ async function snapshotWindow(windowId) {
 
 async function snapshotAllWindows() {
   const windows = await browser.windows.getAll({ windowTypes: ["normal"] });
-  await Promise.all(windows.map(win => snapshotWindow(win.id)));
+  for (const win of windows) {
+    await snapshotWindow(win.id);
+  }
 }
 
 browser.runtime.onInstalled.addListener(() => {
