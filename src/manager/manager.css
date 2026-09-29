@@ -326,3 +326,82 @@ main {
   opacity: .65;
   font-size: 12px;
 }
+
+.workspace-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.workspace-toolbar h2,
+.workspace-toolbar p {
+  margin-top: 0;
+}
+
+.workspace-toolbar p {
+  margin-bottom: 0;
+}
+
+.workspace-card {
+  border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.workspace-active {
+  border-width: 2px;
+}
+
+.workspace-card-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+}
+
+.workspace-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspace-status {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: .7;
+}
+
+.workspace-meta {
+  margin-top: 3px;
+  font-size: 12px;
+  opacity: .65;
+}
+
+.workspace-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.help-card dl {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+  gap: 7px 14px;
+  margin: 10px 0 0;
+}
+
+.help-card dt {
+  font-weight: 700;
+}
+
+.help-card dd {
+  margin: 0;
+  opacity: .82;
+}
+
+.help-card p + p {
+  margin-top: 8px;
+}
