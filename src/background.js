@@ -87,6 +87,20 @@ function protectedByRuntime(tab, auto) {
 }
 
 
+async function withTimeout(promise, ms, label) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(label + " timeout after " + ms + " ms")), ms);
+      })
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function workspaceDebug(event, data = {}) {
   const stored = await browser.storage.local.get(WORKSPACE_DEBUG_KEY);
   const log = Array.isArray(stored[WORKSPACE_DEBUG_KEY]) ? stored[WORKSPACE_DEBUG_KEY] : [];
@@ -405,11 +419,15 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
     .sort((a, b) => a.index - b.index)
     .filter(tab => restorableUrl(tab.url));
 
-  const urls = sourceTabs.map(tab => restorableUrl(tab.url)).filter(Boolean);
-  const createData = {
-    url: urls.length ? urls : ["about:blank"],
-    focused: false
-  };
+  await workspaceDebug("restore-window-begin", {
+    workspaceId,
+    logicalWindowId,
+    sourceTabCount: sourceTabs.length,
+    sourceGroupCount: (sourceWindow.groups ?? []).length
+  });
+
+  const firstUrl = restorableUrl(sourceTabs[0]?.url) || "about:blank";
+  const createData = { url: firstUrl, focused: false };
 
   if (sourceWindow.window?.state === "normal") {
     for (const key of ["left", "top", "width", "height"]) {
@@ -417,17 +435,63 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
     }
   }
 
-  const win = await browser.windows.create(createData);
-  const liveTabs = (await browser.tabs.query({ windowId: win.id }))
+  await workspaceDebug("restore-window-create-before", { workspaceId, logicalWindowId, firstUrl });
+
+  const win = await withTimeout(browser.windows.create(createData), 10000, "windows.create");
+
+  await workspaceDebug("restore-window-create-after", {
+    workspaceId,
+    logicalWindowId,
+    runtimeWindowId: win.id
+  });
+
+  const liveTabs = (await withTimeout(browser.tabs.query({ windowId: win.id }), 5000, "tabs.query"))
     .slice()
     .sort((a, b) => a.index - b.index);
 
+  const liveTabIds = [];
+  if (liveTabs[0]?.id != null) liveTabIds.push(liveTabs[0].id);
+
+  for (let i = 1; i < sourceTabs.length; i++) {
+    const source = sourceTabs[i];
+    await workspaceDebug("restore-tab-create-before", {
+      workspaceId,
+      logicalWindowId,
+      sourceIndex: i,
+      url: source.url
+    });
+
+    const created = await withTimeout(browser.tabs.create({
+      windowId: win.id,
+      url: restorableUrl(source.url) || "about:blank",
+      active: false
+    }), 5000, "tabs.create");
+
+    liveTabIds.push(created.id);
+  }
+
+  await workspaceDebug("restore-tabs-created", {
+    workspaceId,
+    logicalWindowId,
+    runtimeWindowId: win.id,
+    liveTabCount: liveTabIds.length
+  });
+
   const newTabByOldRuntimeId = new Map();
-  for (let i = 0; i < Math.min(sourceTabs.length, liveTabs.length); i++) {
-    newTabByOldRuntimeId.set(sourceTabs[i].runtimeTabId, liveTabs[i].id);
-    try {
-      if (sourceTabs[i].pinned) await browser.tabs.update(liveTabs[i].id, { pinned: true });
-    } catch {}
+  for (let i = 0; i < Math.min(sourceTabs.length, liveTabIds.length); i++) {
+    newTabByOldRuntimeId.set(sourceTabs[i].runtimeTabId, liveTabIds[i]);
+    if (sourceTabs[i].pinned) {
+      try {
+        await withTimeout(browser.tabs.update(liveTabIds[i], { pinned: true }), 3000, "tabs.update pinned");
+      } catch (error) {
+        await workspaceDebug("restore-pin-error", {
+          workspaceId,
+          logicalWindowId,
+          tabId: liveTabIds[i],
+          error: String(error?.message ?? error)
+        });
+      }
+    }
   }
 
   for (const group of sourceWindow.groups ?? []) {
@@ -437,33 +501,60 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
       .filter(id => id != null);
 
     if (!tabIds.length) continue;
+
+    await workspaceDebug("restore-group-before", {
+      workspaceId,
+      logicalWindowId,
+      title: group.title ?? "",
+      tabCount: tabIds.length
+    });
+
     try {
-      const newGroupId = await browser.tabs.group({
-        tabIds,
-        createProperties: { windowId: win.id }
-      });
-      await browser.tabGroups.update(newGroupId, {
+      const newGroupId = await withTimeout(
+        browser.tabs.group({ tabIds, createProperties: { windowId: win.id } }),
+        5000,
+        "tabs.group"
+      );
+      await withTimeout(browser.tabGroups.update(newGroupId, {
         title: group.title ?? "",
         color: group.color,
         collapsed: !!group.collapsed
+      }), 5000, "tabGroups.update");
+
+      await workspaceDebug("restore-group-after", {
+        workspaceId,
+        logicalWindowId,
+        title: group.title ?? "",
+        newGroupId
       });
     } catch (error) {
-      console.warn("Unable to restore tab group", workspaceId, logicalWindowId, error);
+      await workspaceDebug("restore-group-error", {
+        workspaceId,
+        logicalWindowId,
+        title: group.title ?? "",
+        error: String(error?.message ?? error)
+      });
     }
   }
 
   const activeSource = sourceTabs.find(tab => tab.active);
   const activeTabId = activeSource ? newTabByOldRuntimeId.get(activeSource.runtimeTabId) : null;
   if (activeTabId != null) {
-    try { await browser.tabs.update(activeTabId, { active: true }); } catch {}
+    try { await withTimeout(browser.tabs.update(activeTabId, { active: true }), 3000, "activate tab"); } catch {}
   }
 
   for (const source of sourceTabs) {
     if (!source.discarded || source.active) continue;
     const tabId = newTabByOldRuntimeId.get(source.runtimeTabId);
     if (tabId == null) continue;
-    try { await browser.tabs.discard(tabId); } catch {}
+    try { await withTimeout(browser.tabs.discard(tabId), 3000, "tabs.discard"); } catch {}
   }
+
+  await workspaceDebug("restore-window-end", {
+    workspaceId,
+    logicalWindowId,
+    runtimeWindowId: win.id
+  });
 
   return win.id;
 }
