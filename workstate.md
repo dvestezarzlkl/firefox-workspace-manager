@@ -9,6 +9,9 @@ branch = dev
 
 ## Done
 
+- 0.4.7: Dedicated Firefox dev profile moved outside the repository to ../.dev/firefox-profile.
+- predev now creates ../.dev and web-ext no longer needs to ignore .dev because the profile is outside --source-dir.
+
 - 0.4.6: Restore no longer reuses the window shell about:blank tab as the first saved tab.
 - Every saved tab is created explicitly with tabs.create; the temporary shell tab is removed afterward.
 - This removes the special first-tab path that could revert MPI (or another first URL) back to about:blank after recovery/session transitions.
