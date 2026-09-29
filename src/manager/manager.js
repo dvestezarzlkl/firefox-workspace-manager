@@ -15,9 +15,12 @@ const HOST_POLICIES_KEY = "fwm.hostPolicies";
 const KNOWN_HOSTS_KEY = "fwm.knownHosts";
 const AUTO_SETTINGS_KEY = "fwm.autoSettings";
 const UI_PAGE_KEY = "fwm.ui.page";
+const LAST_ACTIVE_CONTENT_KEY = "fwm.lastActiveContentTabs";
 const HOST_RESULT_LIMIT = 30;
 
 let managerTabId = null;
+let managerWindowId = null;
+let lastActiveContentTabId = null;
 let currentOpenHosts = [];
 let knownHosts = [];
 let currentWindows = [];
@@ -52,6 +55,7 @@ function isInternalExtensionTab(tab) {
 function isProtectedFromDeep(tab) {
   return tab.id == null ||
     tab.id === managerTabId ||
+    tab.id === lastActiveContentTabId ||
     tab.active ||
     tab.discarded ||
     tab.audible ||
@@ -285,7 +289,20 @@ deepAllButton.addEventListener("click", async () => {
 refreshButton.addEventListener("click", () => load().catch(console.error));
 
 closeButton.addEventListener("click", async () => {
-  if (managerTabId != null) await browser.tabs.remove(managerTabId);
+  if (lastActiveContentTabId != null) {
+    try {
+      const lastTab = await browser.tabs.get(lastActiveContentTabId);
+      if (lastTab.windowId === managerWindowId) {
+        await browser.tabs.update(lastActiveContentTabId, { active: true });
+      }
+    } catch {
+      lastActiveContentTabId = null;
+    }
+  }
+
+  if (managerTabId != null) {
+    await browser.tabs.remove(managerTabId);
+  }
 });
 
 hostPoliciesEl.addEventListener("change", async event => {
@@ -316,6 +333,22 @@ browser.tabGroups.onRemoved.addListener(() => load().catch(console.error));
 (async () => {
   const current = await browser.tabs.getCurrent();
   managerTabId = current?.id ?? null;
+  managerWindowId = current?.windowId ?? null;
+
+  if (managerWindowId != null) {
+    const stored = await browser.storage.local.get(LAST_ACTIVE_CONTENT_KEY);
+    const candidate = stored[LAST_ACTIVE_CONTENT_KEY]?.[String(managerWindowId)] ?? null;
+    if (candidate != null && candidate !== managerTabId) {
+      try {
+        const tab = await browser.tabs.get(candidate);
+        if (tab.windowId === managerWindowId && /^https?:\/\//i.test(tab.url ?? "")) {
+          lastActiveContentTabId = candidate;
+        }
+      } catch {
+        lastActiveContentTabId = null;
+      }
+    }
+  }
 
   const uiState = await browser.storage.local.get(UI_PAGE_KEY);
   await setPage(uiState[UI_PAGE_KEY] === "settings" ? "settings" : "panels");
