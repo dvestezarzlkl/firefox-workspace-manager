@@ -394,16 +394,33 @@ async function discardWithDiagnostics(tab, reason) {
 async function deepAlwaysWatchdog() {
   const config = await getConfig();
   const tabs = await browser.tabs.query({});
+  const stored = await browser.storage.local.get(TAB_LIFECYCLE_KEY);
+  const lifecycle = stored[TAB_LIFECYCLE_KEY] ?? {};
 
   for (const tab of tabs) {
     if (!isHttpUrl(tab.url) || tab.id == null) continue;
-    if (resolvePolicy(tab, config) !== "DEEP") continue;
-    if (protectedByRuntime(tab, config.auto)) continue;
+    const policy = resolvePolicy(tab, config);
+    const item = lifecycle[String(tab.id)];
 
-    // DEEP ALWAYS is a desired state, not a one-shot action. Reassert it
-    // periodically in case an update/reload/runtime transition left the tab loaded.
-    await discardWithDiagnostics(tab, "deep-always-watchdog");
+    if (policy === "DEEP") {
+      if (protectedByRuntime(tab, config.auto)) continue;
+
+      // DEEP ALWAYS is a desired state, not a one-shot action. Reassert it
+      // periodically in case an update/reload/runtime transition left the tab loaded.
+      await discardWithDiagnostics(tab, "deep-always-watchdog");
+      continue;
+    }
+
+    if (policy === "AUTO" && !tab.active && !tab.discarded) {
+      // Self-heal missing AUTO lifecycle state. Keep an existing inactiveSince
+      // when possible; otherwise start the interval now.
+      if (!item || !item.inactiveSince || !item.deadline || item.url !== tab.url) {
+        await recomputeInactivePolicy(tab);
+      }
+    }
   }
+
+  await scheduleNextDeep();
 }
 
 async function ensureWatchdogAlarm() {
