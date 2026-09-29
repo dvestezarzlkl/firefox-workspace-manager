@@ -121,7 +121,7 @@ async function loadAutoSettings() {
 async function saveAutoSettings() {
   await browser.storage.local.set({
     [AUTO_SETTINGS_KEY]: {
-      minutes: Math.max(1, Math.min(10080, Number(autoMinutes.value) || 60)),
+      minutes: Math.max(2, Math.min(10080, Number(autoMinutes.value) || 60)),
       deepOnLeave: autoDeepOnLeave.checked,
       protectPinned: autoProtectPinned.checked,
       protectAudible: autoProtectAudible.checked
