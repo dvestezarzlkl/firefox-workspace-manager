@@ -9,6 +9,9 @@ branch = dev
 
 ## Done
 
+- Workspace UI now distinguishes runtime-open windows from total stored logical windows.
+- Added reconciliation of stale runtime window mappings so old logical windows are marked closed if their Firefox window no longer exists.
+
 - Added dedicated Workspaces tab.
 - Workspaces tab supports active status, window/tab/group totals, rename, save current state, save as new, switch/restore and delete.
 - Workspace switch restores the target workspace before closing previous windows, preventing Firefox from exiting when switching from the last open window.
