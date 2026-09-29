@@ -168,22 +168,36 @@ async function markActivated(tab) {
   const host = hostnameFromUrl(tab.url);
 
   await mutateLifecycle(async (lifecycle, stats) => {
-    lifecycle[String(tab.id)] = {
-      ...(lifecycle[String(tab.id)] ?? {}),
+    const key = String(tab.id);
+    const previous = lifecycle[key] ?? {};
+    const sameActiveVisit = previous.activeSince && previous.url === tab.url;
+
+    if (!sameActiveVisit && previous.activeSince && previous.host) {
+      const previousStat = ensureHostStats(stats, previous.host);
+      if (previousStat) {
+        previousStat.totalActiveMs += Math.max(0, now - previous.activeSince);
+        previousStat.lastDeactivatedAt = now;
+      }
+    }
+
+    lifecycle[key] = {
+      ...previous,
       tabId: tab.id,
       windowId: tab.windowId,
       url: tab.url,
       host,
-      activeSince: now,
+      activeSince: sameActiveVisit ? previous.activeSince : now,
       inactiveSince: null,
       deadline: null,
       policy: "ACTIVE"
     };
 
-    const hostStat = ensureHostStats(stats, host);
-    if (hostStat) {
-      hostStat.activations += 1;
-      hostStat.lastActivatedAt = now;
+    if (!sameActiveVisit) {
+      const hostStat = ensureHostStats(stats, host);
+      if (hostStat) {
+        hostStat.activations += 1;
+        hostStat.lastActivatedAt = now;
+      }
     }
   });
 
@@ -327,11 +341,15 @@ async function sweepDueTabs() {
 }
 
 async function seedRuntimeState() {
-  const tabs = await browser.tabs.query({ active: true });
+  const tabs = await browser.tabs.query({});
   for (const tab of tabs) {
     if (tab.id == null || tab.windowId < 0) continue;
-    activeByWindow.set(tab.windowId, tab.id);
-    if (isHttpUrl(tab.url)) await markActivated(tab);
+    if (tab.active) {
+      activeByWindow.set(tab.windowId, tab.id);
+      if (isHttpUrl(tab.url)) await markActivated(tab);
+    } else if (isHttpUrl(tab.url)) {
+      await markInactive(tab);
+    }
   }
   await scheduleNextDeep();
 }
