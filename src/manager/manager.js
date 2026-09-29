@@ -15,7 +15,6 @@ const useLastPage = document.getElementById("useLastPage");
 const addUrlKeep = document.getElementById("addUrlKeep");
 const urlPoliciesEl = document.getElementById("urlPolicies");
 const syncEnabled = document.getElementById("syncEnabled");
-const closedWorkspacesEl = document.getElementById("closedWorkspaces");
 const workspaceListEl = document.getElementById("workspaceList");
 const snapshotWorkspaceButton = document.getElementById("snapshotWorkspace");
 const cloneWorkspaceButton = document.getElementById("cloneWorkspace");
@@ -359,40 +358,6 @@ function renderWorkspaces() {
   }).join("");
 }
 
-function renderClosedWorkspaces(workspaces) {
-  const closed = Object.values(workspaces ?? {})
-    .filter(workspace => workspace && workspace.persistent !== false && !workspace.open)
-    .sort((a, b) => (b.closedAt || 0) - (a.closedAt || 0));
-
-  if (!closed.length) {
-    closedWorkspacesEl.innerHTML = "";
-    return;
-  }
-
-  closedWorkspacesEl.innerHTML = `
-    <section class="closed-workspace-card">
-      <div class="closed-workspace-title">
-        <strong>Zavřené workspaces</strong>
-        <span>${closed.length}</span>
-      </div>
-      <div class="closed-workspace-list">
-        ${closed.map(workspace => {
-          const windows = Object.values(workspace.windows ?? {});
-          const tabCount = windows.reduce((sum, win) => sum + (win.tabs ?? []).length, 0);
-          const groupCount = windows.reduce((sum, win) => sum + (win.groups ?? []).length, 0);
-          return `
-            <div class="closed-workspace-row">
-              <div>
-                <strong>${esc(workspace.name || "Workspace")}</strong>
-                <span>${windows.length} oken · ${tabCount} tabů · ${groupCount} skupin</span>
-              </div>
-              <button type="button" data-restore-workspace="${esc(workspace.id)}">Obnovit</button>
-            </div>`;
-        }).join("")}
-      </div>
-    </section>`;
-}
-
 async function load() {
   app.textContent = "Načítám…";
 
@@ -405,7 +370,6 @@ async function load() {
   activeWorkspaceId = stored[ACTIVE_WORKSPACE_KEY] ?? null;
   renderUrlPolicies();
   renderWorkspaces();
-  renderClosedWorkspaces(stored[WORKSPACES_KEY] ?? {});
 
   currentWindows = await browser.windows.getAll({ populate: true, windowTypes: ["normal"] });
 
@@ -660,23 +624,6 @@ cloneWorkspaceButton.addEventListener("click", async () => {
 
 hostFilter.addEventListener("input", () => renderHostPolicies().catch(console.error));
 syncEnabled.addEventListener("change", () => saveSyncSetting().catch(console.error));
-
-closedWorkspacesEl.addEventListener("click", async event => {
-  const button = event.target.closest("button[data-restore-workspace]");
-  if (!button) return;
-
-  button.disabled = true;
-  try {
-    await browser.runtime.sendMessage({
-      type: "restoreWorkspace",
-      workspaceId: button.dataset.restoreWorkspace
-    });
-    await load();
-  } catch (error) {
-    console.error("Workspace restore failed", error);
-    button.disabled = false;
-  }
-});
 
 useLastPage.addEventListener("click", async () => {
   if (lastActiveContentTabId == null) return;
