@@ -9,6 +9,15 @@ branch = dev
 
 ## Done
 
+- 0.5.0: Panels page redesigned as a scalable explorer for large sessions.
+- Added fulltext search across tab title, URL and Firefox tab-group title.
+- Added combinable state filters (Active, Loaded, Deep) and policy filters (AUTO, KEEP always, DEEP always, EXCEPT) with live counts.
+- Windows are collapsed by default and rendered as native details/summary disclosure sections; groups are independently collapsible.
+- Manual window/group expansion is UI-only and remembered in localStorage, never written into workspace snapshots.
+- Search auto-expands matching windows/groups; broad state/policy filters expand matching windows while leaving groups compact.
+- Filtered headers show visible/total tab counts; no lifecycle/backend semantics were changed.
+- Tab rows now show a compact URL line under the title.
+
 - 0.4.19: Window SHA-256 fingerprint is now the primary content identity across snapshot, native reattach, startup/session reconciliation, export and import.
 - Workspace JSON export now stores fingerprintVersion and fingerprint per window.
 - Import never blindly trusts exported fingerprints: it recomputes from group-name/URL content and logs mismatches.
@@ -253,12 +262,13 @@ branch = dev
 
 ## Next
 
-1. Pull 0.4.19 and reload the extension.
-2. Click Uložit stav once so all current logical windows persist fingerprintVersion=1/fingerprint.
-3. Export Workspace 2 and verify each exported window contains fingerprintVersion and fingerprint.
-4. Close one mapped window and reopen it with Ctrl+Shift+N; Debug should prefer matchMethod=fingerprint.
-5. Restart Firefox with native session restore enabled and verify startup-fingerprint-reattached can recover mappings when Firefox restores windows before the extension background starts.
-6. Re-import the new export and verify fingerprints are recomputed and preserved semantically without mismatch logs.
+1. Pull 0.5.0 and reload the extension.
+2. Open Panely with the large Workspace 2 session and verify both windows start collapsed.
+3. Expand/collapse windows and groups, press Refresh, and verify manual expansion is remembered.
+4. Test fulltext against title, URL and group name (e.g. bacula); matching windows/groups should auto-expand.
+5. Test state filters Active / Loaded / Deep and policy filters AUTO / KEEP always / DEEP always / EXCEPT, including combinations.
+6. Confirm EXCEPT / DEEP / DEEP skupinu actions still behave exactly as before.
+7. Tomorrow verify lifecycle deactivation/discard behavior independently; 0.5.0 intentionally changes UI only.
 
 ## localCommand
 
