@@ -9,6 +9,12 @@ branch = dev
 
 ## Done
 
+- 0.4.5: groupKey is now authoritative for imported/current workspace data.
+- Explicit groupKey:null means ungrouped and is never migrated through legacy runtimeGroupId fallback.
+- Legacy runtimeGroupId migration is used only when the groupKey property is completely absent.
+- Imported ungrouped tabs now use runtimeGroupId:null, avoiding collision with synthetic imported group IDs (-1, -2, ...).
+- Restore group debug now includes the exact tabIds selected for each group.
+
 - 0.4.4: Startup reconciliation now clears fwm.activeWorkspaceId when the active workspace has no live mapped Firefox windows.
 - inferActiveWorkspaceFromRuntime validates the stored active workspace against live runtime mappings instead of trusting stale state.
 - Manager UI only labels a workspace AKTIVNÍ when it has at least one open logical window; a zero-window workspace remains recoverable.
@@ -192,12 +198,13 @@ branch = dev
 
 ## Next
 
-1. Pull 0.4.4 and restart the dev Firefox.
-2. With Práce stored as 2 windows / 16 tabs / 4 groups, close Firefox completely.
-3. Start Firefox without restoring its native session so only a blank Firefox window exists.
-4. Verify Práce shows ZAVŘENÝ, 0 otevřená / 2 uložená okna, and Recover session is enabled.
-5. Run Recover session and verify exactly two mapped workspace windows restore without ghost logical windows.
-6. Restart once more without native session and verify stored workspace definition remains unchanged.
+1. Pull 0.4.5.
+2. Delete/rename the currently corrupted Práce definition and import the known-good JSON backup again.
+3. Before recovery, verify detail: videa=2, ZLKL=2, čtení=2, partneři=3; remaining tabs must be under Bez skupiny.
+4. Start Recover session.
+5. Verify restore-group-before reports tabCount 2/2/2 for window0 and 3 for window1.
+6. Verify both windows populate and Práce remains exactly 2 windows / 16 tabs / 4 groups.
+7. Close Firefox, restart without native session, verify Práce is ZAVŘENÝ and Recover session is available.
 
 ## localCommand
 
