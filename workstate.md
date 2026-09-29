@@ -9,6 +9,13 @@ branch = dev
 
 ## Done
 
+- Fixed phantom-workspace race during restore.
+- Restore now suppresses automatic workspace snapshots until newly created windows are mapped back to the target workspace.
+- If no active workspace exists, switching/restoring now goes directly to the selected workspace instead of snapshotting the manager window into a new workspace.
+- Manager-only/blank windows no longer create a workspace when no workspace is active.
+- Extension manager tabs are excluded from workspace snapshots.
+- Version bumped to 0.3.1.
+
 - Workspace UI now distinguishes runtime-open windows from total stored logical windows.
 - Added reconciliation of stale runtime window mappings so old logical windows are marked closed if their Firefox window no longer exists.
 
@@ -112,15 +119,13 @@ branch = dev
 
 ## Next
 
-1. Pull latest dev and restart the dev task.
-2. Verify tabs: Panely | Workspaces | Nastavení | Nápověda.
-3. Rename the active workspace and confirm the popup title changes.
-4. Use Uložit jako nový to create a second workspace.
-5. Switch between the two workspaces and verify all windows/groups/tabs restore before the previous workspace windows close.
-6. Delete a non-active workspace.
-7. Delete the active workspace and verify current windows remain open and are adopted into a fresh workspace.
-8. Review Nápověda for missing or misleading wording.
-9. After workspace switching is stable, implement the post-window-close choice: Ponechat ve workspace / Odebrat z workspace / Zavřít celý workspace.
+1. Pull 0.3.1 and restart the dev task.
+2. From the current state, click Obnovit on Práce.
+3. Verify no new Workspace 4/5 is created.
+4. Verify Práce becomes AKTIVNÍ and all of its saved windows return.
+5. If successful, delete the stale Workspace 2 and Workspace 3 records manually.
+6. Re-test closing both windows sequentially, reopening Firefox/manager, and restoring Práce.
+7. Then continue with the close-intent dialog: Ponechat ve workspace / Odebrat z workspace / Zavřít celý workspace.
 
 ## localCommand
 
