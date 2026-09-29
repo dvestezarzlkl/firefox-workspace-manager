@@ -453,14 +453,25 @@ async function markWorkspaceClosed(windowId) {
 function restorableUrl(url) {
   if (!url) return null;
   if (/^(moz|chrome)-extension:\/\//i.test(url)) return null;
-  return url;
+
+  try {
+    const parsed = new URL(url);
+    if (["http:", "https:", "file:"].includes(parsed.protocol)) return url;
+    if (url === "about:blank") return url;
+  } catch {}
+
+  return null;
+}
+
+function restoreUrlOrBlank(url) {
+  return restorableUrl(url) || "about:blank";
 }
 
 async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow) {
   const sourceTabs = (sourceWindow.tabs ?? [])
     .slice()
     .sort((a, b) => a.index - b.index)
-    .filter(tab => restorableUrl(tab.url));
+    .filter(tab => !isExtensionUrl(tab.url));
 
   await workspaceDebug("restore-window-begin", {
     workspaceId,
@@ -469,7 +480,7 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
     sourceGroupCount: (sourceWindow.groups ?? []).length
   });
 
-  const firstUrl = restorableUrl(sourceTabs[0]?.url) || "about:blank";
+  const firstUrl = restoreUrlOrBlank(sourceTabs[0]?.url);
   const createData = { url: firstUrl, focused: false };
 
   await workspaceDebug("restore-window-create-before", {
@@ -526,16 +537,19 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
 
   for (let i = 1; i < sourceTabs.length; i++) {
     const source = sourceTabs[i];
+    const restoreUrl = restoreUrlOrBlank(source.url);
     await workspaceDebug("restore-tab-create-before", {
       workspaceId,
       logicalWindowId,
       sourceIndex: i,
-      url: source.url
+      url: source.url,
+      restoreUrl,
+      substituted: restoreUrl !== source.url
     });
 
     const created = await withTimeout(browser.tabs.create({
       windowId: win.id,
-      url: restorableUrl(source.url) || "about:blank",
+      url: restoreUrlOrBlank(source.url),
       active: false
     }), 5000, "tabs.create");
 
