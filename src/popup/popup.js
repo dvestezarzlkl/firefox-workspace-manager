@@ -3,10 +3,13 @@ const refreshButton = document.getElementById("refresh");
 const deepAllButton = document.getElementById("deepAll");
 const openManagerButton = document.getElementById("openManager");
 const versionEl = document.getElementById("version");
+const workspaceTitleEl = document.getElementById("workspaceTitle");
 
 const HOST_POLICIES_KEY = "fwm.hostPolicies";
 const URL_POLICIES_KEY = "fwm.urlPolicies";
 const TAB_LIFECYCLE_KEY = "fwm.tabLifecycle";
+const WORKSPACES_KEY = "fwm.workspaces";
+const ACTIVE_WORKSPACE_KEY = "fwm.activeWorkspaceId";
 
 function isInternalExtensionTab(tab) {
   return /^(moz|chrome)-extension:\/\//i.test(tab?.url ?? "");
@@ -34,12 +37,16 @@ function effectivePolicy(tab, hostPolicies, urlPolicies) {
 async function load() {
   const [windows, stored] = await Promise.all([
     browser.windows.getAll({ populate: true, windowTypes: ["normal"] }),
-    browser.storage.local.get([HOST_POLICIES_KEY, URL_POLICIES_KEY, TAB_LIFECYCLE_KEY])
+    browser.storage.local.get([HOST_POLICIES_KEY, URL_POLICIES_KEY, TAB_LIFECYCLE_KEY, WORKSPACES_KEY, ACTIVE_WORKSPACE_KEY])
   ]);
 
   const hostPolicies = stored[HOST_POLICIES_KEY] ?? {};
   const urlPolicies = Array.isArray(stored[URL_POLICIES_KEY]) ? stored[URL_POLICIES_KEY] : [];
   const lifecycle = stored[TAB_LIFECYCLE_KEY] ?? {};
+  const workspaces = stored[WORKSPACES_KEY] ?? {};
+  const activeWorkspaceId = stored[ACTIVE_WORKSPACE_KEY] ?? null;
+  const activeWorkspace = activeWorkspaceId ? workspaces[activeWorkspaceId] : null;
+  workspaceTitleEl.textContent = activeWorkspace?.name || "Žádný aktivní workspace";
   const tabs = windows.flatMap(win => win.tabs ?? []);
 
   let loaded = 0;
