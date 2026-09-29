@@ -9,6 +9,8 @@ branch = dev
 
 ## Done
 
+- 0.4.12: Added a subtle manager footer with dynamic manifest version and attribution: "od dvestezar.cz · pro ZLKL".
+
 - 0.4.11: Uložit jako nový replaced by Uložit akt. stav jako nový.
 - New workspace creation no longer depends on activeWorkspaceId or an existing workspace snapshot.
 - The action captures the current live Firefox normal windows directly, including tabs and native tab groups.
