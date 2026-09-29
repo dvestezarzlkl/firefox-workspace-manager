@@ -81,28 +81,110 @@ function newWorkspaceId() {
   return crypto.randomUUID();
 }
 
-async function saveWorkspaceSnapshot(win, groups) {
-  const stored = await browser.storage.local.get([WORKSPACES_KEY, WINDOW_WORKSPACE_MAP_KEY]);
-  const workspaces = stored[WORKSPACES_KEY] ?? {};
-  const windowMap = stored[WINDOW_WORKSPACE_MAP_KEY] ?? {};
-  const windowKey = String(win.id);
+function newLogicalWindowId() {
+  return crypto.randomUUID();
+}
 
-  let workspaceId = windowMap[windowKey];
-  if (!workspaceId || !workspaces[workspaceId]) {
-    workspaceId = newWorkspaceId();
-    windowMap[windowKey] = workspaceId;
-    workspaces[workspaceId] = {
-      id: workspaceId,
-      name: "Workspace " + (Object.keys(workspaces).length + 1),
+async function loadWorkspaceStore() {
+  const stored = await browser.storage.local.get([
+    WORKSPACES_KEY,
+    WINDOW_WORKSPACE_MAP_KEY,
+    "fwm.activeWorkspaceId"
+  ]);
+
+  let workspaces = stored[WORKSPACES_KEY] ?? {};
+  let windowMap = stored[WINDOW_WORKSPACE_MAP_KEY] ?? {};
+  let activeWorkspaceId = stored["fwm.activeWorkspaceId"] ?? null;
+
+  const legacy = Object.values(workspaces).filter(ws => ws && !ws.windows && ws.window);
+  if (legacy.length) {
+    const mergedId = newWorkspaceId();
+    const merged = {
+      id: mergedId,
+      name: legacy[0]?.name || "Workspace 1",
       persistent: true,
-      createdAt: Date.now()
+      createdAt: Math.min(...legacy.map(ws => ws.createdAt || Date.now())),
+      updatedAt: Date.now(),
+      windows: {}
     };
+
+    const newMap = {};
+    for (const ws of legacy) {
+      const logicalWindowId = newLogicalWindowId();
+      merged.windows[logicalWindowId] = {
+        id: logicalWindowId,
+        open: !!ws.open,
+        runtimeWindowId: ws.runtimeWindowId ?? null,
+        closedAt: ws.closedAt ?? null,
+        window: ws.window ?? {},
+        groups: ws.groups ?? [],
+        tabs: ws.tabs ?? []
+      };
+
+      if (ws.runtimeWindowId != null) {
+        newMap[String(ws.runtimeWindowId)] = {
+          workspaceId: mergedId,
+          logicalWindowId
+        };
+      }
+    }
+
+    workspaces = { [mergedId]: merged };
+    windowMap = newMap;
+    activeWorkspaceId = Object.values(merged.windows).some(win => win.open) ? mergedId : null;
+
+    await browser.storage.local.set({
+      [WORKSPACES_KEY]: workspaces,
+      [WINDOW_WORKSPACE_MAP_KEY]: windowMap,
+      "fwm.activeWorkspaceId": activeWorkspaceId
+    });
   }
 
-  const previous = workspaces[workspaceId] ?? {};
-  workspaces[workspaceId] = {
-    ...previous,
-    id: workspaceId,
+  return { workspaces, windowMap, activeWorkspaceId };
+}
+
+async function ensureActiveWorkspace() {
+  const store = await loadWorkspaceStore();
+  let { workspaces, windowMap, activeWorkspaceId } = store;
+
+  if (!activeWorkspaceId || !workspaces[activeWorkspaceId]) {
+    activeWorkspaceId = newWorkspaceId();
+    workspaces[activeWorkspaceId] = {
+      id: activeWorkspaceId,
+      name: "Workspace " + (Object.keys(workspaces).length + 1),
+      persistent: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      windows: {}
+    };
+
+    await browser.storage.local.set({
+      [WORKSPACES_KEY]: workspaces,
+      "fwm.activeWorkspaceId": activeWorkspaceId
+    });
+  }
+
+  return { workspaces, windowMap, activeWorkspaceId };
+}
+
+async function saveWorkspaceSnapshot(win, groups) {
+  const store = await ensureActiveWorkspace();
+  const { workspaces, windowMap, activeWorkspaceId } = store;
+  const workspace = workspaces[activeWorkspaceId];
+  const runtimeKey = String(win.id);
+
+  let mapping = windowMap[runtimeKey];
+  if (!mapping || mapping.workspaceId !== activeWorkspaceId || !workspace.windows?.[mapping.logicalWindowId]) {
+    mapping = {
+      workspaceId: activeWorkspaceId,
+      logicalWindowId: newLogicalWindowId()
+    };
+    windowMap[runtimeKey] = mapping;
+  }
+
+  workspace.windows ??= {};
+  workspace.windows[mapping.logicalWindowId] = {
+    id: mapping.logicalWindowId,
     open: true,
     runtimeWindowId: win.id,
     closedAt: null,
@@ -136,35 +218,52 @@ async function saveWorkspaceSnapshot(win, groups) {
     }))
   };
 
+  workspace.updatedAt = Date.now();
+  workspace.open = true;
+  workspace.active = true;
+
   await browser.storage.local.set({
     [WORKSPACES_KEY]: workspaces,
-    [WINDOW_WORKSPACE_MAP_KEY]: windowMap
+    [WINDOW_WORKSPACE_MAP_KEY]: windowMap,
+    "fwm.activeWorkspaceId": activeWorkspaceId
   });
 
-  return workspaceId;
+  return activeWorkspaceId;
 }
 
 async function markWorkspaceClosed(windowId) {
-  const stored = await browser.storage.local.get([WORKSPACES_KEY, WINDOW_WORKSPACE_MAP_KEY]);
-  const workspaces = stored[WORKSPACES_KEY] ?? {};
-  const windowMap = stored[WINDOW_WORKSPACE_MAP_KEY] ?? {};
-  const key = String(windowId);
-  const workspaceId = windowMap[key];
+  const { workspaces, windowMap, activeWorkspaceId } = await loadWorkspaceStore();
+  const runtimeKey = String(windowId);
+  const mapping = windowMap[runtimeKey];
+  if (!mapping) return;
 
-  if (workspaceId && workspaces[workspaceId]) {
-    workspaces[workspaceId] = {
-      ...workspaces[workspaceId],
-      open: false,
-      runtimeWindowId: null,
-      closedAt: Date.now(),
-      updatedAt: Date.now()
-    };
-    delete windowMap[key];
-    await browser.storage.local.set({
-      [WORKSPACES_KEY]: workspaces,
-      [WINDOW_WORKSPACE_MAP_KEY]: windowMap
-    });
+  const workspace = workspaces[mapping.workspaceId];
+  const logicalWindow = workspace?.windows?.[mapping.logicalWindowId];
+  if (!workspace || !logicalWindow) return;
+
+  logicalWindow.open = false;
+  logicalWindow.runtimeWindowId = null;
+  logicalWindow.closedAt = Date.now();
+  logicalWindow.updatedAt = Date.now();
+  delete windowMap[runtimeKey];
+
+  const anyOpen = Object.values(workspace.windows ?? {}).some(win => win.open);
+  workspace.open = anyOpen;
+  workspace.active = anyOpen && activeWorkspaceId === workspace.id;
+  workspace.updatedAt = Date.now();
+
+  const updates = {
+    [WORKSPACES_KEY]: workspaces,
+    [WINDOW_WORKSPACE_MAP_KEY]: windowMap
+  };
+
+  if (!anyOpen && activeWorkspaceId === workspace.id) {
+    updates["fwm.activeWorkspaceId"] = null;
+    workspace.active = false;
+    workspace.closedAt = Date.now();
   }
+
+  await browser.storage.local.set(updates);
 }
 
 function restorableUrl(url) {
@@ -173,21 +272,8 @@ function restorableUrl(url) {
   return url;
 }
 
-async function restoreWorkspace(workspaceId) {
-  const stored = await browser.storage.local.get([WORKSPACES_KEY, WINDOW_WORKSPACE_MAP_KEY]);
-  const workspaces = stored[WORKSPACES_KEY] ?? {};
-  const windowMap = stored[WINDOW_WORKSPACE_MAP_KEY] ?? {};
-  const workspace = workspaces[workspaceId];
-
-  if (!workspace) throw new Error("Workspace not found");
-  if (workspace.open && workspace.runtimeWindowId != null) {
-    try {
-      await browser.windows.update(workspace.runtimeWindowId, { focused: true });
-      return { windowId: workspace.runtimeWindowId, reused: true };
-    } catch {}
-  }
-
-  const sourceTabs = (workspace.tabs ?? [])
+async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow) {
+  const sourceTabs = (sourceWindow.tabs ?? [])
     .slice()
     .sort((a, b) => a.index - b.index)
     .filter(tab => restorableUrl(tab.url));
@@ -195,12 +281,12 @@ async function restoreWorkspace(workspaceId) {
   const urls = sourceTabs.map(tab => restorableUrl(tab.url)).filter(Boolean);
   const createData = {
     url: urls.length ? urls : ["about:blank"],
-    focused: true
+    focused: false
   };
 
-  if (workspace.window?.state === "normal") {
+  if (sourceWindow.window?.state === "normal") {
     for (const key of ["left", "top", "width", "height"]) {
-      if (Number.isFinite(workspace.window[key])) createData[key] = workspace.window[key];
+      if (Number.isFinite(sourceWindow.window[key])) createData[key] = sourceWindow.window[key];
     }
   }
 
@@ -208,29 +294,6 @@ async function restoreWorkspace(workspaceId) {
   const liveTabs = (await browser.tabs.query({ windowId: win.id }))
     .slice()
     .sort((a, b) => a.index - b.index);
-
-  const refreshed = await browser.storage.local.get([WORKSPACES_KEY, WINDOW_WORKSPACE_MAP_KEY]);
-  const currentWorkspaces = refreshed[WORKSPACES_KEY] ?? {};
-  const currentMap = refreshed[WINDOW_WORKSPACE_MAP_KEY] ?? {};
-  const temporaryWorkspaceId = currentMap[String(win.id)];
-
-  if (temporaryWorkspaceId && temporaryWorkspaceId !== workspaceId) {
-    delete currentWorkspaces[temporaryWorkspaceId];
-  }
-  currentMap[String(win.id)] = workspaceId;
-  currentWorkspaces[workspaceId] = {
-    ...workspace,
-    open: true,
-    runtimeWindowId: win.id,
-    closedAt: null,
-    restoredAt: Date.now(),
-    updatedAt: Date.now()
-  };
-
-  await browser.storage.local.set({
-    [WORKSPACES_KEY]: currentWorkspaces,
-    [WINDOW_WORKSPACE_MAP_KEY]: currentMap
-  });
 
   const newTabByOldRuntimeId = new Map();
   for (let i = 0; i < Math.min(sourceTabs.length, liveTabs.length); i++) {
@@ -240,14 +303,13 @@ async function restoreWorkspace(workspaceId) {
     } catch {}
   }
 
-  for (const group of workspace.groups ?? []) {
+  for (const group of sourceWindow.groups ?? []) {
     const tabIds = sourceTabs
       .filter(tab => tab.runtimeGroupId === group.runtimeGroupId)
       .map(tab => newTabByOldRuntimeId.get(tab.runtimeTabId))
       .filter(id => id != null);
 
     if (!tabIds.length) continue;
-
     try {
       const newGroupId = await browser.tabs.group({
         tabIds,
@@ -259,7 +321,7 @@ async function restoreWorkspace(workspaceId) {
         collapsed: !!group.collapsed
       });
     } catch (error) {
-      console.warn("Unable to restore tab group", workspaceId, error);
+      console.warn("Unable to restore tab group", workspaceId, logicalWindowId, error);
     }
   }
 
@@ -276,8 +338,58 @@ async function restoreWorkspace(workspaceId) {
     try { await browser.tabs.discard(tabId); } catch {}
   }
 
-  await snapshotWindow(win.id);
-  return { windowId: win.id, reused: false };
+  return win.id;
+}
+
+async function restoreWorkspace(workspaceId) {
+  const store = await loadWorkspaceStore();
+  const { workspaces } = store;
+  const workspace = workspaces[workspaceId];
+  if (!workspace) throw new Error("Workspace not found");
+
+  const openWindows = Object.values(workspace.windows ?? {}).filter(win => win.open && win.runtimeWindowId != null);
+  if (openWindows.length) {
+    try {
+      await browser.windows.update(openWindows[0].runtimeWindowId, { focused: true });
+      return { windowIds: openWindows.map(win => win.runtimeWindowId), reused: true };
+    } catch {}
+  }
+
+  const restored = [];
+  const newMap = { ...store.windowMap };
+
+  for (const [logicalWindowId, sourceWindow] of Object.entries(workspace.windows ?? {})) {
+    const windowId = await restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow);
+    restored.push(windowId);
+    newMap[String(windowId)] = { workspaceId, logicalWindowId };
+
+    sourceWindow.open = true;
+    sourceWindow.runtimeWindowId = windowId;
+    sourceWindow.closedAt = null;
+    sourceWindow.updatedAt = Date.now();
+  }
+
+  workspace.open = restored.length > 0;
+  workspace.active = restored.length > 0;
+  workspace.closedAt = null;
+  workspace.restoredAt = Date.now();
+  workspace.updatedAt = Date.now();
+
+  await browser.storage.local.set({
+    [WORKSPACES_KEY]: workspaces,
+    [WINDOW_WORKSPACE_MAP_KEY]: newMap,
+    "fwm.activeWorkspaceId": restored.length ? workspaceId : null
+  });
+
+  if (restored.length) {
+    try { await browser.windows.update(restored[0], { focused: true }); } catch {}
+  }
+
+  for (const windowId of restored) {
+    await snapshotWindow(windowId);
+  }
+
+  return { windowIds: restored, reused: false };
 }
 
 async function pushSettingsToSync() {
