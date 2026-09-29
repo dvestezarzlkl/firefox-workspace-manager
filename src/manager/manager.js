@@ -318,15 +318,19 @@ function renderClosedWorkspaces(workspaces) {
         <span>${closed.length}</span>
       </div>
       <div class="closed-workspace-list">
-        ${closed.map(workspace => `
-          <div class="closed-workspace-row">
-            <div>
-              <strong>${esc(workspace.name || "Workspace")}</strong>
-              <span>${(workspace.tabs ?? []).length} tabů · ${(workspace.groups ?? []).length} skupin</span>
-            </div>
-            <button type="button" data-restore-workspace="${esc(workspace.id)}">Obnovit</button>
-          </div>
-        `).join("")}
+        ${closed.map(workspace => {
+          const windows = Object.values(workspace.windows ?? {});
+          const tabCount = windows.reduce((sum, win) => sum + (win.tabs ?? []).length, 0);
+          const groupCount = windows.reduce((sum, win) => sum + (win.groups ?? []).length, 0);
+          return `
+            <div class="closed-workspace-row">
+              <div>
+                <strong>${esc(workspace.name || "Workspace")}</strong>
+                <span>${windows.length} oken · ${tabCount} tabů · ${groupCount} skupin</span>
+              </div>
+              <button type="button" data-restore-workspace="${esc(workspace.id)}">Obnovit</button>
+            </div>`;
+        }).join("")}
       </div>
     </section>`;
 }
