@@ -180,7 +180,45 @@ async function reconcileWorkspaceRuntimeState() {
     });
   }
 
+  const normalizedGroups = normalizeWorkspaceGroupKeys(workspaces);
+  if (normalizedGroups) {
+    await browser.storage.local.set({ [WORKSPACES_KEY]: workspaces });
+  }
+
   return { workspaces, windowMap, activeWorkspaceId };
+}
+
+function normalizeWorkspaceGroupKeys(workspaces) {
+  let changed = false;
+
+  for (const workspace of Object.values(workspaces ?? {})) {
+    for (const win of Object.values(workspace?.windows ?? {})) {
+      const groups = win.groups ?? [];
+      const tabs = win.tabs ?? [];
+      const keyByRuntimeId = new Map();
+
+      groups.forEach((group, index) => {
+        if (!group.groupKey) {
+          group.groupKey = "g" + index;
+          changed = true;
+        }
+        keyByRuntimeId.set(group.runtimeGroupId, group.groupKey);
+      });
+
+      for (const tab of tabs) {
+        if (tab.groupKey) continue;
+        const key = keyByRuntimeId.get(tab.runtimeGroupId);
+        if (key) {
+          tab.groupKey = key;
+          changed = true;
+        } else if (tab.runtimeGroupId == null || tab.runtimeGroupId === -1) {
+          tab.groupKey = null;
+        }
+      }
+    }
+  }
+
+  return changed;
 }
 
 async function loadWorkspaceStore() {
@@ -324,13 +362,16 @@ async function saveWorkspaceSnapshot(win, groups) {
       height: win.height,
       incognito: win.incognito
     },
-    groups: groups.map(group => ({
+    groups: groups.map((group, index) => ({
       runtimeGroupId: group.id,
+      groupKey: "g" + index,
       title: group.title,
       color: group.color,
       collapsed: group.collapsed
     })),
-    tabs: (win.tabs ?? []).filter(tab => !isExtensionUrl(tab.url)).map(tab => ({
+    tabs: (win.tabs ?? []).filter(tab => !isExtensionUrl(tab.url)).map(tab => {
+      const groupIndex = groups.findIndex(group => group.id === tab.groupId);
+      return ({
       runtimeTabId: tab.id,
       index: tab.index,
       url: tab.url,
@@ -341,8 +382,10 @@ async function saveWorkspaceSnapshot(win, groups) {
       audible: tab.audible,
       autoDiscardable: tab.autoDiscardable,
       cookieStoreId: tab.cookieStoreId,
-      runtimeGroupId: tab.groupId
-    }))
+      runtimeGroupId: tab.groupId,
+      groupKey: groupIndex >= 0 ? "g" + groupIndex : null
+    });
+    })
   };
 
   workspace.updatedAt = Date.now();
@@ -494,9 +537,10 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
     }
   }
 
-  for (const group of sourceWindow.groups ?? []) {
+  for (const [groupIndex, group] of (sourceWindow.groups ?? []).entries()) {
+    const groupKey = group.groupKey ?? ("g" + groupIndex);
     const tabIds = sourceTabs
-      .filter(tab => tab.runtimeGroupId === group.runtimeGroupId)
+      .filter(tab => (tab.groupKey ?? null) === groupKey || (!tab.groupKey && tab.runtimeGroupId === group.runtimeGroupId))
       .map(tab => newTabByOldRuntimeId.get(tab.runtimeTabId))
       .filter(id => id != null);
 
@@ -506,7 +550,9 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
       workspaceId,
       logicalWindowId,
       title: group.title ?? "",
-      tabCount: tabIds.length
+      groupKey,
+      tabCount: tabIds.length,
+      sourceRuntimeGroupId: group.runtimeGroupId
     });
 
     try {
@@ -525,6 +571,7 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
         workspaceId,
         logicalWindowId,
         title: group.title ?? "",
+        groupKey,
         newGroupId
       });
     } catch (error) {
@@ -647,7 +694,7 @@ function sanitizeWorkspaceForExport(workspace) {
   for (const sourceWindow of Object.values(workspace?.windows ?? {})) {
     const groupKeyByRuntime = new Map();
     const groups = (sourceWindow.groups ?? []).map((group, index) => {
-      const key = "g" + index;
+      const key = group.groupKey ?? ("g" + index);
       groupKeyByRuntime.set(group.runtimeGroupId, key);
       return {
         key,
@@ -666,7 +713,7 @@ function sanitizeWorkspaceForExport(workspace) {
       discarded: !!tab.discarded,
       autoDiscardable: tab.autoDiscardable !== false,
       cookieStoreId: tab.cookieStoreId ?? null,
-      groupKey: groupKeyByRuntime.get(tab.runtimeGroupId) ?? null
+      groupKey: tab.groupKey ?? groupKeyByRuntime.get(tab.runtimeGroupId) ?? null
     }));
 
     exported.windows.push({
@@ -703,6 +750,7 @@ async function importWorkspace(payload) {
       runtimeGroupByKey.set(group.key ?? ("g" + index), runtimeGroupId);
       return {
         runtimeGroupId,
+        groupKey: group.key ?? ("g" + index),
         title: String(group.title ?? ""),
         color: group.color ?? "grey",
         collapsed: !!group.collapsed
@@ -720,7 +768,8 @@ async function importWorkspace(payload) {
       audible: false,
       autoDiscardable: tab.autoDiscardable !== false,
       cookieStoreId: tab.cookieStoreId ?? null,
-      runtimeGroupId: tab.groupKey ? (runtimeGroupByKey.get(tab.groupKey) ?? -1) : -1
+      runtimeGroupId: tab.groupKey ? (runtimeGroupByKey.get(tab.groupKey) ?? -1) : -1,
+      groupKey: tab.groupKey ?? null
     }));
 
     windows[logicalWindowId] = {
