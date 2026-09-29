@@ -2,6 +2,11 @@ const app = document.getElementById("app");
 const summary = document.getElementById("summary");
 const refreshButton = document.getElementById("refresh");
 const deepAllButton = document.getElementById("deepAll");
+const settingsToggle = document.getElementById("settingsToggle");
+const settingsPanel = document.getElementById("settingsPanel");
+const hostPoliciesEl = document.getElementById("hostPolicies");
+
+const HOST_POLICIES_KEY = "fwm.hostPolicies";
 
 function esc(value) {
   return String(value ?? "")
@@ -23,6 +28,30 @@ function extraFlags(tab) {
   if (tab.pinned) flags.push("📌");
   if (tab.autoDiscardable === false) flags.push("⏻");
   return flags;
+}
+
+function hostnameFromUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return ["http:", "https:"].includes(parsed.protocol) ? parsed.hostname.toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}
+
+async function loadHostPolicies() {
+  const stored = await browser.storage.local.get(HOST_POLICIES_KEY);
+  return stored[HOST_POLICIES_KEY] ?? {};
+}
+
+async function saveHostPolicy(host, mode) {
+  const policies = await loadHostPolicies();
+  if (mode === "AUTO") {
+    delete policies[host];
+  } else {
+    policies[host] = mode;
+  }
+  await browser.storage.local.set({ [HOST_POLICIES_KEY]: policies });
 }
 
 function renderTab(tab) {
@@ -66,7 +95,10 @@ async function load() {
       const groupDeep = groupTabs.filter(tab => tab.discarded).length;
       return `
         <section class="group">
-          <h3>${esc(group.title || "(skupina bez názvu)")} · ${groupTabs.length} tabů · ${groupDeep} DEEP · ${esc(group.color)}</h3>
+          <div class="group-header">
+            <h3>${esc(group.title || "(skupina bez názvu)")} · ${groupTabs.length} tabů · ${groupDeep} DEEP · ${esc(group.color)}</h3>
+            <button type="button" data-action="deep-group" data-group-id="${group.id}">DEEP skupinu</button>
+          </div>
           ${groupTabs.length ? groupTabs.map(renderTab).join("") : '<div class="empty">Prázdná skupina</div>'}
         </section>`;
     }).join("");
@@ -74,7 +106,9 @@ async function load() {
     const ungrouped = tabs.filter(tab => !groupedIds.has(tab.id));
     const ungroupedHtml = ungrouped.length ? `
       <section class="group">
-        <h3>Bez skupiny · ${ungrouped.length} tabů · ${ungrouped.filter(tab => tab.discarded).length} DEEP</h3>
+        <div class="group-header">
+          <h3>Bez skupiny · ${ungrouped.length} tabů · ${ungrouped.filter(tab => tab.discarded).length} DEEP</h3>
+        </div>
         ${ungrouped.map(renderTab).join("")}
       </section>` : "";
 
@@ -87,19 +121,62 @@ async function load() {
 
   summary.textContent = `${windows.length} oken · ${totalTabs} tabů · ${loadedTabs} loaded · ${deepTabs} deep · ${activeTabs} active`;
   app.innerHTML = chunks.length ? chunks.join("") : '<div class="empty">Žádné normální Firefox okno.</div>';
+
+  const policies = await loadHostPolicies();
+  const hosts = [...new Set(
+    windows.flatMap(win => (win.tabs ?? []).map(tab => hostnameFromUrl(tab.url)).filter(Boolean))
+  )].sort();
+
+  hostPoliciesEl.innerHTML = hosts.length ? `
+    <div class="policy-grid">
+      ${hosts.map(host => {
+        const mode = policies[host] ?? "AUTO";
+        return `
+          <label class="policy-row">
+            <span class="policy-host" title="${esc(host)}">${esc(host)}</span>
+            <select data-host-policy="${esc(host)}">
+              <option value="AUTO" ${mode === "AUTO" ? "selected" : ""}>AUTO</option>
+              <option value="KEEP" ${mode === "KEEP" ? "selected" : ""}>KEEP</option>
+              <option value="DEEP" ${mode === "DEEP" ? "selected" : ""}>DEEP</option>
+            </select>
+          </label>`;
+      }).join("")}
+    </div>` : '<div class="empty">Žádné HTTP/HTTPS hosty.</div>';
 }
 
 app.addEventListener("click", async event => {
-  const button = event.target.closest('button[data-action="deep"]');
-  if (!button) return;
-  const tabId = Number(button.dataset.tabId);
-  button.disabled = true;
-  try {
-    await browser.tabs.discard(tabId);
-  } catch (error) {
-    console.error("DEEP discard failed", error);
+  const tabButton = event.target.closest('button[data-action="deep"]');
+  if (tabButton) {
+    const tabId = Number(tabButton.dataset.tabId);
+    tabButton.disabled = true;
+    try {
+      await browser.tabs.discard(tabId);
+    } catch (error) {
+      console.error("DEEP discard failed", error);
+    }
+    await load();
+    return;
   }
-  await load();
+
+  const groupButton = event.target.closest('button[data-action="deep-group"]');
+  if (groupButton) {
+    const groupId = Number(groupButton.dataset.groupId);
+    groupButton.disabled = true;
+    try {
+      const tabs = await browser.tabs.query({ groupId });
+      for (const tab of tabs) {
+        if (tab.id == null || tab.active || tab.discarded || tab.audible || tab.pinned) continue;
+        try {
+          await browser.tabs.discard(tab.id);
+        } catch (error) {
+          console.warn("Group DEEP skipped tab", tab.id, error);
+        }
+      }
+    } finally {
+      groupButton.disabled = false;
+      await load();
+    }
+  }
 });
 
 deepAllButton.addEventListener("click", async () => {
@@ -138,4 +215,15 @@ browser.tabGroups.onRemoved.addListener(() => load().catch(console.error));
 load().catch(error => {
   console.error(error);
   app.textContent = "Chyba při načítání. Podrobnosti jsou v konzoli rozšíření.";
+});
+
+
+settingsToggle.addEventListener("click", () => {
+  settingsPanel.hidden = !settingsPanel.hidden;
+});
+
+hostPoliciesEl.addEventListener("change", async event => {
+  const select = event.target.closest("select[data-host-policy]");
+  if (!select) return;
+  await saveHostPolicy(select.dataset.hostPolicy, select.value);
 });
