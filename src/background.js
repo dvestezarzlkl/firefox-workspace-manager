@@ -387,13 +387,14 @@ async function saveWorkspaceSnapshot(win, groups) {
     return null;
   }
 
-  let mapping = windowMap[runtimeKey];
+  const mapping = windowMap[runtimeKey];
   if (!mapping || mapping.workspaceId !== activeWorkspaceId || !workspace.windows?.[mapping.logicalWindowId]) {
-    mapping = {
+    await workspaceDebug("snapshot-skipped-unmapped-window", {
       workspaceId: activeWorkspaceId,
-      logicalWindowId: newLogicalWindowId()
-    };
-    windowMap[runtimeKey] = mapping;
+      runtimeWindowId: win.id,
+      tabCount: (win.tabs ?? []).filter(tab => !isExtensionUrl(tab.url)).length
+    });
+    return null;
   }
 
   workspace.windows ??= {};
@@ -1169,9 +1170,73 @@ async function removeWorkspaceWindow(workspaceId, logicalWindowId) {
   return { removed: true, remainingWindows: remaining.length };
 }
 
+async function adoptUnmappedWindowsIntoActiveWorkspace() {
+  const store = await loadWorkspaceStore();
+  const workspaceId = store.activeWorkspaceId;
+  const workspace = workspaceId ? store.workspaces[workspaceId] : null;
+  if (!workspace) return null;
+
+  const liveWindows = await browser.windows.getAll({
+    windowTypes: ["normal"],
+    populate: true
+  });
+
+  let adopted = 0;
+
+  for (const win of liveWindows) {
+    const runtimeKey = String(win.id);
+
+    // Never steal a window that is already owned by any workspace.
+    if (store.windowMap[runtimeKey]) continue;
+
+    // Ignore blank/newtab/manager-only windows.
+    if (!hasWorkspaceContent(win)) continue;
+
+    const logicalWindowId = newLogicalWindowId();
+    store.windowMap[runtimeKey] = { workspaceId, logicalWindowId };
+    workspace.windows ??= {};
+    workspace.windows[logicalWindowId] = {
+      id: logicalWindowId,
+      open: true,
+      runtimeWindowId: win.id,
+      closedAt: null,
+      updatedAt: Date.now(),
+      window: {
+        state: win.state,
+        left: win.left,
+        top: win.top,
+        width: win.width,
+        height: win.height,
+        incognito: win.incognito
+      },
+      groups: [],
+      tabs: []
+    };
+
+    adopted++;
+    await workspaceDebug("workspace-window-adopted-explicitly", {
+      workspaceId,
+      logicalWindowId,
+      runtimeWindowId: win.id
+    });
+  }
+
+  if (adopted) {
+    workspace.updatedAt = Date.now();
+    await browser.storage.local.set({
+      [WORKSPACES_KEY]: store.workspaces,
+      [WINDOW_WORKSPACE_MAP_KEY]: store.windowMap
+    });
+  }
+
+  return adopted;
+}
+
 async function snapshotCurrentWorkspace() {
   const activeWorkspaceId = await inferActiveWorkspaceFromRuntime();
   if (!activeWorkspaceId) return null;
+
+  await adoptUnmappedWindowsIntoActiveWorkspace();
   await snapshotAllWindows();
   return activeWorkspaceId;
 }
@@ -1188,7 +1253,7 @@ async function renameWorkspace(workspaceId, name) {
 
 async function cloneActiveWorkspace(name) {
   let activeWorkspaceId = await inferActiveWorkspaceFromRuntime();
-  if (activeWorkspaceId) await snapshotAllWindows();
+  if (activeWorkspaceId) await snapshotCurrentWorkspace();
 
   const store = await loadWorkspaceStore();
   activeWorkspaceId = store.activeWorkspaceId ?? activeWorkspaceId;
