@@ -1,0 +1,143 @@
+html {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  font: 14px/1.45 system-ui, sans-serif;
+  background: Canvas;
+  color: CanvasText;
+}
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 16px 22px;
+  border-bottom: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+  background: color-mix(in srgb, Canvas 96%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.summary {
+  margin-top: 3px;
+  opacity: .7;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+button {
+  font: inherit;
+  padding: 6px 10px;
+}
+
+main {
+  padding: 16px 22px 28px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.window {
+  margin: 0 0 18px;
+  border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.window > h2 {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 15px;
+  background: color-mix(in srgb, CanvasText 7%, Canvas);
+}
+
+.groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 12px;
+  padding: 12px;
+}
+
+.group {
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, CanvasText 14%, transparent);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.group > h3 {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 14px;
+  background: color-mix(in srgb, CanvasText 5%, Canvas);
+}
+
+.tab {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px;
+  border-top: 1px solid color-mix(in srgb, CanvasText 9%, transparent);
+}
+
+.tab-main {
+  min-width: 0;
+}
+
+.tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 3px;
+  font-size: 11px;
+  opacity: .78;
+}
+
+.state {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  border: 1px solid color-mix(in srgb, CanvasText 20%, transparent);
+}
+
+.state-deep {
+  background: color-mix(in srgb, #7c3aed 18%, Canvas);
+}
+
+.state-loaded {
+  background: color-mix(in srgb, #10b981 18%, Canvas);
+}
+
+.state-active {
+  background: color-mix(in srgb, #0ea5e9 22%, Canvas);
+}
+
+.flags {
+  opacity: .75;
+}
+
+.empty {
+  padding: 10px;
+  opacity: .7;
+}
