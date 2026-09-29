@@ -68,3 +68,9 @@ button {
   font-size: 10px;
   opacity: .45;
 }
+
+.popup-subtitle {
+  margin-top: 1px;
+  font-size: 10px;
+  opacity: .5;
+}
