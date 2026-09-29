@@ -59,6 +59,20 @@
         "panel": "dedicated",
         "clear": true
       }
+    },
+    {
+      "label": "FF: Podepsat unlisted XPI",
+      "type": "shell",
+      "command": "npm run sign:unlisted",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
     }
   ]
 }
