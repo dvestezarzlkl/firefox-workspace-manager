@@ -63,7 +63,7 @@
     {
       "label": "FF: Podepsat unlisted XPI",
       "type": "shell",
-      "command": "npm run sign:unlisted",
+      "command": "if exist \"..\\.dev\\amo-sign.cmd\" (call \"..\\.dev\\amo-sign.cmd\" && npm run sign:unlisted) else (echo CHYBA: Chybi ..\\.dev\\amo-sign.cmd s WEB_EXT_API_KEY a WEB_EXT_API_SECRET && exit /b 2)",
       "options": {
         "cwd": "${workspaceFolder}"
       },
