@@ -158,6 +158,21 @@ function policyBadge(tab) {
   return "";
 }
 
+function formatClock(ts) {
+  if (!ts) return "—";
+  return new Date(ts).toLocaleTimeString("cs-CZ", { hour12: false });
+}
+
+function discardDebugText(tab) {
+  const item = lifecycleMap[String(tab.id)];
+  if (!item?.lastDiscardAttemptAt) return "";
+  const result = item.lastDiscardResult ?? "—";
+  const reason = item.lastDiscardReason ?? "—";
+  const discardedAt = item.discardedAt ? " · discarded " + formatClock(item.discardedAt) : "";
+  return '<span class="discard-debug" title="Poslední pokus o discard">discard ' +
+    formatClock(item.lastDiscardAttemptAt) + ' · ' + esc(reason) + ' · ' + esc(result) + discardedAt + '</span>';
+}
+
 function lifecycleText(tab) {
   const item = lifecycleMap[String(tab.id)];
   if (!item || tab.active || tab.discarded) return "";
@@ -183,6 +198,7 @@ function renderTab(tab) {
           <span class="flags" title="Další stavové příznaky">${esc(extraFlags(tab).join(" "))}</span>
           ${policyBadge(tab)}
           ${lifecycleText(tab)}
+          ${discardDebugText(tab)}
         </div>
       </div>
       <div class="tab-actions">
