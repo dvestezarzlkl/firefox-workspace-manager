@@ -9,6 +9,14 @@ branch = dev
 
 ## Done
 
+- Added stable logical workspaceId mapping for normal Firefox windows.
+- Workspace snapshots are stored separately from runtime windowId.
+- Closing a Firefox window marks its workspace closed instead of deleting the snapshot.
+- Manager shows closed persistent workspaces with an Obnovit action.
+- Restore recreates the window, tabs, pin state, active tab and Firefox tab groups; previously discarded inactive tabs are discarded again after restore.
+- Added optional Firefox Sync settings toggle.
+- Sync scope is intentionally limited to AUTO settings, hostname policies and exact URL exceptions; runtime state/statistics/workspace snapshots remain local.
+
 - Popup redesigned as a compact statistics dashboard; no duplicate tab list.
 - Popup now follows dark/light theme via color-scheme.
 - web-ext dev watcher now ignores .git metadata plus non-runtime project files; this targets unexplained manager-tab closures caused by extension reloads from background Git/VS Code file changes.
@@ -83,11 +91,12 @@ branch = dev
 
 ## Next
 
-1. Pull latest dev; restart the dev task once so the new web-ext watch-ignore arguments take effect.
-2. Open manager and leave it open without editing runtime files; verify it no longer closes spontaneously.
-3. If it still closes, capture whether the web-ext terminal logs an extension reload at the same moment.
-4. Verify popup statistics and dark/light appearance.
-5. Continue DEEP ALWAYS watchdog diagnostics separately.
+1. Pull latest dev and restart dev task if required.
+2. Close a normal Firefox window with X and verify it appears under Zavřené workspaces.
+3. Click Obnovit and verify tabs, groups, pinned state and active tab return in a new window.
+4. Verify the restored workspace keeps the same logical workspaceId despite the new runtime windowId.
+5. Test Firefox Sync toggle on this profile; actual cross-device sync requires Firefox Sync with Add-ons enabled.
+6. After manual restore is stable, add optional automatic reopen-on-close behavior.
 
 ## localCommand
 
