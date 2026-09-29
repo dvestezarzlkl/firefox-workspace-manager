@@ -9,6 +9,12 @@ branch = dev
 
 ## Done
 
+- AUTO lifecycle engine added: per-tab inactiveSince/deadline state, one next-deadline browser alarm, automatic discard when due.
+- Manager shows live countdown to automatic DEEP.
+- Per-host usage statistics collected: activations, total foreground time, last activation/deactivation, auto-deep count.
+- URL-prefix KEEP exceptions added with higher priority than hostname policy.
+- Extension icon added and wired into manifest/action.
+
 - Background tracks last active normal HTTP/HTTPS content tab per Firefox window.
 - Full manager protects that last active content tab from DEEP ALL.
 - Zavřít manager activates the previous content tab before closing manager.
@@ -51,12 +57,12 @@ branch = dev
 
 ## Next
 
-1. Pull latest dev and verify: open a page, open manager, run DEEP ALL; previous page must stay loaded.
-2. Verify Zavřít returns to that previous page.
-3. Verify manager can never DEEP itself.
-4. Verify Panely/Nastavení and filtered host settings behavior.
-5. Wire AUTO settings and host policies into runtime lifecycle behavior.
-6. Integrate generated extension icon into manifest/action assets.
+1. Pull latest dev and verify icon, countdown and URL KEEP exception UI.
+2. Verify inactive tabs receive deadlines immediately after extension reload.
+3. Verify switching back to a tab clears its countdown; leaving it starts a new deadline.
+4. Verify is.zlkl.cz can be DEEP while a specific sensor/event page prefix is KEEP.
+5. Let usage statistics accumulate before defining any automatic DEEP recommendation heuristic.
+6. Verify last active content tab remains protected while manager is open.
 
 ## localCommand
 
