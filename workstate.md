@@ -9,6 +9,12 @@ branch = dev
 
 ## Done
 
+- 0.4.17: Native Firefox reopened windows (Ctrl+Shift+N / session restore) can be reattached to their saved logical workspace window.
+- Reattach never creates a new logical window; it only matches against an existing closed saved window.
+- Matching uses tab URL/title overlap, tab-count similarity and group-title overlap, with ambiguity rejection to avoid ghost-window adoption.
+- Successful reattach updates runtime window mapping, marks the logical window open, keeps the workspace active and snapshots the reopened runtime state.
+- Reattach detection is debounced across window/tab/group restore events so large native-restored windows can finish populating before matching.
+
 - 0.4.16: VS Code signing task now loads AMO credentials from ../.dev/amo-sign.cmd before running npm run sign:unlisted.
 - Credentials stay outside the repository and are not committed to Git.
 
@@ -234,13 +240,12 @@ branch = dev
 
 ## Next
 
-1. Pull 0.4.6.
-2. Keep the current valid Práce workspace; no re-import should be necessary if its detail still contains the intended MPI URL.
-3. Close Firefox and start without native session.
-4. Recover Práce.
-5. Verify window1 first tab is MPI TECH, not about:blank.
-6. Close/restart once more and repeat recovery to verify the first-tab URL remains stable.
-7. If any first tab changes, copy Debug log; restore-window-populate-end now lists deferredDiscardEntries for exact correlation.
+1. Pull 0.4.17 and reload the extension.
+2. With Workspace 2 active and both windows open, close one Firefox window.
+3. Verify manager reports 1 otevřené / 2 uložená okna.
+4. Press Ctrl+Shift+N to reopen the closed native Firefox window.
+5. After restore events settle, verify manager automatically returns to 2 otevřená / 2 uložená okna without creating a ghost window.
+6. If it does not reattach, copy workspace Debug log and inspect window-reattach-ambiguous / window-reattached events and scores.
 
 ## localCommand
 
