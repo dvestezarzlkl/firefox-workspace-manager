@@ -392,6 +392,144 @@ async function restoreWorkspace(workspaceId) {
   return { windowIds: restored, reused: false };
 }
 
+
+async function snapshotCurrentWorkspace() {
+  await snapshotAllWindows();
+  const stored = await browser.storage.local.get("fwm.activeWorkspaceId");
+  return stored["fwm.activeWorkspaceId"] ?? null;
+}
+
+async function renameWorkspace(workspaceId, name) {
+  const { workspaces } = await loadWorkspaceStore();
+  const workspace = workspaces[workspaceId];
+  if (!workspace) throw new Error("Workspace not found");
+  workspace.name = String(name || "").trim() || workspace.name || "Workspace";
+  workspace.updatedAt = Date.now();
+  await browser.storage.local.set({ [WORKSPACES_KEY]: workspaces });
+  return workspace;
+}
+
+async function cloneActiveWorkspace(name) {
+  await snapshotAllWindows();
+  const { workspaces, activeWorkspaceId } = await loadWorkspaceStore();
+  const source = activeWorkspaceId ? workspaces[activeWorkspaceId] : null;
+  if (!source) throw new Error("No active workspace");
+
+  const id = newWorkspaceId();
+  const clonedWindows = {};
+  for (const sourceWindow of Object.values(source.windows ?? {})) {
+    const logicalWindowId = newLogicalWindowId();
+    clonedWindows[logicalWindowId] = {
+      ...sourceWindow,
+      id: logicalWindowId,
+      open: false,
+      runtimeWindowId: null,
+      closedAt: Date.now()
+    };
+  }
+
+  workspaces[id] = {
+    ...source,
+    id,
+    name: String(name || "").trim() || "Workspace " + (Object.keys(workspaces).length + 1),
+    active: false,
+    open: false,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    closedAt: Date.now(),
+    windows: clonedWindows
+  };
+
+  await browser.storage.local.set({ [WORKSPACES_KEY]: workspaces });
+  return workspaces[id];
+}
+
+async function deleteWorkspace(workspaceId) {
+  const store = await loadWorkspaceStore();
+  const { workspaces, windowMap, activeWorkspaceId } = store;
+  const workspace = workspaces[workspaceId];
+  if (!workspace) return { deleted: false };
+
+  for (const [runtimeId, mapping] of Object.entries(windowMap)) {
+    if (mapping?.workspaceId === workspaceId) delete windowMap[runtimeId];
+  }
+
+  delete workspaces[workspaceId];
+
+  const updates = {
+    [WORKSPACES_KEY]: workspaces,
+    [WINDOW_WORKSPACE_MAP_KEY]: windowMap
+  };
+
+  if (activeWorkspaceId === workspaceId) {
+    updates["fwm.activeWorkspaceId"] = null;
+  }
+
+  await browser.storage.local.set(updates);
+
+  // If the active definition was deleted, keep the user's currently open
+  // windows and immediately adopt them into a fresh workspace.
+  if (activeWorkspaceId === workspaceId) {
+    await snapshotAllWindows();
+  }
+
+  return { deleted: true };
+}
+
+async function switchWorkspace(targetWorkspaceId) {
+  await snapshotAllWindows();
+  const store = await loadWorkspaceStore();
+  const currentId = store.activeWorkspaceId;
+
+  if (currentId === targetWorkspaceId) {
+    const current = store.workspaces[currentId];
+    const openIds = Object.values(current?.windows ?? {})
+      .filter(win => win.open && win.runtimeWindowId != null)
+      .map(win => win.runtimeWindowId);
+    if (openIds.length) {
+      try { await browser.windows.update(openIds[0], { focused: true }); } catch {}
+    }
+    return { reused: true, workspaceId: currentId };
+  }
+
+  const target = store.workspaces[targetWorkspaceId];
+  if (!target) throw new Error("Target workspace not found");
+
+  const current = currentId ? store.workspaces[currentId] : null;
+  const currentWindowIds = Object.values(current?.windows ?? {})
+    .filter(win => win.open && win.runtimeWindowId != null)
+    .map(win => win.runtimeWindowId);
+
+  if (current) {
+    current.active = false;
+    current.open = false;
+    current.closedAt = Date.now();
+    current.updatedAt = Date.now();
+
+    for (const logicalWindow of Object.values(current.windows ?? {})) {
+      if (!logicalWindow.open) continue;
+      logicalWindow.open = false;
+      logicalWindow.closedAt = Date.now();
+      logicalWindow.runtimeWindowId = null;
+    }
+  }
+
+  const newMap = { ...store.windowMap };
+  for (const runtimeId of currentWindowIds) delete newMap[String(runtimeId)];
+
+  await browser.storage.local.set({
+    [WORKSPACES_KEY]: store.workspaces,
+    [WINDOW_WORKSPACE_MAP_KEY]: newMap,
+    "fwm.activeWorkspaceId": null
+  });
+
+  for (const windowId of currentWindowIds) {
+    try { await browser.windows.remove(windowId); } catch {}
+  }
+
+  return restoreWorkspace(targetWorkspaceId);
+}
+
 async function pushSettingsToSync() {
   const local = await browser.storage.local.get([SYNC_ENABLED_KEY, ...SYNC_KEYS]);
   if (!local[SYNC_ENABLED_KEY]) return;
@@ -972,6 +1110,21 @@ browser.windows.onCreated.addListener(win => {
 browser.runtime.onMessage.addListener(message => {
   if (message?.type === "restoreWorkspace" && message.workspaceId) {
     return restoreWorkspace(message.workspaceId);
+  }
+  if (message?.type === "switchWorkspace" && message.workspaceId) {
+    return switchWorkspace(message.workspaceId);
+  }
+  if (message?.type === "renameWorkspace" && message.workspaceId) {
+    return renameWorkspace(message.workspaceId, message.name);
+  }
+  if (message?.type === "snapshotWorkspace") {
+    return snapshotCurrentWorkspace();
+  }
+  if (message?.type === "cloneWorkspace") {
+    return cloneActiveWorkspace(message.name);
+  }
+  if (message?.type === "deleteWorkspace" && message.workspaceId) {
+    return deleteWorkspace(message.workspaceId);
   }
   if (message?.type === "pullSyncSettings") {
     return pullSettingsFromSync();
