@@ -25,10 +25,22 @@
   </nav>
 
   <main id="panelsPage" class="page active">
+    <div id="closedWorkspaces" class="closed-workspaces"></div>
     <div id="app">Načítám…</div>
   </main>
 
   <main id="settingsPage" class="page">
+    <section class="settings-card">
+      <h2>Synchronizace</h2>
+      <div class="auto-grid">
+        <label>
+          <span>Synchronizovat nastavení přes Firefox Sync</span>
+          <input id="syncEnabled" type="checkbox">
+        </label>
+      </div>
+      <p class="hint">Synchronizují se AUTO nastavení, hostname politiky a URL výjimky. Runtime taby, countdowny, statistiky a snapshoty oken zůstávají lokální.</p>
+    </section>
+
     <section class="settings-card">
       <h2>AUTO</h2>
       <div class="auto-grid">
@@ -54,7 +66,7 @@
 
     <section class="settings-card">
       <h2>URL výjimky</h2>
-      <p>Nejkonkrétnější pravidlo má přednost před hostname. Pro stránku, která musí držet EventSource/WebSocket, použij KEEP prefix.</p>
+      <p>Nejkonkrétnější pravidlo má přednost před hostname. Pro stránku, která musí držet EventSource/WebSocket, použij přesnou URL výjimku KEEP.</p>
       <div class="url-rule-add">
         <input id="urlPattern" type="url" placeholder="https://is.zlkl.cz/cesta/ke/strance">
         <button id="useLastPage" type="button">Poslední stránka</button>
