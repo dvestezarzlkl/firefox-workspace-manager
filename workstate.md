@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- Versioning convention adopted: pre-1.0 uses 0.MINOR.PATCH; MINOR for feature blocks, PATCH for bug/build fixes.
+- Current development version bumped to 0.2.0.
+- Popup shows the extension version from manifest.json in a small footer.
+
 - Fixed workspace data model: one workspace now owns multiple windows, not one workspace per window.
 - Legacy per-window workspace records are migrated into a single multi-window workspace.
 - Closing one window only closes that logical window inside the workspace; closing the last window closes the workspace.
