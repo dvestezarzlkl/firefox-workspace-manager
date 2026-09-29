@@ -3,6 +3,7 @@ const summary = document.getElementById("summary");
 const refreshButton = document.getElementById("refresh");
 const deepAllButton = document.getElementById("deepAll");
 const settingsToggle = document.getElementById("settingsToggle");
+const closeButton = document.getElementById("closeManager");
 const settingsPanel = document.getElementById("settingsPanel");
 const hostPoliciesEl = document.getElementById("hostPolicies");
 
@@ -30,6 +31,14 @@ function extraFlags(tab) {
   return flags;
 }
 
+function isInternalExtensionTab(tab) {
+  return typeof tab?.url === "string" && tab.url.startsWith(browser.runtime.getURL(""));
+}
+
+function isProtectedFromDeep(tab) {
+  return tab.id == null || tab.active || tab.discarded || tab.audible || tab.pinned || isInternalExtensionTab(tab);
+}
+
 function hostnameFromUrl(url) {
   try {
     const parsed = new URL(url);
@@ -55,7 +64,7 @@ async function saveHostPolicy(host, mode) {
 }
 
 function renderTab(tab) {
-  const disabled = tab.active || tab.discarded;
+  const disabled = tab.active || tab.discarded || isInternalExtensionTab(tab);
   return `
     <div class="tab" data-tab-id="${tab.id}">
       <div class="tab-main">
@@ -165,7 +174,7 @@ app.addEventListener("click", async event => {
     try {
       const tabs = await browser.tabs.query({ groupId });
       for (const tab of tabs) {
-        if (tab.id == null || tab.active || tab.discarded || tab.audible || tab.pinned) continue;
+        if (isProtectedFromDeep(tab)) continue;
         try {
           await browser.tabs.discard(tab.id);
         } catch (error) {
@@ -184,7 +193,7 @@ deepAllButton.addEventListener("click", async () => {
   try {
     const tabs = await browser.tabs.query({});
     for (const tab of tabs) {
-      if (tab.id == null || tab.active || tab.discarded || tab.audible || tab.pinned) continue;
+      if (isProtectedFromDeep(tab)) continue;
       try {
         await browser.tabs.discard(tab.id);
       } catch (error) {
@@ -212,14 +221,31 @@ browser.tabGroups.onCreated.addListener(() => load().catch(console.error));
 browser.tabGroups.onUpdated.addListener(() => load().catch(console.error));
 browser.tabGroups.onRemoved.addListener(() => load().catch(console.error));
 
+restoreUiState().catch(console.error);
+
 load().catch(error => {
   console.error(error);
   app.textContent = "Chyba při načítání. Podrobnosti jsou v konzoli rozšíření.";
 });
 
 
-settingsToggle.addEventListener("click", () => {
+const SETTINGS_OPEN_KEY = "fwm.ui.settingsOpen";
+
+async function restoreUiState() {
+  const stored = await browser.storage.local.get(SETTINGS_OPEN_KEY);
+  settingsPanel.hidden = stored[SETTINGS_OPEN_KEY] !== true;
+}
+
+settingsToggle.addEventListener("click", async () => {
   settingsPanel.hidden = !settingsPanel.hidden;
+  await browser.storage.local.set({ [SETTINGS_OPEN_KEY]: !settingsPanel.hidden });
+});
+
+closeButton.addEventListener("click", async () => {
+  const current = await browser.tabs.getCurrent();
+  if (current?.id != null) {
+    await browser.tabs.remove(current.id);
+  }
 });
 
 hostPoliciesEl.addEventListener("change", async event => {
