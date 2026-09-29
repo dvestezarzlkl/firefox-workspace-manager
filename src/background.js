@@ -56,9 +56,7 @@ function resolvePolicy(tab, config) {
   const url = tab.url ?? "";
   if (isExtensionUrl(url)) return "KEEP";
 
-  const urlRule = [...config.urlPolicies]
-    .filter(rule => rule?.pattern && url.startsWith(rule.pattern))
-    .sort((a, b) => b.pattern.length - a.pattern.length)[0];
+  const urlRule = config.urlPolicies.find(rule => rule?.url === url);
   if (urlRule?.mode) return urlRule.mode;
 
   const host = hostnameFromUrl(url);
