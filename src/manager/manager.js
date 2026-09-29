@@ -50,7 +50,12 @@ let activeWorkspaceId = null;
 let expandedWorkspaceId = null;
 let workspaceDebugLog = [];
 
-if (managerVersion) managerVersion.textContent = "v" + browser.runtime.getManifest().version;
+const manifestMeta = browser.runtime.getManifest();
+if (managerVersion) managerVersion.textContent = "v" + manifestMeta.version;
+if (managerDeveloper) {
+  managerDeveloper.textContent = manifestMeta.developer?.name || manifestMeta.author || "dvestezar.cz";
+  managerDeveloper.href = manifestMeta.developer?.url || manifestMeta.homepage_url || "https://dvestezar.cz/";
+}
 
 function esc(value) {
   return String(value ?? "")
