@@ -9,6 +9,11 @@ branch = dev
 
 ## Done
 
+- 0.4.6: Restore no longer reuses the window shell about:blank tab as the first saved tab.
+- Every saved tab is created explicitly with tabs.create; the temporary shell tab is removed afterward.
+- This removes the special first-tab path that could revert MPI (or another first URL) back to about:blank after recovery/session transitions.
+- Restore debug now includes deferredDiscardEntries with source URL and restored tab ID.
+
 - 0.4.5: groupKey is now authoritative for imported/current workspace data.
 - Explicit groupKey:null means ungrouped and is never migrated through legacy runtimeGroupId fallback.
 - Legacy runtimeGroupId migration is used only when the groupKey property is completely absent.
@@ -198,13 +203,13 @@ branch = dev
 
 ## Next
 
-1. Pull 0.4.5.
-2. Delete/rename the currently corrupted Práce definition and import the known-good JSON backup again.
-3. Before recovery, verify detail: videa=2, ZLKL=2, čtení=2, partneři=3; remaining tabs must be under Bez skupiny.
-4. Start Recover session.
-5. Verify restore-group-before reports tabCount 2/2/2 for window0 and 3 for window1.
-6. Verify both windows populate and Práce remains exactly 2 windows / 16 tabs / 4 groups.
-7. Close Firefox, restart without native session, verify Práce is ZAVŘENÝ and Recover session is available.
+1. Pull 0.4.6.
+2. Keep the current valid Práce workspace; no re-import should be necessary if its detail still contains the intended MPI URL.
+3. Close Firefox and start without native session.
+4. Recover Práce.
+5. Verify window1 first tab is MPI TECH, not about:blank.
+6. Close/restart once more and repeat recovery to verify the first-tab URL remains stable.
+7. If any first tab changes, copy Debug log; restore-window-populate-end now lists deferredDiscardEntries for exact correlation.
 
 ## localCommand
 
