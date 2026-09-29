@@ -53,6 +53,17 @@
     </section>
 
     <section class="settings-card">
+      <h2>URL výjimky</h2>
+      <p>Nejkonkrétnější pravidlo má přednost před hostname. Pro stránku, která musí držet EventSource/WebSocket, použij KEEP prefix.</p>
+      <div class="url-rule-add">
+        <input id="urlPattern" type="url" placeholder="https://is.zlkl.cz/cesta/ke/strance">
+        <button id="useLastPage" type="button">Poslední stránka</button>
+        <button id="addUrlKeep" type="button">Přidat KEEP</button>
+      </div>
+      <div id="urlPolicies" class="url-policies"></div>
+    </section>
+
+    <section class="settings-card">
       <div class="settings-title-row">
         <div>
           <h2>Politiky podle hostname</h2>
