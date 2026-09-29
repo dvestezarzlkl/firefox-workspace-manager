@@ -1,5 +1,6 @@
 const app = document.getElementById("app");
 const refreshButton = document.getElementById("refresh");
+const deepAllButton = document.getElementById("deepAll");
 
 function esc(value) {
   return String(value ?? "")
@@ -102,4 +103,31 @@ refreshButton.addEventListener("click", () => load().catch(console.error));
 load().catch(error => {
   console.error(error);
   app.textContent = "Chyba při načítání. Podrobnosti jsou v konzoli rozšíření.";
+});
+
+
+deepAllButton.addEventListener("click", async () => {
+  deepAllButton.disabled = true;
+
+  try {
+    const tabs = await browser.tabs.query({});
+    const candidates = tabs.filter(tab =>
+      !tab.active &&
+      !tab.discarded &&
+      !tab.audible &&
+      !tab.pinned &&
+      tab.id != null
+    );
+
+    for (const tab of candidates) {
+      try {
+        await browser.tabs.discard(tab.id);
+      } catch (error) {
+        console.warn("Bulk DEEP skipped tab", tab.id, error);
+      }
+    }
+  } finally {
+    deepAllButton.disabled = false;
+    await load();
+  }
 });
