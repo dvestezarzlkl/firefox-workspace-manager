@@ -1,4 +1,5 @@
 const STORAGE_KEY = "fwm.state";
+const LAST_ACTIVE_CONTENT_KEY = "fwm.lastActiveContentTabs";
 
 function emptyState() {
   return {
@@ -66,7 +67,18 @@ async function snapshotAllWindows() {
 }
 
 browser.runtime.onInstalled.addListener(() => {
-  snapshotAllWindows().catch(console.error);
+  async function seedLastActiveContentTabs() {
+  const tabs = await browser.tabs.query({ active: true });
+  for (const tab of tabs) {
+    if (tab.id == null || tab.windowId < 0) continue;
+    const url = tab.url ?? "";
+    if (!/^https?:\/\//i.test(url)) continue;
+    await rememberActiveContentTab({ tabId: tab.id, windowId: tab.windowId });
+  }
+}
+
+snapshotAllWindows().catch(console.error);
+seedLastActiveContentTabs().catch(console.error);
 });
 
 browser.runtime.onStartup.addListener(() => {
@@ -83,7 +95,23 @@ browser.tabs.onRemoved.addListener((_tabId, removeInfo) => {
   }
 });
 
+async function rememberActiveContentTab(activeInfo) {
+  try {
+    const tab = await browser.tabs.get(activeInfo.tabId);
+    const url = tab.url ?? "";
+    if (!/^https?:\/\//i.test(url)) return;
+
+    const stored = await browser.storage.local.get(LAST_ACTIVE_CONTENT_KEY);
+    const map = stored[LAST_ACTIVE_CONTENT_KEY] ?? {};
+    map[String(activeInfo.windowId)] = activeInfo.tabId;
+    await browser.storage.local.set({ [LAST_ACTIVE_CONTENT_KEY]: map });
+  } catch (error) {
+    console.warn("Unable to remember active content tab", error);
+  }
+}
+
 browser.tabs.onActivated.addListener(activeInfo => {
+  rememberActiveContentTab(activeInfo).catch(console.error);
   snapshotWindow(activeInfo.windowId).catch(console.error);
 });
 
