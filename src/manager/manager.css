@@ -405,3 +405,35 @@ main {
 .help-card p + p {
   margin-top: 8px;
 }
+
+.workspace-tree {
+  border-top: 1px solid color-mix(in srgb, CanvasText 12%, transparent);
+  padding: 10px 12px 12px;
+}
+
+.workspace-tree-name {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.workspace-tree-window {
+  margin: 7px 0 0 12px;
+}
+
+.workspace-tree-window ul {
+  margin: 5px 0 0 18px;
+  padding: 0;
+}
+
+.workspace-tree-window li {
+  margin: 4px 0;
+}
+
+.workspace-tree-window li span {
+  margin-right: 8px;
+}
+
+.workspace-tree-window code {
+  opacity: .65;
+  word-break: break-all;
+}
