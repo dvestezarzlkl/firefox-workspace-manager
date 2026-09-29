@@ -22,6 +22,11 @@ const importWorkspaceButton = document.getElementById("importWorkspace");
 const importWorkspaceFile = document.getElementById("importWorkspaceFile");
 const managerVersion = document.getElementById("managerVersion");
 const managerDeveloper = document.getElementById("managerDeveloper");
+const panelSearch = document.getElementById("panelSearch");
+const panelFilterReset = document.getElementById("panelFilterReset");
+const panelStateFilters = document.getElementById("panelStateFilters");
+const panelPolicyFilters = document.getElementById("panelPolicyFilters");
+const panelFilterInfo = document.getElementById("panelFilterInfo");
 
 const HOST_POLICIES_KEY = "fwm.hostPolicies";
 const KNOWN_HOSTS_KEY = "fwm.knownHosts";
@@ -36,6 +41,7 @@ const WORKSPACES_KEY = "fwm.workspaces";
 const SYNC_ENABLED_KEY = "fwm.sync.enabled";
 const ACTIVE_WORKSPACE_KEY = "fwm.activeWorkspaceId";
 const WORKSPACE_DEBUG_KEY = "fwm.workspaceDebugLog";
+const PANEL_EXPLORER_STATE_KEY = "fwm.panelExplorerState";
 
 let managerTabId = null;
 let managerWindowId = null;
@@ -43,6 +49,7 @@ let lastActiveContentTabId = null;
 let currentOpenHosts = [];
 let knownHosts = [];
 let currentWindows = [];
+let currentWindowGroups = new Map();
 let lifecycleMap = {};
 let hostStats = {};
 let urlPolicies = [];
@@ -51,6 +58,32 @@ let workspaces = {};
 let activeWorkspaceId = null;
 let expandedWorkspaceId = null;
 let workspaceDebugLog = [];
+let panelStateFilterSet = new Set();
+let panelPolicyFilterSet = new Set();
+
+function loadPanelExplorerState() {
+  try {
+    const raw = localStorage.getItem(PANEL_EXPLORER_STATE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return {
+      windows: new Set(Array.isArray(parsed.windows) ? parsed.windows : []),
+      groups: new Set(Array.isArray(parsed.groups) ? parsed.groups : [])
+    };
+  } catch {
+    return { windows: new Set(), groups: new Set() };
+  }
+}
+
+const panelExplorerState = loadPanelExplorerState();
+
+function savePanelExplorerState() {
+  try {
+    localStorage.setItem(PANEL_EXPLORER_STATE_KEY, JSON.stringify({
+      windows: [...panelExplorerState.windows],
+      groups: [...panelExplorerState.groups]
+    }));
+  } catch {}
+}
 
 const manifestMeta = browser.runtime.getManifest();
 if (managerVersion) managerVersion.textContent = "v" + manifestMeta.version;
@@ -194,6 +227,95 @@ function policyBadge(tab) {
   return "";
 }
 
+function tabPolicyFilterKey(tab) {
+  if (exactUrlException(tab)) return "except";
+  const host = hostnameFromUrl(tab.url);
+  const mode = host ? hostPolicies[host] : null;
+  if (mode === "KEEP") return "keep";
+  if (mode === "DEEP") return "deep-always";
+  return "auto";
+}
+
+function shortTabUrl(url) {
+  const raw = String(url ?? "");
+  try {
+    const parsed = new URL(raw);
+    if (["http:", "https:"].includes(parsed.protocol)) {
+      const value = parsed.host + parsed.pathname + parsed.search + parsed.hash;
+      return value.length > 120 ? value.slice(0, 117) + "…" : value;
+    }
+  } catch {}
+  return raw.length > 120 ? raw.slice(0, 117) + "…" : raw;
+}
+
+function panelFilterActive() {
+  return !!panelSearch?.value.trim() || panelStateFilterSet.size > 0 || panelPolicyFilterSet.size > 0;
+}
+
+function panelSearchActive() {
+  return !!panelSearch?.value.trim();
+}
+
+function tabMatchesPanelFilters(tab, groupTitle = "") {
+  const query = panelSearch?.value.trim().toLocaleLowerCase("cs-CZ") ?? "";
+  if (query) {
+    const haystack = [
+      tab.title ?? "",
+      tab.url ?? "",
+      groupTitle ?? ""
+    ].join("\n").toLocaleLowerCase("cs-CZ");
+    if (!haystack.includes(query)) return false;
+  }
+
+  if (panelStateFilterSet.size) {
+    const states = new Set();
+    if (tab.active) states.add("active");
+    if (tab.discarded) states.add("deep");
+    else states.add("loaded");
+    if (![...panelStateFilterSet].some(value => states.has(value))) return false;
+  }
+
+  if (panelPolicyFilterSet.size && !panelPolicyFilterSet.has(tabPolicyFilterKey(tab))) {
+    return false;
+  }
+
+  return true;
+}
+
+function updatePanelFilterUi(allTabs, visibleTabs) {
+  const counts = {
+    active: allTabs.filter(tab => tab.active).length,
+    loaded: allTabs.filter(tab => !tab.discarded).length,
+    deep: allTabs.filter(tab => tab.discarded).length,
+    auto: allTabs.filter(tab => tabPolicyFilterKey(tab) === "auto").length,
+    keep: allTabs.filter(tab => tabPolicyFilterKey(tab) === "keep").length,
+    "deep-always": allTabs.filter(tab => tabPolicyFilterKey(tab) === "deep-always").length,
+    except: allTabs.filter(tab => tabPolicyFilterKey(tab) === "except").length
+  };
+
+  for (const [key, value] of Object.entries(counts)) {
+    const el = document.querySelector('[data-panel-filter-count="' + key + '"]');
+    if (el) el.textContent = String(value);
+  }
+
+  document.querySelectorAll(".panel-filter").forEach(button => {
+    const set = button.dataset.panelFilterCategory === "state"
+      ? panelStateFilterSet
+      : panelPolicyFilterSet;
+    const active = set.has(button.dataset.panelFilter);
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+
+  const filtered = panelFilterActive();
+  if (panelFilterReset) panelFilterReset.hidden = !filtered;
+  if (panelFilterInfo) {
+    panelFilterInfo.textContent = filtered
+      ? visibleTabs + " z " + allTabs.length + " panelů"
+      : allTabs.length + " panelů";
+  }
+}
+
 function formatClock(ts) {
   if (!ts) return "—";
   return new Date(ts).toLocaleTimeString("cs-CZ", { hour12: false });
@@ -228,6 +350,7 @@ function renderTab(tab) {
     <div class="tab" data-tab-id="${tab.id}">
       <div class="tab-main">
         <div class="tab-title" title="${esc(tab.url)}">${esc(tab.title || tab.url || "(bez názvu)")}</div>
+        <div class="tab-url" title="${esc(tab.url)}">${esc(shortTabUrl(tab.url))}</div>
         <div class="meta">
           ${stateBadge(tab)}
           <span>#${tab.id}</span>
@@ -471,6 +594,102 @@ function renderWorkspaces() {
   }).join("");
 }
 
+function renderPanels() {
+  const chunks = [];
+  const allTabs = currentWindows.flatMap(win => win.tabs ?? []);
+  let visibleTabCount = 0;
+  const filtering = panelFilterActive();
+  const searchActive = panelSearchActive();
+
+  for (const win of currentWindows) {
+    const groups = currentWindowGroups.get(win.id) ?? [];
+    const tabs = win.tabs ?? [];
+    const groupedIds = new Set();
+    const groupChunks = [];
+
+    for (const group of groups) {
+      const groupTabs = tabs.filter(tab => tab.groupId === group.id);
+      groupTabs.forEach(tab => groupedIds.add(tab.id));
+
+      const title = group.title || "(skupina bez názvu)";
+      const visibleTabs = groupTabs.filter(tab => tabMatchesPanelFilters(tab, title));
+      if (filtering && !visibleTabs.length) continue;
+
+      visibleTabCount += visibleTabs.length;
+      const groupKey = String(win.id) + ":" + String(group.id);
+      const groupOpen = searchActive || (!filtering && panelExplorerState.groups.has(groupKey));
+      const shownTabs = filtering ? visibleTabs : groupTabs;
+      const deepCount = shownTabs.filter(tab => tab.discarded).length;
+      const countText = filtering
+        ? shownTabs.length + "/" + groupTabs.length + " panelů"
+        : groupTabs.length + " panelů";
+
+      groupChunks.push(`
+        <details class="group" data-panel-group-key="${esc(groupKey)}" ${groupOpen ? "open" : ""}>
+          <summary class="group-header">
+            <span class="disclosure-title">${esc(title)} · ${countText} · ${deepCount} DEEP · ${esc(group.color)}</span>
+            <button type="button" data-action="deep-group" data-group-id="${group.id}">DEEP skupinu</button>
+          </summary>
+          ${shownTabs.length ? shownTabs.map(renderTab).join("") : '<div class="empty">Prázdná skupina</div>'}
+        </details>`);
+    }
+
+    const ungrouped = tabs.filter(tab => !groupedIds.has(tab.id));
+    const visibleUngrouped = ungrouped.filter(tab => tabMatchesPanelFilters(tab, "Bez skupiny"));
+    if (!filtering || visibleUngrouped.length) {
+      const groupKey = String(win.id) + ":ungrouped";
+      const groupOpen = searchActive || (!filtering && panelExplorerState.groups.has(groupKey));
+      const shownTabs = filtering ? visibleUngrouped : ungrouped;
+
+      if (shownTabs.length) {
+        visibleTabCount += shownTabs.length;
+        const deepCount = shownTabs.filter(tab => tab.discarded).length;
+        const countText = filtering
+          ? shownTabs.length + "/" + ungrouped.length + " panelů"
+          : ungrouped.length + " panelů";
+
+        groupChunks.push(`
+          <details class="group" data-panel-group-key="${esc(groupKey)}" ${groupOpen ? "open" : ""}>
+            <summary class="group-header">
+              <span class="disclosure-title">Bez skupiny · ${countText} · ${deepCount} DEEP</span>
+            </summary>
+            ${shownTabs.map(renderTab).join("")}
+          </details>`);
+      }
+    }
+
+    if (filtering && !groupChunks.length) continue;
+
+    const visibleInWindow = filtering
+      ? tabs.filter(tab => {
+          const group = groups.find(item => item.id === tab.groupId);
+          return tabMatchesPanelFilters(tab, group?.title || "Bez skupiny");
+        }).length
+      : tabs.length;
+
+    const windowKey = String(win.id);
+    const windowOpen = filtering || panelExplorerState.windows.has(windowKey);
+    const windowDeep = tabs.filter(tab => tab.discarded).length;
+    const countText = filtering
+      ? visibleInWindow + "/" + tabs.length + " panelů"
+      : tabs.length + " panelů";
+
+    chunks.push(`
+      <details class="window" data-panel-window-key="${esc(windowKey)}" ${windowOpen ? "open" : ""}>
+        <summary class="window-header">
+          <span class="disclosure-title">Okno #${win.id} · ${countText} · ${groups.length} skupin · ${windowDeep} DEEP</span>
+        </summary>
+        <div class="groups">${groupChunks.join("")}</div>
+      </details>`);
+  }
+
+  app.innerHTML = chunks.length
+    ? chunks.join("")
+    : '<div class="empty panel-empty">Žádné panely neodpovídají aktuálnímu filtru.</div>';
+
+  updatePanelFilterUi(allTabs, filtering ? visibleTabCount : allTabs.length);
+}
+
 async function load() {
   app.textContent = "Načítám…";
 
@@ -486,57 +705,22 @@ async function load() {
   renderWorkspaces();
 
   currentWindows = await browser.windows.getAll({ populate: true, windowTypes: ["normal"] });
-
-  let totalTabs = 0;
-  let deepTabs = 0;
-  let loadedTabs = 0;
-  let activeTabs = 0;
-  const chunks = [];
+  currentWindowGroups = new Map();
 
   for (const win of currentWindows) {
-    const groups = await browser.tabGroups.query({ windowId: win.id });
-    const tabs = win.tabs ?? [];
-    totalTabs += tabs.length;
-    deepTabs += tabs.filter(tab => tab.discarded).length;
-    activeTabs += tabs.filter(tab => tab.active).length;
-    loadedTabs += tabs.filter(tab => !tab.discarded).length;
-
-    const groupedIds = new Set();
-    const groupHtml = groups.map(group => {
-      const groupTabs = tabs.filter(tab => tab.groupId === group.id);
-      groupTabs.forEach(tab => groupedIds.add(tab.id));
-      const groupDeep = groupTabs.filter(tab => tab.discarded).length;
-      return `
-        <section class="group">
-          <div class="group-header">
-            <h3>${esc(group.title || "(skupina bez názvu)")} · ${groupTabs.length} tabů · ${groupDeep} DEEP · ${esc(group.color)}</h3>
-            <button type="button" data-action="deep-group" data-group-id="${group.id}">DEEP skupinu</button>
-          </div>
-          ${groupTabs.length ? groupTabs.map(renderTab).join("") : '<div class="empty">Prázdná skupina</div>'}
-        </section>`;
-    }).join("");
-
-    const ungrouped = tabs.filter(tab => !groupedIds.has(tab.id));
-    const ungroupedHtml = ungrouped.length ? `
-      <section class="group">
-        <div class="group-header">
-          <h3>Bez skupiny · ${ungrouped.length} tabů · ${ungrouped.filter(tab => tab.discarded).length} DEEP</h3>
-        </div>
-        ${ungrouped.map(renderTab).join("")}
-      </section>` : "";
-
-    chunks.push(`
-      <section class="window">
-        <h2>Okno #${win.id} · ${tabs.length} tabů · ${groups.length} skupin</h2>
-        <div class="groups">${groupHtml}${ungroupedHtml}</div>
-      </section>`);
+    currentWindowGroups.set(win.id, await browser.tabGroups.query({ windowId: win.id }));
   }
 
-  summary.textContent = `${currentWindows.length} oken · ${totalTabs} tabů · ${loadedTabs} loaded · ${deepTabs} deep · ${activeTabs} active`;
-  app.innerHTML = chunks.length ? chunks.join("") : '<div class="empty">Žádné normální Firefox okno.</div>';
+  const allTabs = currentWindows.flatMap(win => win.tabs ?? []);
+  const deepTabs = allTabs.filter(tab => tab.discarded).length;
+  const activeTabs = allTabs.filter(tab => tab.active).length;
+  const loadedTabs = allTabs.filter(tab => !tab.discarded).length;
+
+  summary.textContent = `${currentWindows.length} oken · ${allTabs.length} panelů · ${loadedTabs} loaded · ${deepTabs} deep · ${activeTabs} active`;
+  renderPanels();
 
   currentOpenHosts = [...new Set(
-    currentWindows.flatMap(win => (win.tabs ?? []).map(tab => hostnameFromUrl(tab.url)).filter(Boolean))
+    allTabs.map(tab => hostnameFromUrl(tab.url)).filter(Boolean)
   )].sort();
 
   await updateKnownHosts(currentOpenHosts);
@@ -581,6 +765,55 @@ document.querySelector(".page-tabs").addEventListener("click", event => {
   if (button) setPage(button.dataset.page).catch(console.error);
 });
 
+panelSearch.addEventListener("input", () => renderPanels());
+
+function togglePanelFilter(button) {
+  const targetSet = button.dataset.panelFilterCategory === "state"
+    ? panelStateFilterSet
+    : panelPolicyFilterSet;
+  const value = button.dataset.panelFilter;
+  if (targetSet.has(value)) targetSet.delete(value);
+  else targetSet.add(value);
+  renderPanels();
+}
+
+panelStateFilters.addEventListener("click", event => {
+  const button = event.target.closest(".panel-filter");
+  if (button) togglePanelFilter(button);
+});
+
+panelPolicyFilters.addEventListener("click", event => {
+  const button = event.target.closest(".panel-filter");
+  if (button) togglePanelFilter(button);
+});
+
+panelFilterReset.addEventListener("click", () => {
+  panelSearch.value = "";
+  panelStateFilterSet.clear();
+  panelPolicyFilterSet.clear();
+  renderPanels();
+  panelSearch.focus();
+});
+
+app.addEventListener("toggle", event => {
+  if (panelFilterActive()) return;
+  const details = event.target;
+  const windowKey = details?.dataset?.panelWindowKey;
+  const groupKey = details?.dataset?.panelGroupKey;
+
+  if (windowKey) {
+    if (details.open) panelExplorerState.windows.add(windowKey);
+    else panelExplorerState.windows.delete(windowKey);
+  }
+
+  if (groupKey) {
+    if (details.open) panelExplorerState.groups.add(groupKey);
+    else panelExplorerState.groups.delete(groupKey);
+  }
+
+  if (windowKey || groupKey) savePanelExplorerState();
+}, true);
+
 app.addEventListener("click", async event => {
   const exceptButton = event.target.closest('button[data-action="except"]');
   if (exceptButton) {
@@ -623,6 +856,8 @@ app.addEventListener("click", async event => {
 
   const groupButton = event.target.closest('button[data-action="deep-group"]');
   if (groupButton) {
+    event.preventDefault();
+    event.stopPropagation();
     const groupId = Number(groupButton.dataset.groupId);
     groupButton.disabled = true;
     try {
