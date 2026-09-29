@@ -13,7 +13,8 @@
     "tabs",
     "storage",
     "sessions",
-    "tabGroups"
+    "tabGroups",
+    "alarms"
   ],
   "background": {
     "scripts": [
@@ -23,6 +24,12 @@
   },
   "action": {
     "default_title": "Firefox Workspace Manager",
-    "default_popup": "src/popup/popup.html"
+    "default_popup": "src/popup/popup.html",
+    "default_icon": "assets/icon.svg"
+  },
+  "icons": {
+    "32": "assets/icon.svg",
+    "64": "assets/icon.svg",
+    "128": "assets/icon.svg"
   }
 }
