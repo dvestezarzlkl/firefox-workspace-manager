@@ -464,6 +464,10 @@ async function saveWorkspaceSnapshot(win, groups) {
     })
   };
 
+  workspace.windows[mapping.logicalWindowId].fingerprintVersion = 1;
+  workspace.windows[mapping.logicalWindowId].fingerprint =
+    await fingerprintSavedWindow(workspace.windows[mapping.logicalWindowId]);
+
   workspace.updatedAt = Date.now();
   workspace.open = true;
   workspace.active = true;
@@ -483,6 +487,84 @@ async function saveWorkspaceSnapshot(win, groups) {
   });
 
   return activeWorkspaceId;
+}
+
+function normalizeFingerprintText(value) {
+  return String(value ?? "")
+    .normalize("NFC")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function normalizeFingerprintUrl(url) {
+  const raw = String(url ?? "").trim();
+  if (!raw) return "";
+
+  try {
+    const parsed = new URL(raw);
+    return parsed.href;
+  } catch {
+    return raw;
+  }
+}
+
+async function sha256Hex(value) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map(byte => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function savedWindowFingerprintRows(savedWindow) {
+  const groupTitleByKey = new Map(
+    (savedWindow?.groups ?? []).map(group => [
+      group.groupKey ?? group.key ?? null,
+      normalizeFingerprintText(group.title || "")
+    ])
+  );
+
+  return (savedWindow?.tabs ?? [])
+    .filter(tab => !isExtensionUrl(tab.url))
+    .map(tab => {
+      const groupTitle = tab.groupKey
+        ? (groupTitleByKey.get(tab.groupKey) ?? "<unknown-group>")
+        : "<ungrouped>";
+      return groupTitle + "|" + normalizeFingerprintUrl(tab.url);
+    })
+    .sort();
+}
+
+function liveWindowFingerprintRows(liveWindow, liveGroups) {
+  const groupTitleByRuntimeId = new Map(
+    (liveGroups ?? []).map(group => [
+      group.id,
+      normalizeFingerprintText(group.title || "")
+    ])
+  );
+
+  return (liveWindow?.tabs ?? [])
+    .filter(tab => !isExtensionUrl(tab.url))
+    .map(tab => {
+      const groupTitle = tab.groupId != null && tab.groupId !== -1
+        ? (groupTitleByRuntimeId.get(tab.groupId) ?? "<unknown-group>")
+        : "<ungrouped>";
+      return groupTitle + "|" + normalizeFingerprintUrl(tab.url);
+    })
+    .sort();
+}
+
+async function fingerprintRows(rows) {
+  return sha256Hex(["fwm-window-fingerprint-v1", ...rows].join("\n"));
+}
+
+async function fingerprintSavedWindow(savedWindow) {
+  return fingerprintRows(savedWindowFingerprintRows(savedWindow));
+}
+
+async function fingerprintLiveWindow(liveWindow, liveGroups) {
+  return fingerprintRows(liveWindowFingerprintRows(liveWindow, liveGroups));
 }
 
 function multisetOverlap(valuesA, valuesB) {
@@ -589,12 +671,15 @@ async function tryReattachWorkspaceWindow(windowId) {
     liveGroups = await browser.tabGroups.query({ windowId });
   } catch {}
 
+  const liveFingerprint = await fingerprintLiveWindow(win, liveGroups);
+
   const candidateWorkspaceIds =
     store.activeWorkspaceId && store.workspaces[store.activeWorkspaceId]
       ? [store.activeWorkspaceId]
       : Object.keys(store.workspaces);
 
-  const candidates = [];
+  const exactCandidates = [];
+  const fuzzyCandidates = [];
 
   for (const workspaceId of candidateWorkspaceIds) {
     const workspace = store.workspaces[workspaceId];
@@ -603,18 +688,47 @@ async function tryReattachWorkspaceWindow(windowId) {
     for (const [logicalWindowId, savedWindow] of Object.entries(workspace.windows)) {
       if (savedWindow?.open || savedWindow?.runtimeWindowId != null) continue;
 
+      const savedFingerprint = savedWindow.fingerprint ||
+        await fingerprintSavedWindow(savedWindow);
+
+      if (!savedWindow.fingerprint) {
+        savedWindow.fingerprintVersion = 1;
+        savedWindow.fingerprint = savedFingerprint;
+      }
+
+      if (savedFingerprint === liveFingerprint) {
+        exactCandidates.push({
+          workspaceId,
+          logicalWindowId,
+          savedWindow,
+          match: {
+            score: 1,
+            accepted: true,
+            method: "fingerprint",
+            fingerprint: liveFingerprint
+          }
+        });
+        continue;
+      }
+
       const match = scoreWorkspaceWindowMatch(savedWindow, win, liveGroups);
       if (!match?.accepted) continue;
 
-      candidates.push({
+      fuzzyCandidates.push({
         workspaceId,
         logicalWindowId,
         savedWindow,
-        match
+        match: {
+          ...match,
+          method: "fuzzy",
+          liveFingerprint,
+          savedFingerprint
+        }
       });
     }
   }
 
+  const candidates = exactCandidates.length ? exactCandidates : fuzzyCandidates;
   if (!candidates.length) return false;
 
   candidates.sort((a, b) => b.match.score - a.match.score);
@@ -622,7 +736,12 @@ async function tryReattachWorkspaceWindow(windowId) {
   const second = candidates[1];
 
   // Avoid silently attaching an ambiguous new window.
-  if (second && best.match.score < 0.90 && (best.match.score - second.match.score) < 0.12) {
+  if (
+    second &&
+    best.match.method !== "fingerprint" &&
+    best.match.score < 0.90 &&
+    (best.match.score - second.match.score) < 0.12
+  ) {
     await workspaceDebug("window-reattach-ambiguous", {
       runtimeWindowId: windowId,
       best: {
@@ -674,6 +793,8 @@ async function tryReattachWorkspaceWindow(windowId) {
     workspaceId: best.workspaceId,
     logicalWindowId: best.logicalWindowId,
     runtimeWindowId: windowId,
+    matchMethod: best.match.method ?? "fuzzy",
+    liveFingerprint,
     ...best.match
   });
 
@@ -1560,26 +1681,31 @@ async function createWorkspaceFromCurrentState(name) {
 
     if (!savedTabs.length) continue;
 
+    const snapshot = {
+      id: logicalWindowId,
+      open: true,
+      runtimeWindowId: win.id,
+      closedAt: null,
+      updatedAt: Date.now(),
+      window: {
+        state: win.state,
+        left: win.left,
+        top: win.top,
+        width: win.width,
+        height: win.height,
+        incognito: win.incognito
+      },
+      groups: savedGroups,
+      tabs: savedTabs
+    };
+
+    snapshot.fingerprintVersion = 1;
+    snapshot.fingerprint = await fingerprintSavedWindow(snapshot);
+
     captured.push({
       runtimeWindowId: win.id,
       logicalWindowId,
-      snapshot: {
-        id: logicalWindowId,
-        open: true,
-        runtimeWindowId: win.id,
-        closedAt: null,
-        updatedAt: Date.now(),
-        window: {
-          state: win.state,
-          left: win.left,
-          top: win.top,
-          width: win.width,
-          height: win.height,
-          incognito: win.incognito
-        },
-        groups: savedGroups,
-        tabs: savedTabs
-      }
+      snapshot
     });
   }
 
