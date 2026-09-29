@@ -9,6 +9,12 @@ branch = dev
 
 ## Done
 
+- Prevented automatic creation of a new workspace when closed workspaces already exist but none is active.
+- Added workspace debug log in background for create/snapshot/close/restore operations.
+- Added simple workspace detail tree: workspace name -> window0/windowN -> tab title + URL.
+- Added Export JSON per workspace and Import JSON for creating a new workspace with fresh internal IDs.
+- Version bumped to 0.3.2.
+
 - Fixed phantom-workspace race during restore.
 - Restore now suppresses automatic workspace snapshots until newly created windows are mapped back to the target workspace.
 - If no active workspace exists, switching/restoring now goes directly to the selected workspace instead of snapshotting the manager window into a new workspace.
