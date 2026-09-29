@@ -427,7 +427,7 @@ function renderWorkspaces() {
             <button type="button" data-workspace-action="details" data-workspace-id="${esc(workspace.id)}">${expandedWorkspaceId === workspace.id ? "Skrýt" : "👁 Detail"}</button>
             <button type="button" data-workspace-action="export" data-workspace-id="${esc(workspace.id)}">Export JSON</button>
             <button type="button" data-workspace-action="switch" data-workspace-id="${esc(workspace.id)}" ${active ? "disabled" : ""}>
-              ${workspace.open ? "Přepnout" : "Obnovit"}
+              ${workspace.open ? "Přepnout" : "Recover session"}
             </button>
             <button type="button" data-workspace-action="rename" data-workspace-id="${esc(workspace.id)}">Přejmenovat</button>
             <button type="button" data-workspace-action="delete" data-workspace-id="${esc(workspace.id)}">Smazat</button>
