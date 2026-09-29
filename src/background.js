@@ -13,6 +13,7 @@ const SYNC_ENABLED_KEY = "fwm.sync.enabled";
 const SYNC_KEYS = [AUTO_SETTINGS_KEY, HOST_POLICIES_KEY, URL_POLICIES_KEY];
 
 const activeByWindow = new Map();
+let workspaceRestoreDepth = 0;
 
 function defaultAutoSettings() {
   return {
@@ -42,6 +43,14 @@ function hostnameFromUrl(url) {
 
 function isExtensionUrl(url) {
   return /^(moz|chrome)-extension:\/\//i.test(url ?? "");
+}
+
+function hasWorkspaceContent(win) {
+  return (win?.tabs ?? []).some(tab => {
+    const url = tab?.url ?? "";
+    if (isExtensionUrl(url)) return false;
+    return !["about:blank", "about:newtab", "about:home"].includes(url);
+  });
 }
 
 async function getConfig() {
@@ -229,7 +238,16 @@ async function ensureActiveWorkspace() {
 }
 
 async function saveWorkspaceSnapshot(win, groups) {
-  const store = await ensureActiveWorkspace();
+  if (workspaceRestoreDepth > 0) return null;
+
+  const existing = await loadWorkspaceStore();
+  if ((!existing.activeWorkspaceId || !existing.workspaces[existing.activeWorkspaceId]) && !hasWorkspaceContent(win)) {
+    return null;
+  }
+
+  const store = (!existing.activeWorkspaceId || !existing.workspaces[existing.activeWorkspaceId])
+    ? await ensureActiveWorkspace()
+    : existing;
   const { workspaces, windowMap, activeWorkspaceId } = store;
   const workspace = workspaces[activeWorkspaceId];
   const runtimeKey = String(win.id);
@@ -264,7 +282,7 @@ async function saveWorkspaceSnapshot(win, groups) {
       color: group.color,
       collapsed: group.collapsed
     })),
-    tabs: (win.tabs ?? []).map(tab => ({
+    tabs: (win.tabs ?? []).filter(tab => !isExtensionUrl(tab.url)).map(tab => ({
       runtimeTabId: tab.id,
       index: tab.index,
       url: tab.url,
@@ -410,6 +428,10 @@ async function restoreWorkspace(workspaceId) {
 
   const openWindows = Object.values(workspace.windows ?? {}).filter(win => win.open && win.runtimeWindowId != null);
   if (openWindows.length) {
+    await browser.storage.local.set({ "fwm.activeWorkspaceId": workspaceId });
+    workspace.active = true;
+    workspace.open = true;
+    await browser.storage.local.set({ [WORKSPACES_KEY]: workspaces });
     try {
       await browser.windows.update(openWindows[0].runtimeWindowId, { focused: true });
       return { windowIds: openWindows.map(win => win.runtimeWindowId), reused: true };
@@ -419,28 +441,37 @@ async function restoreWorkspace(workspaceId) {
   const restored = [];
   const newMap = { ...store.windowMap };
 
-  for (const [logicalWindowId, sourceWindow] of Object.entries(workspace.windows ?? {})) {
-    const windowId = await restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow);
-    restored.push(windowId);
-    newMap[String(windowId)] = { workspaceId, logicalWindowId };
+  workspaceRestoreDepth++;
+  try {
+    for (const [logicalWindowId, sourceWindow] of Object.entries(workspace.windows ?? {})) {
+      const windowId = await restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow);
+      restored.push(windowId);
+      newMap[String(windowId)] = { workspaceId, logicalWindowId };
 
-    sourceWindow.open = true;
-    sourceWindow.runtimeWindowId = windowId;
-    sourceWindow.closedAt = null;
-    sourceWindow.updatedAt = Date.now();
+      sourceWindow.open = true;
+      sourceWindow.runtimeWindowId = windowId;
+      sourceWindow.closedAt = null;
+      sourceWindow.updatedAt = Date.now();
+    }
+
+    workspace.open = restored.length > 0;
+    workspace.active = restored.length > 0;
+    workspace.closedAt = null;
+    workspace.restoredAt = Date.now();
+    workspace.updatedAt = Date.now();
+
+    for (const [id, other] of Object.entries(workspaces)) {
+      if (id !== workspaceId && other) other.active = false;
+    }
+
+    await browser.storage.local.set({
+      [WORKSPACES_KEY]: workspaces,
+      [WINDOW_WORKSPACE_MAP_KEY]: newMap,
+      "fwm.activeWorkspaceId": restored.length ? workspaceId : null
+    });
+  } finally {
+    workspaceRestoreDepth--;
   }
-
-  workspace.open = restored.length > 0;
-  workspace.active = restored.length > 0;
-  workspace.closedAt = null;
-  workspace.restoredAt = Date.now();
-  workspace.updatedAt = Date.now();
-
-  await browser.storage.local.set({
-    [WORKSPACES_KEY]: workspaces,
-    [WINDOW_WORKSPACE_MAP_KEY]: newMap,
-    "fwm.activeWorkspaceId": restored.length ? workspaceId : null
-  });
 
   if (restored.length) {
     try { await browser.windows.update(restored[0], { focused: true }); } catch {}
@@ -538,6 +569,11 @@ async function deleteWorkspace(workspaceId) {
 }
 
 async function switchWorkspace(targetWorkspaceId) {
+  const before = await loadWorkspaceStore();
+  if (!before.activeWorkspaceId || !before.workspaces[before.activeWorkspaceId]) {
+    return restoreWorkspace(targetWorkspaceId);
+  }
+
   await snapshotAllWindows();
   const store = await loadWorkspaceStore();
   const currentId = store.activeWorkspaceId;
@@ -1083,6 +1119,7 @@ browser.alarms.onAlarm.addListener(alarm => {
 });
 
 browser.tabs.onCreated.addListener(tab => {
+  if (workspaceRestoreDepth > 0) return;
   if (tab.windowId >= 0) snapshotWindow(tab.windowId).catch(console.error);
 });
 
@@ -1112,13 +1149,13 @@ browser.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
 
 browser.tabs.onActivated.addListener(activeInfo => {
   handleActivation(activeInfo).catch(console.error);
-  snapshotWindow(activeInfo.windowId).catch(console.error);
+  if (workspaceRestoreDepth === 0) snapshotWindow(activeInfo.windowId).catch(console.error);
 });
 
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   const relevant = ["url", "title", "pinned", "discarded", "autoDiscardable", "audible"];
   if (relevant.some(key => Object.hasOwn(changeInfo, key))) {
-    snapshotWindow(tab.windowId).catch(console.error);
+    if (workspaceRestoreDepth === 0) snapshotWindow(tab.windowId).catch(console.error);
   }
 
   if ("url" in changeInfo || "pinned" in changeInfo || "audible" in changeInfo || "discarded" in changeInfo) {
@@ -1169,11 +1206,18 @@ browser.storage.onChanged.addListener((changes, area) => {
   }
 });
 
-browser.tabGroups.onCreated.addListener(group => snapshotWindow(group.windowId).catch(console.error));
-browser.tabGroups.onUpdated.addListener(group => snapshotWindow(group.windowId).catch(console.error));
-browser.tabGroups.onMoved.addListener(group => snapshotWindow(group.windowId).catch(console.error));
+browser.tabGroups.onCreated.addListener(group => {
+  if (workspaceRestoreDepth === 0) snapshotWindow(group.windowId).catch(console.error);
+});
+browser.tabGroups.onUpdated.addListener(group => {
+  if (workspaceRestoreDepth === 0) snapshotWindow(group.windowId).catch(console.error);
+});
+browser.tabGroups.onMoved.addListener(group => {
+  if (workspaceRestoreDepth === 0) snapshotWindow(group.windowId).catch(console.error);
+});
 
 browser.windows.onCreated.addListener(win => {
+  if (workspaceRestoreDepth > 0) return;
   if (win.type === "normal") snapshotWindow(win.id).catch(console.error);
 });
 
