@@ -168,7 +168,7 @@ async function reconcileWorkspaceRuntimeState() {
 
   const workspaces = stored[WORKSPACES_KEY] ?? {};
   const windowMap = stored[WINDOW_WORKSPACE_MAP_KEY] ?? {};
-  const activeWorkspaceId = stored["fwm.activeWorkspaceId"] ?? null;
+  let activeWorkspaceId = stored["fwm.activeWorkspaceId"] ?? null;
   const liveWindows = await browser.windows.getAll({ windowTypes: ["normal"] });
   const liveIds = new Set(liveWindows.map(win => String(win.id)));
 
@@ -203,8 +203,28 @@ async function reconcileWorkspaceRuntimeState() {
       workspace.open = anyOpen;
       changed = true;
     }
-    if (workspace.active && workspace.id !== activeWorkspaceId) {
-      workspace.active = false;
+
+    const shouldBeActive = workspace.id === activeWorkspaceId && anyOpen;
+    if (!!workspace.active !== shouldBeActive) {
+      workspace.active = shouldBeActive;
+      changed = true;
+    }
+  }
+
+  if (activeWorkspaceId) {
+    const activeWorkspace = workspaces[activeWorkspaceId];
+    const hasLiveMappedWindow = Object.entries(windowMap).some(([runtimeId, mapping]) =>
+      mapping?.workspaceId === activeWorkspaceId &&
+      liveIds.has(runtimeId) &&
+      !!activeWorkspace?.windows?.[mapping.logicalWindowId]
+    );
+
+    if (!activeWorkspace || !hasLiveMappedWindow) {
+      await workspaceDebug("active-workspace-cleared-stale", {
+        workspaceId: activeWorkspaceId,
+        reason: "no-live-mapped-window"
+      });
+      activeWorkspaceId = null;
       changed = true;
     }
   }
@@ -212,7 +232,8 @@ async function reconcileWorkspaceRuntimeState() {
   if (changed) {
     await browser.storage.local.set({
       [WORKSPACES_KEY]: workspaces,
-      [WINDOW_WORKSPACE_MAP_KEY]: windowMap
+      [WINDOW_WORKSPACE_MAP_KEY]: windowMap,
+      "fwm.activeWorkspaceId": activeWorkspaceId
     });
   }
 
@@ -783,12 +804,24 @@ async function findLiveWorkspaceWindows(workspaceId, workspaces, windowMap) {
 
 async function inferActiveWorkspaceFromRuntime() {
   const store = await loadWorkspaceStore();
-  if (store.activeWorkspaceId && store.workspaces[store.activeWorkspaceId]) {
-    return store.activeWorkspaceId;
-  }
-
   const liveWindows = await browser.windows.getAll({ windowTypes: ["normal"] });
   const liveIds = new Set(liveWindows.map(win => String(win.id)));
+
+  if (store.activeWorkspaceId && store.workspaces[store.activeWorkspaceId]) {
+    const liveActiveMappings = Object.entries(store.windowMap ?? {}).filter(([runtimeId, mapping]) =>
+      mapping?.workspaceId === store.activeWorkspaceId && liveIds.has(runtimeId)
+    );
+
+    if (liveActiveMappings.length) return store.activeWorkspaceId;
+
+    const staleWorkspace = store.workspaces[store.activeWorkspaceId];
+    staleWorkspace.active = false;
+    staleWorkspace.open = false;
+    await browser.storage.local.set({
+      [WORKSPACES_KEY]: store.workspaces,
+      "fwm.activeWorkspaceId": null
+    });
+  }
   const counts = new Map();
 
   for (const [runtimeId, mapping] of Object.entries(store.windowMap ?? {})) {
