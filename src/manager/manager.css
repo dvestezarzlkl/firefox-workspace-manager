@@ -288,3 +288,41 @@ main {
   opacity: .55;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
+
+.closed-workspaces {
+  margin-bottom: 12px;
+}
+
+.closed-workspace-card {
+  border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.closed-workspace-title,
+.closed-workspace-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 11px;
+}
+
+.closed-workspace-title {
+  background: color-mix(in srgb, CanvasText 6%, Canvas);
+}
+
+.closed-workspace-row {
+  border-top: 1px solid color-mix(in srgb, CanvasText 10%, transparent);
+}
+
+.closed-workspace-row > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.closed-workspace-row span {
+  opacity: .65;
+  font-size: 12px;
+}
