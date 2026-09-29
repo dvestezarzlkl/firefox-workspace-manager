@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- 0.3.8: Restore no longer aborts on Firefox-internal URLs such as about:processes.
+- Non-restorable internal URLs are restored as about:blank and logged as substituted, allowing the rest of the window and its tab groups to restore.
+- Extension manager URLs remain excluded from workspace restore.
+
 - 0.3.7: Multi-window restore no longer passes saved geometry into windows.create.
 - Window geometry is applied afterward as best-effort; negative/off-screen multi-monitor coordinates cannot abort restore.
 - Each logical window restore is isolated: failure of windowN is logged and restore continues with windowN+1.
