@@ -16,6 +16,9 @@ const addUrlKeep = document.getElementById("addUrlKeep");
 const urlPoliciesEl = document.getElementById("urlPolicies");
 const syncEnabled = document.getElementById("syncEnabled");
 const closedWorkspacesEl = document.getElementById("closedWorkspaces");
+const workspaceListEl = document.getElementById("workspaceList");
+const snapshotWorkspaceButton = document.getElementById("snapshotWorkspace");
+const cloneWorkspaceButton = document.getElementById("cloneWorkspace");
 
 const HOST_POLICIES_KEY = "fwm.hostPolicies";
 const KNOWN_HOSTS_KEY = "fwm.knownHosts";
@@ -28,6 +31,7 @@ const HOST_STATS_KEY = "fwm.hostStats";
 const HOST_RESULT_LIMIT = 30;
 const WORKSPACES_KEY = "fwm.workspaces";
 const SYNC_ENABLED_KEY = "fwm.sync.enabled";
+const ACTIVE_WORKSPACE_KEY = "fwm.activeWorkspaceId";
 
 let managerTabId = null;
 let managerWindowId = null;
@@ -39,6 +43,8 @@ let lifecycleMap = {};
 let hostStats = {};
 let urlPolicies = [];
 let hostPolicies = {};
+let workspaces = {};
+let activeWorkspaceId = null;
 
 function esc(value) {
   return String(value ?? "")
@@ -301,6 +307,58 @@ async function renderHostPolicies() {
     : `Zobrazeny pouze hostname z aktuálně otevřených panelů; max. ${HOST_RESULT_LIMIT}.`;
 }
 
+
+function workspaceStats(workspace) {
+  const windows = Object.values(workspace?.windows ?? {});
+  return {
+    windows: windows.length,
+    openWindows: windows.filter(win => win.open).length,
+    tabs: windows.reduce((sum, win) => sum + (win.tabs ?? []).length, 0),
+    groups: windows.reduce((sum, win) => sum + (win.groups ?? []).length, 0)
+  };
+}
+
+function renderWorkspaces() {
+  const entries = Object.values(workspaces ?? {}).sort((a, b) => {
+    if (a.id === activeWorkspaceId) return -1;
+    if (b.id === activeWorkspaceId) return 1;
+    return (b.updatedAt || 0) - (a.updatedAt || 0);
+  });
+
+  if (!entries.length) {
+    workspaceListEl.innerHTML = '<div class="empty">Zatím není uložený žádný workspace.</div>';
+    return;
+  }
+
+  workspaceListEl.innerHTML = entries.map(workspace => {
+    const stat = workspaceStats(workspace);
+    const active = workspace.id === activeWorkspaceId;
+    const status = active ? "AKTIVNÍ" : (workspace.open ? "OTEVŘENÝ" : "ZAVŘENÝ");
+
+    return `
+      <section class="workspace-card ${active ? "workspace-active" : ""}">
+        <div class="workspace-card-main">
+          <div>
+            <div class="workspace-name-row">
+              <strong>${esc(workspace.name || "Workspace")}</strong>
+              <span class="workspace-status">${status}</span>
+            </div>
+            <div class="workspace-meta">
+              ${stat.windows} oken · ${stat.tabs} panelů · ${stat.groups} skupin
+            </div>
+          </div>
+          <div class="workspace-actions">
+            <button type="button" data-workspace-action="switch" data-workspace-id="${esc(workspace.id)}" ${active ? "disabled" : ""}>
+              ${workspace.open ? "Přepnout" : "Obnovit"}
+            </button>
+            <button type="button" data-workspace-action="rename" data-workspace-id="${esc(workspace.id)}">Přejmenovat</button>
+            <button type="button" data-workspace-action="delete" data-workspace-id="${esc(workspace.id)}">Smazat</button>
+          </div>
+        </div>
+      </section>`;
+  }).join("");
+}
+
 function renderClosedWorkspaces(workspaces) {
   const closed = Object.values(workspaces ?? {})
     .filter(workspace => workspace && workspace.persistent !== false && !workspace.open)
@@ -338,12 +396,15 @@ function renderClosedWorkspaces(workspaces) {
 async function load() {
   app.textContent = "Načítám…";
 
-  const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY, URL_POLICIES_KEY, HOST_POLICIES_KEY, WORKSPACES_KEY]);
+  const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY, URL_POLICIES_KEY, HOST_POLICIES_KEY, WORKSPACES_KEY, ACTIVE_WORKSPACE_KEY]);
   lifecycleMap = stored[TAB_LIFECYCLE_KEY] ?? {};
   hostStats = stored[HOST_STATS_KEY] ?? {};
   urlPolicies = Array.isArray(stored[URL_POLICIES_KEY]) ? stored[URL_POLICIES_KEY] : [];
   hostPolicies = stored[HOST_POLICIES_KEY] ?? {};
+  workspaces = stored[WORKSPACES_KEY] ?? {};
+  activeWorkspaceId = stored[ACTIVE_WORKSPACE_KEY] ?? null;
   renderUrlPolicies();
+  renderWorkspaces();
   renderClosedWorkspaces(stored[WORKSPACES_KEY] ?? {});
 
   currentWindows = await browser.windows.getAll({ populate: true, windowTypes: ["normal"] });
@@ -431,7 +492,9 @@ async function setPage(page) {
     button.classList.toggle("active", button.dataset.page === page);
   });
   document.getElementById("panelsPage").classList.toggle("active", page === "panels");
+  document.getElementById("workspacesPage").classList.toggle("active", page === "workspaces");
   document.getElementById("settingsPage").classList.toggle("active", page === "settings");
+  document.getElementById("helpPage").classList.toggle("active", page === "help");
   await browser.storage.local.set({ [UI_PAGE_KEY]: page });
 }
 
@@ -538,6 +601,63 @@ hostPoliciesEl.addEventListener("change", async event => {
   await saveHostPolicy(select.dataset.hostPolicy, select.value);
 });
 
+
+workspaceListEl.addEventListener("click", async event => {
+  const button = event.target.closest("button[data-workspace-action]");
+  if (!button) return;
+
+  const workspaceId = button.dataset.workspaceId;
+  const workspace = workspaces[workspaceId];
+  if (!workspace) return;
+
+  if (button.dataset.workspaceAction === "switch") {
+    const ok = confirm(
+      "Přepnout na workspace \"" + (workspace.name || "Workspace") +
+      "\"?\n\nAktuální stav se uloží a okna současného workspace se zavřou."
+    );
+    if (!ok) return;
+    button.disabled = true;
+    await browser.runtime.sendMessage({ type: "switchWorkspace", workspaceId });
+    return;
+  }
+
+  if (button.dataset.workspaceAction === "rename") {
+    const name = prompt("Název workspace:", workspace.name || "Workspace");
+    if (name == null || !name.trim()) return;
+    await browser.runtime.sendMessage({ type: "renameWorkspace", workspaceId, name: name.trim() });
+    await load();
+    return;
+  }
+
+  if (button.dataset.workspaceAction === "delete") {
+    const active = workspaceId === activeWorkspaceId;
+    const message = active
+      ? "Smazat aktivní workspace \"" + (workspace.name || "Workspace") + "\"?\n\nOtevřená okna zůstanou a budou převedena do nového workspace."
+      : "Opravdu smazat workspace \"" + (workspace.name || "Workspace") + "\"?";
+    if (!confirm(message)) return;
+    await browser.runtime.sendMessage({ type: "deleteWorkspace", workspaceId });
+    await load();
+  }
+});
+
+snapshotWorkspaceButton.addEventListener("click", async () => {
+  snapshotWorkspaceButton.disabled = true;
+  try {
+    await browser.runtime.sendMessage({ type: "snapshotWorkspace" });
+    await load();
+  } finally {
+    snapshotWorkspaceButton.disabled = false;
+  }
+});
+
+cloneWorkspaceButton.addEventListener("click", async () => {
+  const current = activeWorkspaceId ? workspaces[activeWorkspaceId] : null;
+  const name = prompt("Název nového workspace:", current ? (current.name + " kopie") : "Nový workspace");
+  if (name == null || !name.trim()) return;
+  await browser.runtime.sendMessage({ type: "cloneWorkspace", name: name.trim() });
+  await load();
+});
+
 hostFilter.addEventListener("input", () => renderHostPolicies().catch(console.error));
 syncEnabled.addEventListener("change", () => saveSyncSetting().catch(console.error));
 
@@ -605,7 +725,7 @@ browser.tabGroups.onRemoved.addListener(() => load().catch(console.error));
 
 browser.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
-  if (changes[TAB_LIFECYCLE_KEY] || changes[HOST_STATS_KEY] || changes[URL_POLICIES_KEY] || changes[HOST_POLICIES_KEY] || changes[WORKSPACES_KEY]) {
+  if (changes[TAB_LIFECYCLE_KEY] || changes[HOST_STATS_KEY] || changes[URL_POLICIES_KEY] || changes[HOST_POLICIES_KEY] || changes[WORKSPACES_KEY] || changes[ACTIVE_WORKSPACE_KEY]) {
     load().catch(console.error);
   }
 });
@@ -640,7 +760,7 @@ setInterval(() => {
   }
 
   const uiState = await browser.storage.local.get(UI_PAGE_KEY);
-  await setPage(uiState[UI_PAGE_KEY] === "settings" ? "settings" : "panels");
+  await setPage(["panels", "workspaces", "settings", "help"].includes(uiState[UI_PAGE_KEY]) ? uiState[UI_PAGE_KEY] : "panels");
   await loadSyncSetting();
   await loadAutoSettings();
   await load();
