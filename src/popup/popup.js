@@ -3,6 +3,10 @@ const refreshButton = document.getElementById("refresh");
 const deepAllButton = document.getElementById("deepAll");
 const openManagerButton = document.getElementById("openManager");
 
+function isInternalExtensionTab(tab) {
+  return typeof tab?.url === "string" && tab.url.startsWith(browser.runtime.getURL(""));
+}
+
 function esc(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -117,6 +121,7 @@ deepAllButton.addEventListener("click", async () => {
       !tab.discarded &&
       !tab.audible &&
       !tab.pinned &&
+      !isInternalExtensionTab(tab) &&
       tab.id != null
     );
 
