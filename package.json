@@ -4,6 +4,7 @@
   "private": true,
   "description": "Development tooling for Firefox Workspace Manager",
   "scripts": {
+    "predev": "node -e \"require('fs').mkdirSync('.dev',{recursive:true})\"",
     "dev": "web-ext run --source-dir=. --firefox-profile=.dev/firefox-profile --profile-create-if-missing --keep-profile-changes --browser-console --watch-ignored=node_modules/** --watch-ignored=.dev/**",
     "lint": "web-ext lint --source-dir=.",
     "build": "web-ext build --source-dir=. --overwrite-dest"
