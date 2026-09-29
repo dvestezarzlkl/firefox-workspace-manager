@@ -9,6 +9,11 @@ branch = dev
 
 ## Done
 
+- 0.3.9: Workspace store now actually runs groupKey normalization on load.
+- Workspace detail now has Vyřadit per logical window; this only edits the saved workspace definition and never closes a runtime Firefox window.
+- Active workspace status continues to use fwm.activeWorkspaceId as the source of truth.
+- Debug log confirmed Firefox successfully creates restored tab groups (restore-group-after) for videa, ZLKL, čtení and partneři.
+
 - 0.3.8: Restore no longer aborts on Firefox-internal URLs such as about:processes.
 - Non-restorable internal URLs are restored as about:blank and logged as substituted, allowing the rest of the window and its tab groups to restore.
 - Extension manager URLs remain excluded from workspace restore.
