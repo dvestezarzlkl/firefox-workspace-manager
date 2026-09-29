@@ -276,6 +276,10 @@ async function loadWorkspaceStore() {
     });
   }
 
+  if (normalizeWorkspaceGroupKeys(workspaces)) {
+    await browser.storage.local.set({ [WORKSPACES_KEY]: workspaces });
+  }
+
   return { workspaces, windowMap, activeWorkspaceId };
 }
 
@@ -894,6 +898,43 @@ async function getWorkspaceExport(workspaceId) {
   const workspace = workspaces[workspaceId];
   if (!workspace) throw new Error("Workspace not found");
   return sanitizeWorkspaceForExport(workspace);
+}
+
+async function removeWorkspaceWindow(workspaceId, logicalWindowId) {
+  const store = await loadWorkspaceStore();
+  const workspace = store.workspaces[workspaceId];
+  const logicalWindow = workspace?.windows?.[logicalWindowId];
+  if (!workspace || !logicalWindow) throw new Error("Workspace window not found");
+
+  if (logicalWindow.open && logicalWindow.runtimeWindowId != null) {
+    delete store.windowMap[String(logicalWindow.runtimeWindowId)];
+  }
+
+  delete workspace.windows[logicalWindowId];
+  workspace.updatedAt = Date.now();
+
+  const remaining = Object.values(workspace.windows ?? {});
+  workspace.open = remaining.some(win => win.open);
+  workspace.active = store.activeWorkspaceId === workspaceId && workspace.open;
+
+  if (!remaining.length && store.activeWorkspaceId === workspaceId) {
+    store.activeWorkspaceId = null;
+    workspace.active = false;
+  }
+
+  await browser.storage.local.set({
+    [WORKSPACES_KEY]: store.workspaces,
+    [WINDOW_WORKSPACE_MAP_KEY]: store.windowMap,
+    "fwm.activeWorkspaceId": store.activeWorkspaceId
+  });
+
+  await workspaceDebug("workspace-window-removed", {
+    workspaceId,
+    logicalWindowId,
+    remainingWindows: remaining.length
+  });
+
+  return { removed: true, remainingWindows: remaining.length };
 }
 
 async function snapshotCurrentWorkspace() {
@@ -1650,6 +1691,9 @@ browser.runtime.onMessage.addListener(message => {
   }
   if (message?.type === "deleteWorkspace" && message.workspaceId) {
     return deleteWorkspace(message.workspaceId);
+  }
+  if (message?.type === "removeWorkspaceWindow" && message.workspaceId && message.logicalWindowId) {
+    return removeWorkspaceWindow(message.workspaceId, message.logicalWindowId);
   }
   if (message?.type === "exportWorkspace" && message.workspaceId) {
     return getWorkspaceExport(message.workspaceId);
