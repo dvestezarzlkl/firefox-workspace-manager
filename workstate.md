@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- 0.3.12: Restore window creation now uses the minimum windows.create payload (URL only).
+- Added explicit restore-window-create-error logging around browser.windows.create.
+- Ghost logical windows are treated as historical artifacts from the earlier restore/snapshot race, not the current cause of the missing last window.
+
 - 0.3.11: Active workspace can be inferred from live runtime windows and fwm.windowWorkspaceMap when activeWorkspaceId is missing/stale.
 - Recover session is now idempotent: if mapped workspace windows already exist, it reuses them instead of creating duplicates.
 - Uložit jako nový and Uložit stav recover the active workspace from runtime mappings before operating.
