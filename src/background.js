@@ -16,6 +16,7 @@ const WORKSPACE_SNAPSHOT_LOCK_KEY = "fwm.workspaceSnapshotLock";
 const WORKSPACE_SNAPSHOT_LOCK_TTL_MS = 120000;
 
 const activeByWindow = new Map();
+const workspaceReattachTimers = new Map();
 let workspaceRestoreDepth = 0;
 
 function defaultAutoSettings() {
@@ -482,6 +483,218 @@ async function saveWorkspaceSnapshot(win, groups) {
   });
 
   return activeWorkspaceId;
+}
+
+function multisetOverlap(valuesA, valuesB) {
+  const counts = new Map();
+  for (const value of valuesA) {
+    if (!value) continue;
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+
+  let overlap = 0;
+  for (const value of valuesB) {
+    if (!value) continue;
+    const count = counts.get(value) ?? 0;
+    if (count > 0) {
+      overlap++;
+      if (count === 1) counts.delete(value);
+      else counts.set(value, count - 1);
+    }
+  }
+  return overlap;
+}
+
+function isGenericSessionUrl(url) {
+  return ["about:blank", "about:newtab", "about:home"].includes(url ?? "");
+}
+
+function scoreWorkspaceWindowMatch(savedWindow, liveWindow, liveGroups) {
+  const savedTabs = (savedWindow?.tabs ?? []).filter(tab => !isExtensionUrl(tab.url));
+  const liveTabs = (liveWindow?.tabs ?? []).filter(tab => !isExtensionUrl(tab.url));
+
+  if (!savedTabs.length || !liveTabs.length) return null;
+
+  const savedUrls = savedTabs
+    .map(tab => tab.url)
+    .filter(url => url && !isGenericSessionUrl(url));
+  const liveUrls = liveTabs
+    .map(tab => tab.url)
+    .filter(url => url && !isGenericSessionUrl(url));
+
+  const savedTitles = savedTabs.map(tab => tab.title).filter(Boolean);
+  const liveTitles = liveTabs.map(tab => tab.title).filter(Boolean);
+  const savedGroupTitles = (savedWindow.groups ?? []).map(group => group.title).filter(Boolean);
+  const liveGroupTitles = (liveGroups ?? []).map(group => group.title).filter(Boolean);
+
+  const urlOverlap = multisetOverlap(savedUrls, liveUrls);
+  const titleOverlap = multisetOverlap(savedTitles, liveTitles);
+  const groupOverlap = multisetOverlap(savedGroupTitles, liveGroupTitles);
+
+  const maxTabs = Math.max(savedTabs.length, liveTabs.length);
+  const minTabs = Math.min(savedTabs.length, liveTabs.length);
+  const countSimilarity = maxTabs ? minTabs / maxTabs : 0;
+  const contentOverlap = Math.max(urlOverlap, titleOverlap);
+  const contentCoverage = maxTabs ? contentOverlap / maxTabs : 0;
+
+  const maxGroups = Math.max(savedGroupTitles.length, liveGroupTitles.length);
+  const groupCoverage = maxGroups ? groupOverlap / maxGroups : 1;
+
+  const score =
+    (contentCoverage * 0.72) +
+    (countSimilarity * 0.20) +
+    (groupCoverage * 0.08);
+
+  let accepted = false;
+  if (maxTabs <= 2) {
+    accepted = savedTabs.length === liveTabs.length && contentCoverage === 1;
+  } else if (maxTabs <= 7) {
+    accepted = countSimilarity >= 0.75 && contentCoverage >= 0.70;
+  } else {
+    accepted = countSimilarity >= 0.70 && contentCoverage >= 0.55 && contentOverlap >= 3;
+  }
+
+  return {
+    score,
+    accepted,
+    savedTabCount: savedTabs.length,
+    liveTabCount: liveTabs.length,
+    urlOverlap,
+    titleOverlap,
+    groupOverlap,
+    contentCoverage,
+    countSimilarity,
+    groupCoverage
+  };
+}
+
+async function tryReattachWorkspaceWindow(windowId) {
+  if (workspaceRestoreDepth > 0 || await workspaceSnapshotLocked()) return false;
+
+  const store = await loadWorkspaceStore();
+  const runtimeKey = String(windowId);
+  if (store.windowMap[runtimeKey]) return false;
+
+  let win;
+  try {
+    win = await browser.windows.get(windowId, { populate: true });
+  } catch {
+    return false;
+  }
+
+  if (win.type !== "normal" || !hasWorkspaceContent(win)) return false;
+
+  let liveGroups = [];
+  try {
+    liveGroups = await browser.tabGroups.query({ windowId });
+  } catch {}
+
+  const candidateWorkspaceIds =
+    store.activeWorkspaceId && store.workspaces[store.activeWorkspaceId]
+      ? [store.activeWorkspaceId]
+      : Object.keys(store.workspaces);
+
+  const candidates = [];
+
+  for (const workspaceId of candidateWorkspaceIds) {
+    const workspace = store.workspaces[workspaceId];
+    if (!workspace?.windows) continue;
+
+    for (const [logicalWindowId, savedWindow] of Object.entries(workspace.windows)) {
+      if (savedWindow?.open || savedWindow?.runtimeWindowId != null) continue;
+
+      const match = scoreWorkspaceWindowMatch(savedWindow, win, liveGroups);
+      if (!match?.accepted) continue;
+
+      candidates.push({
+        workspaceId,
+        logicalWindowId,
+        savedWindow,
+        match
+      });
+    }
+  }
+
+  if (!candidates.length) return false;
+
+  candidates.sort((a, b) => b.match.score - a.match.score);
+  const best = candidates[0];
+  const second = candidates[1];
+
+  // Avoid silently attaching an ambiguous new window.
+  if (second && best.match.score < 0.90 && (best.match.score - second.match.score) < 0.12) {
+    await workspaceDebug("window-reattach-ambiguous", {
+      runtimeWindowId: windowId,
+      best: {
+        workspaceId: best.workspaceId,
+        logicalWindowId: best.logicalWindowId,
+        score: best.match.score
+      },
+      second: {
+        workspaceId: second.workspaceId,
+        logicalWindowId: second.logicalWindowId,
+        score: second.match.score
+      }
+    });
+    return false;
+  }
+
+  const workspace = store.workspaces[best.workspaceId];
+  const logicalWindow = workspace.windows[best.logicalWindowId];
+  const now = Date.now();
+
+  store.windowMap[runtimeKey] = {
+    workspaceId: best.workspaceId,
+    logicalWindowId: best.logicalWindowId
+  };
+
+  logicalWindow.open = true;
+  logicalWindow.runtimeWindowId = windowId;
+  logicalWindow.closedAt = null;
+  logicalWindow.updatedAt = now;
+
+  workspace.open = true;
+  workspace.active = true;
+  workspace.closedAt = null;
+  workspace.updatedAt = now;
+
+  for (const [workspaceId, other] of Object.entries(store.workspaces)) {
+    if (workspaceId !== best.workspaceId && other) other.active = false;
+  }
+
+  store.activeWorkspaceId = best.workspaceId;
+
+  await browser.storage.local.set({
+    [WORKSPACES_KEY]: store.workspaces,
+    [WINDOW_WORKSPACE_MAP_KEY]: store.windowMap,
+    "fwm.activeWorkspaceId": best.workspaceId
+  });
+
+  await workspaceDebug("window-reattached", {
+    workspaceId: best.workspaceId,
+    logicalWindowId: best.logicalWindowId,
+    runtimeWindowId: windowId,
+    ...best.match
+  });
+
+  // Once ownership is restored, update the saved snapshot to the actual
+  // reopened runtime state.
+  await snapshotWindow(windowId);
+  return true;
+}
+
+function scheduleWorkspaceWindowReattach(windowId, delayMs = 800) {
+  if (workspaceRestoreDepth > 0 || windowId == null || windowId < 0) return;
+
+  const previous = workspaceReattachTimers.get(windowId);
+  if (previous) clearTimeout(previous);
+
+  const timer = setTimeout(() => {
+    workspaceReattachTimers.delete(windowId);
+    tryReattachWorkspaceWindow(windowId).catch(console.error);
+  }, delayMs);
+
+  workspaceReattachTimers.set(windowId, timer);
 }
 
 async function markWorkspaceClosed(windowId) {
@@ -2070,7 +2283,10 @@ browser.alarms.onAlarm.addListener(alarm => {
 
 browser.tabs.onCreated.addListener(tab => {
   if (workspaceRestoreDepth > 0) return;
-  if (tab.windowId >= 0) snapshotWindow(tab.windowId).catch(console.error);
+  if (tab.windowId >= 0) {
+    scheduleWorkspaceWindowReattach(tab.windowId);
+    snapshotWindow(tab.windowId).catch(console.error);
+  }
 });
 
 browser.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
@@ -2109,7 +2325,10 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (workspaceRestoreDepth > 0) return;
   const relevant = ["url", "title", "pinned", "discarded", "autoDiscardable", "audible"];
   if (relevant.some(key => Object.hasOwn(changeInfo, key))) {
-    if (workspaceRestoreDepth === 0) snapshotWindow(tab.windowId).catch(console.error);
+    if (workspaceRestoreDepth === 0) {
+      scheduleWorkspaceWindowReattach(tab.windowId);
+      snapshotWindow(tab.windowId).catch(console.error);
+    }
   }
 
   if ("url" in changeInfo || "pinned" in changeInfo || "audible" in changeInfo || "discarded" in changeInfo) {
@@ -2161,18 +2380,30 @@ browser.storage.onChanged.addListener((changes, area) => {
 });
 
 browser.tabGroups.onCreated.addListener(group => {
-  if (workspaceRestoreDepth === 0) snapshotWindow(group.windowId).catch(console.error);
+  if (workspaceRestoreDepth === 0) {
+    scheduleWorkspaceWindowReattach(group.windowId);
+    snapshotWindow(group.windowId).catch(console.error);
+  }
 });
 browser.tabGroups.onUpdated.addListener(group => {
-  if (workspaceRestoreDepth === 0) snapshotWindow(group.windowId).catch(console.error);
+  if (workspaceRestoreDepth === 0) {
+    scheduleWorkspaceWindowReattach(group.windowId);
+    snapshotWindow(group.windowId).catch(console.error);
+  }
 });
 browser.tabGroups.onMoved.addListener(group => {
-  if (workspaceRestoreDepth === 0) snapshotWindow(group.windowId).catch(console.error);
+  if (workspaceRestoreDepth === 0) {
+    scheduleWorkspaceWindowReattach(group.windowId);
+    snapshotWindow(group.windowId).catch(console.error);
+  }
 });
 
 browser.windows.onCreated.addListener(win => {
   if (workspaceRestoreDepth > 0) return;
-  if (win.type === "normal") snapshotWindow(win.id).catch(console.error);
+  if (win.type === "normal") {
+    scheduleWorkspaceWindowReattach(win.id, 1200);
+    snapshotWindow(win.id).catch(console.error);
+  }
 });
 
 browser.runtime.onMessage.addListener(message => {
@@ -2214,6 +2445,11 @@ browser.runtime.onMessage.addListener(message => {
 
 browser.windows.onRemoved.addListener(async windowId => {
   activeByWindow.delete(windowId);
+  const pendingReattach = workspaceReattachTimers.get(windowId);
+  if (pendingReattach) {
+    clearTimeout(pendingReattach);
+    workspaceReattachTimers.delete(windowId);
+  }
   await markWorkspaceClosed(windowId);
   const state = await loadState();
   const entry = state.windows[String(windowId)];
