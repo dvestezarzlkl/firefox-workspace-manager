@@ -203,3 +203,46 @@ main {
   opacity: .65;
   font-size: 12px;
 }
+
+.countdown {
+  font-variant-numeric: tabular-nums;
+  opacity: .85;
+}
+
+.url-rule-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.url-rule-add input {
+  min-width: 0;
+  padding: 7px 9px;
+}
+
+.url-policies {
+  margin-top: 10px;
+}
+
+.url-rule {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  padding: 7px 9px;
+  border-top: 1px solid color-mix(in srgb, CanvasText 10%, transparent);
+}
+
+.url-rule code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.host-stats {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  opacity: .6;
+}
