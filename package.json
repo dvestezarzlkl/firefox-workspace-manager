@@ -1,0 +1,14 @@
+{
+  "name": "firefox-workspace-manager",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Development tooling for Firefox Workspace Manager",
+  "scripts": {
+    "dev": "web-ext run --source-dir=. --firefox-profile=.dev/firefox-profile --profile-create-if-missing --keep-profile-changes --browser-console --watch-ignored=node_modules/** --watch-ignored=.dev/**",
+    "lint": "web-ext lint --source-dir=.",
+    "build": "web-ext build --source-dir=. --overwrite-dest"
+  },
+  "devDependencies": {
+    "web-ext": "^10.5.0"
+  }
+}
