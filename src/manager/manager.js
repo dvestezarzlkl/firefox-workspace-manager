@@ -12,16 +12,16 @@ function esc(value) {
 }
 
 function stateBadge(tab) {
-  if (tab.active) return '<span class="state state-active">ACTIVE</span>';
-  if (tab.discarded) return '<span class="state state-deep">DEEP</span>';
-  return '<span class="state state-loaded">LOADED</span>';
+  if (tab.active) return '<span class="state state-active" title="Aktivní">●</span>';
+  if (tab.discarded) return '<span class="state state-deep" title="DEEP / uvolněno z paměti">○</span>';
+  return '<span class="state state-loaded" title="Načteno v paměti">✓</span>';
 }
 
 function extraFlags(tab) {
   const flags = [];
-  if (tab.audible) flags.push("audible");
-  if (tab.pinned) flags.push("pinned");
-  if (tab.autoDiscardable === false) flags.push("protected");
+  if (tab.audible) flags.push("🔊");
+  if (tab.pinned) flags.push("📌");
+  if (tab.autoDiscardable === false) flags.push("⏻");
   return flags;
 }
 
@@ -34,7 +34,7 @@ function renderTab(tab) {
         <div class="meta">
           ${stateBadge(tab)}
           <span>#${tab.id}</span>
-          <span class="flags">${esc(extraFlags(tab).join(" · "))}</span>
+          <span class="flags" title="Další stavové příznaky">${esc(extraFlags(tab).join(" "))}</span>
         </div>
       </div>
       <button type="button" data-action="deep" data-tab-id="${tab.id}" ${disabled ? "disabled" : ""}>DEEP</button>
