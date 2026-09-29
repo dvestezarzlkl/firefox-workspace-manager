@@ -7,6 +7,10 @@ const TAB_LIFECYCLE_KEY = "fwm.tabLifecycle";
 const HOST_STATS_KEY = "fwm.hostStats";
 const NEXT_DEEP_ALARM = "fwm.nextDeep";
 const DEEP_WATCHDOG_ALARM = "fwm.deepWatchdog";
+const WORKSPACES_KEY = "fwm.workspaces";
+const WINDOW_WORKSPACE_MAP_KEY = "fwm.windowWorkspaceMap";
+const SYNC_ENABLED_KEY = "fwm.sync.enabled";
+const SYNC_KEYS = [AUTO_SETTINGS_KEY, HOST_POLICIES_KEY, URL_POLICIES_KEY];
 
 const activeByWindow = new Map();
 
@@ -72,6 +76,236 @@ function protectedByRuntime(tab, auto) {
   return false;
 }
 
+
+function newWorkspaceId() {
+  return crypto.randomUUID();
+}
+
+async function saveWorkspaceSnapshot(win, groups) {
+  const stored = await browser.storage.local.get([WORKSPACES_KEY, WINDOW_WORKSPACE_MAP_KEY]);
+  const workspaces = stored[WORKSPACES_KEY] ?? {};
+  const windowMap = stored[WINDOW_WORKSPACE_MAP_KEY] ?? {};
+  const windowKey = String(win.id);
+
+  let workspaceId = windowMap[windowKey];
+  if (!workspaceId || !workspaces[workspaceId]) {
+    workspaceId = newWorkspaceId();
+    windowMap[windowKey] = workspaceId;
+    workspaces[workspaceId] = {
+      id: workspaceId,
+      name: "Workspace " + (Object.keys(workspaces).length + 1),
+      persistent: true,
+      createdAt: Date.now()
+    };
+  }
+
+  const previous = workspaces[workspaceId] ?? {};
+  workspaces[workspaceId] = {
+    ...previous,
+    id: workspaceId,
+    open: true,
+    runtimeWindowId: win.id,
+    closedAt: null,
+    updatedAt: Date.now(),
+    window: {
+      state: win.state,
+      left: win.left,
+      top: win.top,
+      width: win.width,
+      height: win.height,
+      incognito: win.incognito
+    },
+    groups: groups.map(group => ({
+      runtimeGroupId: group.id,
+      title: group.title,
+      color: group.color,
+      collapsed: group.collapsed
+    })),
+    tabs: (win.tabs ?? []).map(tab => ({
+      runtimeTabId: tab.id,
+      index: tab.index,
+      url: tab.url,
+      title: tab.title,
+      pinned: tab.pinned,
+      active: tab.active,
+      discarded: tab.discarded,
+      audible: tab.audible,
+      autoDiscardable: tab.autoDiscardable,
+      cookieStoreId: tab.cookieStoreId,
+      runtimeGroupId: tab.groupId
+    }))
+  };
+
+  await browser.storage.local.set({
+    [WORKSPACES_KEY]: workspaces,
+    [WINDOW_WORKSPACE_MAP_KEY]: windowMap
+  });
+
+  return workspaceId;
+}
+
+async function markWorkspaceClosed(windowId) {
+  const stored = await browser.storage.local.get([WORKSPACES_KEY, WINDOW_WORKSPACE_MAP_KEY]);
+  const workspaces = stored[WORKSPACES_KEY] ?? {};
+  const windowMap = stored[WINDOW_WORKSPACE_MAP_KEY] ?? {};
+  const key = String(windowId);
+  const workspaceId = windowMap[key];
+
+  if (workspaceId && workspaces[workspaceId]) {
+    workspaces[workspaceId] = {
+      ...workspaces[workspaceId],
+      open: false,
+      runtimeWindowId: null,
+      closedAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    delete windowMap[key];
+    await browser.storage.local.set({
+      [WORKSPACES_KEY]: workspaces,
+      [WINDOW_WORKSPACE_MAP_KEY]: windowMap
+    });
+  }
+}
+
+function restorableUrl(url) {
+  if (!url) return null;
+  if (/^(moz|chrome)-extension:\/\//i.test(url)) return null;
+  return url;
+}
+
+async function restoreWorkspace(workspaceId) {
+  const stored = await browser.storage.local.get([WORKSPACES_KEY, WINDOW_WORKSPACE_MAP_KEY]);
+  const workspaces = stored[WORKSPACES_KEY] ?? {};
+  const windowMap = stored[WINDOW_WORKSPACE_MAP_KEY] ?? {};
+  const workspace = workspaces[workspaceId];
+
+  if (!workspace) throw new Error("Workspace not found");
+  if (workspace.open && workspace.runtimeWindowId != null) {
+    try {
+      await browser.windows.update(workspace.runtimeWindowId, { focused: true });
+      return { windowId: workspace.runtimeWindowId, reused: true };
+    } catch {}
+  }
+
+  const sourceTabs = (workspace.tabs ?? [])
+    .slice()
+    .sort((a, b) => a.index - b.index)
+    .filter(tab => restorableUrl(tab.url));
+
+  const urls = sourceTabs.map(tab => restorableUrl(tab.url)).filter(Boolean);
+  const createData = {
+    url: urls.length ? urls : ["about:blank"],
+    focused: true
+  };
+
+  if (workspace.window?.state === "normal") {
+    for (const key of ["left", "top", "width", "height"]) {
+      if (Number.isFinite(workspace.window[key])) createData[key] = workspace.window[key];
+    }
+  }
+
+  const win = await browser.windows.create(createData);
+  const liveTabs = (await browser.tabs.query({ windowId: win.id }))
+    .slice()
+    .sort((a, b) => a.index - b.index);
+
+  const refreshed = await browser.storage.local.get([WORKSPACES_KEY, WINDOW_WORKSPACE_MAP_KEY]);
+  const currentWorkspaces = refreshed[WORKSPACES_KEY] ?? {};
+  const currentMap = refreshed[WINDOW_WORKSPACE_MAP_KEY] ?? {};
+  const temporaryWorkspaceId = currentMap[String(win.id)];
+
+  if (temporaryWorkspaceId && temporaryWorkspaceId !== workspaceId) {
+    delete currentWorkspaces[temporaryWorkspaceId];
+  }
+  currentMap[String(win.id)] = workspaceId;
+  currentWorkspaces[workspaceId] = {
+    ...workspace,
+    open: true,
+    runtimeWindowId: win.id,
+    closedAt: null,
+    restoredAt: Date.now(),
+    updatedAt: Date.now()
+  };
+
+  await browser.storage.local.set({
+    [WORKSPACES_KEY]: currentWorkspaces,
+    [WINDOW_WORKSPACE_MAP_KEY]: currentMap
+  });
+
+  const newTabByOldRuntimeId = new Map();
+  for (let i = 0; i < Math.min(sourceTabs.length, liveTabs.length); i++) {
+    newTabByOldRuntimeId.set(sourceTabs[i].runtimeTabId, liveTabs[i].id);
+    try {
+      if (sourceTabs[i].pinned) await browser.tabs.update(liveTabs[i].id, { pinned: true });
+    } catch {}
+  }
+
+  for (const group of workspace.groups ?? []) {
+    const tabIds = sourceTabs
+      .filter(tab => tab.runtimeGroupId === group.runtimeGroupId)
+      .map(tab => newTabByOldRuntimeId.get(tab.runtimeTabId))
+      .filter(id => id != null);
+
+    if (!tabIds.length) continue;
+
+    try {
+      const newGroupId = await browser.tabs.group({
+        tabIds,
+        createProperties: { windowId: win.id }
+      });
+      await browser.tabGroups.update(newGroupId, {
+        title: group.title ?? "",
+        color: group.color,
+        collapsed: !!group.collapsed
+      });
+    } catch (error) {
+      console.warn("Unable to restore tab group", workspaceId, error);
+    }
+  }
+
+  const activeSource = sourceTabs.find(tab => tab.active);
+  const activeTabId = activeSource ? newTabByOldRuntimeId.get(activeSource.runtimeTabId) : null;
+  if (activeTabId != null) {
+    try { await browser.tabs.update(activeTabId, { active: true }); } catch {}
+  }
+
+  for (const source of sourceTabs) {
+    if (!source.discarded || source.active) continue;
+    const tabId = newTabByOldRuntimeId.get(source.runtimeTabId);
+    if (tabId == null) continue;
+    try { await browser.tabs.discard(tabId); } catch {}
+  }
+
+  await snapshotWindow(win.id);
+  return { windowId: win.id, reused: false };
+}
+
+async function pushSettingsToSync() {
+  const local = await browser.storage.local.get([SYNC_ENABLED_KEY, ...SYNC_KEYS]);
+  if (!local[SYNC_ENABLED_KEY]) return;
+
+  const remote = await browser.storage.sync.get(SYNC_KEYS);
+  const update = {};
+  for (const key of SYNC_KEYS) {
+    if (!(key in local)) continue;
+    if (JSON.stringify(local[key]) !== JSON.stringify(remote[key])) update[key] = local[key];
+  }
+  if (Object.keys(update).length) await browser.storage.sync.set(update);
+}
+
+async function pullSettingsFromSync() {
+  const local = await browser.storage.local.get([SYNC_ENABLED_KEY, ...SYNC_KEYS]);
+  if (!local[SYNC_ENABLED_KEY]) return;
+
+  const remote = await browser.storage.sync.get(SYNC_KEYS);
+  const update = {};
+  for (const key of SYNC_KEYS) {
+    if (!(key in remote)) continue;
+    if (JSON.stringify(remote[key]) !== JSON.stringify(local[key])) update[key] = remote[key];
+  }
+  if (Object.keys(update).length) await browser.storage.local.set(update);
+}
+
 async function loadState() {
   const stored = await browser.storage.local.get(STORAGE_KEY);
   return stored[STORAGE_KEY] ?? emptyState();
@@ -123,6 +357,7 @@ async function snapshotWindow(windowId) {
     }))
   };
   await saveState(state);
+  await saveWorkspaceSnapshot(win, groups);
 }
 
 async function snapshotAllWindows() {
@@ -577,7 +812,30 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 });
 
 browser.storage.onChanged.addListener((changes, area) => {
+  if (area === "sync") {
+    browser.storage.local.get(SYNC_ENABLED_KEY).then(stored => {
+      if (!stored[SYNC_ENABLED_KEY]) return;
+      const update = {};
+      for (const key of SYNC_KEYS) {
+        if (changes[key]) update[key] = changes[key].newValue;
+      }
+      if (Object.keys(update).length) browser.storage.local.set(update).catch(console.error);
+    }).catch(console.error);
+    return;
+  }
+
   if (area !== "local") return;
+
+  if (changes[SYNC_ENABLED_KEY]) {
+    if (changes[SYNC_ENABLED_KEY].newValue) {
+      pushSettingsToSync().catch(console.error);
+    }
+  } else if (SYNC_KEYS.some(key => changes[key])) {
+    browser.storage.local.get(SYNC_ENABLED_KEY).then(stored => {
+      if (stored[SYNC_ENABLED_KEY]) pushSettingsToSync().catch(console.error);
+    }).catch(console.error);
+  }
+
   if (changes[HOST_POLICIES_KEY] || changes[URL_POLICIES_KEY] || changes[AUTO_SETTINGS_KEY]) {
     // Recalculate only currently pending inactive lifecycle entries. Preserve
     // their original inactiveSince so changing the timeout does not restart it.
@@ -599,8 +857,22 @@ browser.windows.onCreated.addListener(win => {
   if (win.type === "normal") snapshotWindow(win.id).catch(console.error);
 });
 
+browser.runtime.onMessage.addListener(message => {
+  if (message?.type === "restoreWorkspace" && message.workspaceId) {
+    return restoreWorkspace(message.workspaceId);
+  }
+  if (message?.type === "pullSyncSettings") {
+    return pullSettingsFromSync();
+  }
+  if (message?.type === "pushSyncSettings") {
+    return pushSettingsToSync();
+  }
+  return undefined;
+});
+
 browser.windows.onRemoved.addListener(async windowId => {
   activeByWindow.delete(windowId);
+  await markWorkspaceClosed(windowId);
   const state = await loadState();
   const entry = state.windows[String(windowId)];
   if (entry) {
@@ -613,3 +885,4 @@ browser.windows.onRemoved.addListener(async windowId => {
 snapshotAllWindows().catch(console.error);
 seedRuntimeState().catch(console.error);
 ensureWatchdogAlarm().catch(console.error);
+pullSettingsFromSync().catch(console.error);
