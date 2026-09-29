@@ -5,12 +5,23 @@
       "label": "FF: Instalovat dev nástroje",
       "type": "shell",
       "command": "npm install",
-      "problemMatcher": []
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
     },
     {
       "label": "FF: Spustit dev Firefox",
-      "type": "npm",
-      "script": "dev",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "isBackground": true,
       "problemMatcher": [],
       "presentation": {
@@ -23,15 +34,31 @@
     },
     {
       "label": "FF: Lint extension",
-      "type": "npm",
-      "script": "lint",
-      "problemMatcher": []
+      "type": "shell",
+      "command": "npm run lint",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
     },
     {
       "label": "FF: Build XPI/ZIP",
-      "type": "npm",
-      "script": "build",
-      "problemMatcher": []
+      "type": "shell",
+      "command": "npm run build",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
     }
   ]
 }
