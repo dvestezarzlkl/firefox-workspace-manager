@@ -9,13 +9,17 @@
 <body>
   <header>
     <strong>Firefox Workspace Manager</strong>
-    <div class="header-actions">
-      <button id="openManager" type="button">Otevřít správce</button>
-      <button id="deepAll" type="button" title="Uvolní všechny neaktivní, nepřipnuté a nehrající taby">DEEP ALL EXCEPT ACTIVE</button>
-      <button id="refresh" type="button">Obnovit</button>
-    </div>
+    <button id="refresh" type="button" title="Obnovit">↻</button>
   </header>
-  <main id="app">Načítám…</main>
+
+  <main>
+    <section id="stats" class="stats">Načítám…</section>
+    <section class="actions">
+      <button id="openManager" type="button">Otevřít správce</button>
+      <button id="deepAll" type="button">DEEP ALL</button>
+    </section>
+  </main>
+
   <script src="popup.js"></script>
 </body>
 </html>
