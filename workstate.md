@@ -9,6 +9,14 @@ branch = dev
 
 ## Done
 
+- Added dedicated Workspaces tab.
+- Workspaces tab supports active status, window/tab/group totals, rename, save current state, save as new, switch/restore and delete.
+- Workspace switch restores the target workspace before closing previous windows, preventing Firefox from exiting when switching from the last open window.
+- Popup header now shows the active workspace name.
+- Added complete built-in Nápověda tab covering lifecycle states, panels, workspaces, Sync, popup/statistics and dev-mode reload behavior.
+- Removed duplicate closed-workspace UI from Panely; workspace restore/management is centralized in Workspaces.
+- Development version bumped to 0.3.0.
+
 - Versioning convention adopted: pre-1.0 uses 0.MINOR.PATCH; MINOR for feature blocks, PATCH for bug/build fixes.
 - Current development version bumped to 0.2.0.
 - Popup shows the extension version from manifest.json in a small footer.
@@ -102,11 +110,14 @@ branch = dev
 ## Next
 
 1. Pull latest dev and restart the dev task.
-2. Close both normal Firefox windows belonging to the current workspace.
-3. Open Firefox/manager again and verify exactly one closed workspace is shown.
-4. Restore it and verify both windows return, each with its own tab groups and tabs.
-5. Verify no stale second workspace remains after restore.
-6. After this passes, add the dedicated Workspace tab and active-workspace naming/switching model.
+2. Verify tabs: Panely | Workspaces | Nastavení | Nápověda.
+3. Rename the active workspace and confirm the popup title changes.
+4. Use Uložit jako nový to create a second workspace.
+5. Switch between the two workspaces and verify all windows/groups/tabs restore before the previous workspace windows close.
+6. Delete a non-active workspace.
+7. Delete the active workspace and verify current windows remain open and are adopted into a fresh workspace.
+8. Review Nápověda for missing or misleading wording.
+9. After workspace switching is stable, implement the post-window-close choice: Ponechat ve workspace / Odebrat z workspace / Zavřít celý workspace.
 
 ## localCommand
 
