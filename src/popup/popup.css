@@ -1,0 +1,83 @@
+body {
+  font: 13px/1.4 system-ui, sans-serif;
+  margin: 0;
+  width: 560px;
+  max-height: 700px;
+  overflow: auto;
+  background: Canvas;
+  color: CanvasText;
+}
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid color-mix(in srgb, CanvasText 20%, transparent);
+  background: Canvas;
+}
+
+main {
+  padding: 8px;
+}
+
+.window, .group, .ungrouped {
+  border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+  border-radius: 6px;
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.window > h2, .group > h3, .ungrouped > h3 {
+  margin: 0;
+  padding: 7px 9px;
+  font-size: 13px;
+  background: color-mix(in srgb, CanvasText 6%, Canvas);
+}
+
+.tab {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 9px;
+  border-top: 1px solid color-mix(in srgb, CanvasText 10%, transparent);
+}
+
+.tab:first-of-type {
+  border-top: 0;
+}
+
+.tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  margin-top: 2px;
+  opacity: .65;
+  font-size: 11px;
+}
+
+.badge {
+  display: inline-block;
+  margin-right: 4px;
+}
+
+button {
+  font: inherit;
+}
+
+button.deep {
+  white-space: nowrap;
+}
+
+.empty {
+  padding: 8px 9px;
+  opacity: .7;
+}
