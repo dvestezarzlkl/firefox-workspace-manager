@@ -50,6 +50,8 @@ let activeWorkspaceId = null;
 let expandedWorkspaceId = null;
 let workspaceDebugLog = [];
 
+if (managerVersion) managerVersion.textContent = "v" + browser.runtime.getManifest().version;
+
 function esc(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
