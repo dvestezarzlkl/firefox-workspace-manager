@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- 0.3.11: Active workspace can be inferred from live runtime windows and fwm.windowWorkspaceMap when activeWorkspaceId is missing/stale.
+- Recover session is now idempotent: if mapped workspace windows already exist, it reuses them instead of creating duplicates.
+- Uložit jako nový and Uložit stav recover the active workspace from runtime mappings before operating.
+
 - 0.3.10: Renamed the global manager reload action to Refresh.
 - Closed workspace restore action is now labeled Recover session; open non-active workspaces still use Přepnout.
 
