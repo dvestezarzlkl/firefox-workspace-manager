@@ -263,13 +263,17 @@ function normalizeWorkspaceGroupKeys(workspaces) {
       });
 
       for (const tab of tabs) {
-        if (tab.groupKey) continue;
+        // groupKey:null is an explicit "ungrouped" value and must never be
+        // reinterpreted through legacy runtimeGroupId fallback.
+        if (Object.prototype.hasOwnProperty.call(tab, "groupKey")) continue;
+
         const key = keyByRuntimeId.get(tab.runtimeGroupId);
         if (key) {
           tab.groupKey = key;
           changed = true;
-        } else if (tab.runtimeGroupId == null || tab.runtimeGroupId === -1) {
+        } else {
           tab.groupKey = null;
+          changed = true;
         }
       }
     }
@@ -667,10 +671,12 @@ async function populateRestoredWindow(workspaceId, logicalWindowId, sourceWindow
   for (const [groupIndex, group] of (sourceWindow.groups ?? []).entries()) {
     const groupKey = group.groupKey ?? ("g" + groupIndex);
     const tabIds = sourceTabs
-      .filter(tab =>
-        (tab.groupKey ?? null) === groupKey ||
-        (!tab.groupKey && tab.runtimeGroupId === group.runtimeGroupId)
-      )
+      .filter(tab => {
+        if (Object.prototype.hasOwnProperty.call(tab, "groupKey")) {
+          return tab.groupKey === groupKey;
+        }
+        return tab.runtimeGroupId === group.runtimeGroupId;
+      })
       .map(tab => newTabByOldRuntimeId.get(tab.runtimeTabId))
       .filter(id => id != null);
 
@@ -682,7 +688,8 @@ async function populateRestoredWindow(workspaceId, logicalWindowId, sourceWindow
       title: group.title ?? "",
       groupKey,
       tabCount: tabIds.length,
-      sourceRuntimeGroupId: group.runtimeGroupId
+      sourceRuntimeGroupId: group.runtimeGroupId,
+      tabIds
     });
 
     try {
@@ -1116,7 +1123,7 @@ async function importWorkspace(payload) {
       audible: false,
       autoDiscardable: tab.autoDiscardable !== false,
       cookieStoreId: tab.cookieStoreId ?? null,
-      runtimeGroupId: tab.groupKey ? (runtimeGroupByKey.get(tab.groupKey) ?? -1) : -1,
+      runtimeGroupId: tab.groupKey ? (runtimeGroupByKey.get(tab.groupKey) ?? null) : null,
       groupKey: tab.groupKey ?? null
     }));
 
