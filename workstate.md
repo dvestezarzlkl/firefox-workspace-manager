@@ -9,6 +9,9 @@ branch = dev
 
 ## Done
 
+- 0.3.10: Renamed the global manager reload action to Refresh.
+- Closed workspace restore action is now labeled Recover session; open non-active workspaces still use Přepnout.
+
 - 0.3.9: Workspace store now actually runs groupKey normalization on load.
 - Workspace detail now has Vyřadit per logical window; this only edits the saved workspace definition and never closes a runtime Firefox window.
 - Active workspace status continues to use fwm.activeWorkspaceId as the source of truth.
