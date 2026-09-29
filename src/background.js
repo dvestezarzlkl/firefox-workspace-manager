@@ -496,16 +496,20 @@ async function switchWorkspace(targetWorkspaceId) {
   if (!target) throw new Error("Target workspace not found");
 
   const current = currentId ? store.workspaces[currentId] : null;
-  const currentWindowIds = Object.values(current?.windows ?? {})
+  const oldWindowIds = Object.values(current?.windows ?? {})
     .filter(win => win.open && win.runtimeWindowId != null)
     .map(win => win.runtimeWindowId);
+
+  // Detach old runtime windows from the workspace mapping before restoring
+  // the target, so their later onRemoved events cannot mutate the new active workspace.
+  const detachedMap = { ...store.windowMap };
+  for (const runtimeId of oldWindowIds) delete detachedMap[String(runtimeId)];
 
   if (current) {
     current.active = false;
     current.open = false;
     current.closedAt = Date.now();
     current.updatedAt = Date.now();
-
     for (const logicalWindow of Object.values(current.windows ?? {})) {
       if (!logicalWindow.open) continue;
       logicalWindow.open = false;
@@ -514,20 +518,25 @@ async function switchWorkspace(targetWorkspaceId) {
     }
   }
 
-  const newMap = { ...store.windowMap };
-  for (const runtimeId of currentWindowIds) delete newMap[String(runtimeId)];
+  target.active = false;
+  target.open = false;
 
   await browser.storage.local.set({
     [WORKSPACES_KEY]: store.workspaces,
-    [WINDOW_WORKSPACE_MAP_KEY]: newMap,
+    [WINDOW_WORKSPACE_MAP_KEY]: detachedMap,
     "fwm.activeWorkspaceId": null
   });
 
-  for (const windowId of currentWindowIds) {
+  // Restore first. This guarantees Firefox still has at least one normal window
+  // before the previous workspace windows are closed.
+  const restored = await restoreWorkspace(targetWorkspaceId);
+
+  for (const windowId of oldWindowIds) {
+    if ((restored.windowIds ?? []).includes(windowId)) continue;
     try { await browser.windows.remove(windowId); } catch {}
   }
 
-  return restoreWorkspace(targetWorkspaceId);
+  return restored;
 }
 
 async function pushSettingsToSync() {
