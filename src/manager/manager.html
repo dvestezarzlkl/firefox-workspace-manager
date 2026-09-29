@@ -27,6 +27,26 @@
   </nav>
 
   <main id="panelsPage" class="page active">
+    <section class="panel-toolbar" aria-label="Filtry panelů">
+      <div class="panel-search-row">
+        <input id="panelSearch" type="search" placeholder="Hledat v názvu, URL nebo skupině…" autocomplete="off">
+        <button id="panelFilterReset" type="button" hidden>Reset filtrů</button>
+      </div>
+      <div class="panel-filter-row" id="panelStateFilters">
+        <span class="panel-filter-label">Stav</span>
+        <button type="button" class="panel-filter" data-panel-filter-category="state" data-panel-filter="active" aria-pressed="false">Aktivní <span data-panel-filter-count="active">0</span></button>
+        <button type="button" class="panel-filter" data-panel-filter-category="state" data-panel-filter="loaded" aria-pressed="false">Loaded <span data-panel-filter-count="loaded">0</span></button>
+        <button type="button" class="panel-filter" data-panel-filter-category="state" data-panel-filter="deep" aria-pressed="false">Deep <span data-panel-filter-count="deep">0</span></button>
+      </div>
+      <div class="panel-filter-row" id="panelPolicyFilters">
+        <span class="panel-filter-label">Politika</span>
+        <button type="button" class="panel-filter" data-panel-filter-category="policy" data-panel-filter="auto" aria-pressed="false">AUTO <span data-panel-filter-count="auto">0</span></button>
+        <button type="button" class="panel-filter" data-panel-filter-category="policy" data-panel-filter="keep" aria-pressed="false">KEEP always <span data-panel-filter-count="keep">0</span></button>
+        <button type="button" class="panel-filter" data-panel-filter-category="policy" data-panel-filter="deep-always" aria-pressed="false">DEEP always <span data-panel-filter-count="deep-always">0</span></button>
+        <button type="button" class="panel-filter" data-panel-filter-category="policy" data-panel-filter="except" aria-pressed="false">EXCEPT <span data-panel-filter-count="except">0</span></button>
+        <span id="panelFilterInfo" class="panel-filter-info"></span>
+      </div>
+    </section>
     <div id="app">Načítám…</div>
   </main>
 
@@ -124,6 +144,7 @@
 
     <section class="settings-card help-card">
       <h2>Panely</h2>
+      <p>Okna jsou ve výchozím stavu sbalená. Fulltext hledá současně v názvu panelu, URL a názvu skupiny; při hledání se odpovídající části automaticky rozbalí. Filtry Stav a Politika lze kombinovat.</p>
       <p><strong>DEEP</strong> ručně uvolní obsah konkrétního panelu z paměti, ale panel, jeho pozice a skupina zůstanou zachované.</p>
       <p><strong>DEEP skupinu</strong> provede totéž pro vhodné panely skupiny. <strong>DEEP ALL</strong> provede hromadný discard s respektováním ochran, KEEP a EXCEPT.</p>
       <p><strong>EXCEPT</strong> vedle panelu přidá nebo odebere přesnou aktuální URL z výjimek po potvrzení.</p>
@@ -134,7 +155,7 @@
       <p>Workspace je uložená sada více Firefox oken. Každé okno obsahuje své pořadí panelů a tab groups.</p>
       <dl>
         <dt>Uložit stav</dt><dd>Aktualizuje snapshot právě aktivního workspace.</dd>
-        <dt>Uložit jako nový</dt><dd>Vytvoří kopii aktuálního workspace pod novým názvem.</dd>
+        <dt>Uložit akt. stav jako nový</dt><dd>Vytvoří nový workspace přímo z aktuálně otevřených Firefox oken, skupin a panelů a po kontrole ho aktivuje.</dd>
         <dt>Přepnout / Obnovit</dt><dd>Uloží aktuální stav, zavře okna současného workspace a obnoví všechna okna cílového workspace.</dd>
         <dt>Přejmenovat</dt><dd>Změní jen uživatelský název workspace.</dd>
         <dt>Smazat</dt><dd>Smaže uloženou definici. Při smazání aktivního workspace zůstanou aktuální okna otevřená a převezme je nový workspace.</dd>
