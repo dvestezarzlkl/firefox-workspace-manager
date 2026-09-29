@@ -34,6 +34,7 @@ let currentWindows = [];
 let lifecycleMap = {};
 let hostStats = {};
 let urlPolicies = [];
+let hostPolicies = {};
 
 function esc(value) {
   return String(value ?? "")
@@ -141,9 +142,31 @@ function exactUrlException(tab) {
   return urlPolicies.some(rule => rule?.mode === "KEEP" && rule?.url === url);
 }
 
+function policyBadge(tab) {
+  if (exactUrlException(tab)) {
+    return '<span class="policy-badge policy-keep" title="Přesná URL je výjimka KEEP">EXCEPT</span>';
+  }
+
+  const host = hostnameFromUrl(tab.url);
+  const mode = host ? hostPolicies[host] : null;
+  if (mode === "DEEP") {
+    return '<span class="policy-badge policy-deep" title="Hostname má politiku DEEP">DEEP ALWAYS</span>';
+  }
+  if (mode === "KEEP") {
+    return '<span class="policy-badge policy-keep" title="Hostname má politiku KEEP">KEEP ALWAYS</span>';
+  }
+  return "";
+}
+
 function lifecycleText(tab) {
   const item = lifecycleMap[String(tab.id)];
-  if (!item?.deadline || tab.active || tab.discarded) return "";
+  if (!item || tab.active || tab.discarded) return "";
+
+  const host = hostnameFromUrl(tab.url);
+  const mode = host ? hostPolicies[host] : null;
+  if (exactUrlException(tab) || mode === "KEEP" || mode === "DEEP") return "";
+
+  if (!item.deadline) return "";
   return '<span class="countdown" data-deadline="' + item.deadline + '">DEEP za ' + formatRemaining(item.deadline) + '</span>';
 }
 
@@ -158,7 +181,7 @@ function renderTab(tab) {
           ${stateBadge(tab)}
           <span>#${tab.id}</span>
           <span class="flags" title="Další stavové příznaky">${esc(extraFlags(tab).join(" "))}</span>
-          ${excepted ? '<span class="except-badge" title="Přesná URL je ve výjimkách">EXCEPT</span>' : ''}
+          ${policyBadge(tab)}
           ${lifecycleText(tab)}
         </div>
       </div>
@@ -167,6 +190,28 @@ function renderTab(tab) {
         <button type="button" data-action="deep" data-tab-id="${tab.id}" ${disabled || excepted ? "disabled" : ""}>DEEP</button>
       </div>
     </div>`;
+}
+
+function liveHostUsage(host) {
+  const base = hostStats[host] ?? {};
+  let activeMs = Number(base.totalActiveMs) || 0;
+  let inactiveMs = Number(base.totalInactiveMs) || 0;
+  const now = Date.now();
+
+  for (const item of Object.values(lifecycleMap)) {
+    if (item?.host !== host) continue;
+    if (item.activeSince) activeMs += Math.max(0, now - item.activeSince);
+    if (item.inactiveSince) inactiveMs += Math.max(0, now - item.inactiveSince);
+  }
+
+  const total = activeMs + inactiveMs;
+  return {
+    activeMs,
+    inactiveMs,
+    total,
+    activePct: total ? (activeMs / total) * 100 : null,
+    inactivePct: total ? (inactiveMs / total) * 100 : null
+  };
 }
 
 function formatDuration(ms) {
@@ -196,7 +241,17 @@ async function renderHostPolicies() {
           <label class="policy-row">
             <span class="policy-host" title="${esc(host)}">
               ${esc(host)}
-              ${hostStats[host]?.activations ? '<span class="host-stats">' + hostStats[host].activations + '× aktivní · průměr ' + formatDuration(hostStats[host].totalActiveMs / hostStats[host].activations) + '</span>' : ''}
+              ${(() => {
+                const stat = hostStats[host];
+                const usage = liveHostUsage(host);
+                if (!stat?.activations && !usage.total) return '';
+                const activations = stat?.activations || 0;
+                const avg = activations ? formatDuration(usage.activeMs / activations) : '—';
+                const pct = usage.total
+                  ? Math.round(usage.activePct) + '% aktivní / ' + Math.round(usage.inactivePct) + '% pozadí'
+                  : 'bez historie';
+                return '<span class="host-stats">' + activations + '× aktivní · průměr ' + avg + ' · ' + pct + ' · z ' + formatDuration(usage.total) + '</span>';
+              })()}
             </span>
             <select data-host-policy="${esc(host)}">
               <option value="AUTO" ${mode === "AUTO" ? "selected" : ""}>AUTO</option>
@@ -216,10 +271,11 @@ async function renderHostPolicies() {
 async function load() {
   app.textContent = "Načítám…";
 
-  const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY, URL_POLICIES_KEY]);
+  const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY, URL_POLICIES_KEY, HOST_POLICIES_KEY]);
   lifecycleMap = stored[TAB_LIFECYCLE_KEY] ?? {};
   hostStats = stored[HOST_STATS_KEY] ?? {};
   urlPolicies = Array.isArray(stored[URL_POLICIES_KEY]) ? stored[URL_POLICIES_KEY] : [];
+  hostPolicies = stored[HOST_POLICIES_KEY] ?? {};
   renderUrlPolicies();
 
   currentWindows = await browser.windows.getAll({ populate: true, windowTypes: ["normal"] });
@@ -463,7 +519,7 @@ browser.tabGroups.onRemoved.addListener(() => load().catch(console.error));
 
 browser.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
-  if (changes[TAB_LIFECYCLE_KEY] || changes[HOST_STATS_KEY] || changes[URL_POLICIES_KEY]) {
+  if (changes[TAB_LIFECYCLE_KEY] || changes[HOST_STATS_KEY] || changes[URL_POLICIES_KEY] || changes[HOST_POLICIES_KEY]) {
     load().catch(console.error);
   }
 });
