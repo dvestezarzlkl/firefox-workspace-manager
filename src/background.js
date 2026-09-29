@@ -590,20 +590,19 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
     try { await withTimeout(browser.tabs.update(activeTabId, { active: true }), 3000, "activate tab"); } catch {}
   }
 
-  for (const source of sourceTabs) {
-    if (!source.discarded || source.active) continue;
-    const tabId = newTabByOldRuntimeId.get(source.runtimeTabId);
-    if (tabId == null) continue;
-    try { await withTimeout(browser.tabs.discard(tabId), 3000, "tabs.discard"); } catch {}
-  }
+  const deferredDiscardTabIds = sourceTabs
+    .filter(source => source.discarded && !source.active)
+    .map(source => newTabByOldRuntimeId.get(source.runtimeTabId))
+    .filter(tabId => tabId != null);
 
   await workspaceDebug("restore-window-end", {
     workspaceId,
     logicalWindowId,
-    runtimeWindowId: win.id
+    runtimeWindowId: win.id,
+    deferredDiscardCount: deferredDiscardTabIds.length
   });
 
-  return win.id;
+  return { windowId: win.id, deferredDiscardTabIds };
 }
 
 async function restoreWorkspace(workspaceId) {
@@ -626,17 +625,21 @@ async function restoreWorkspace(workspaceId) {
   }
 
   const restored = [];
+  const deferredDiscardTabIds = [];
   const newMap = { ...store.windowMap };
 
   workspaceRestoreDepth++;
   try {
     for (const [logicalWindowId, sourceWindow] of Object.entries(workspace.windows ?? {})) {
-      const windowId = await restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow);
+      const restoredWindow = await restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow);
+      const windowId = restoredWindow.windowId;
       restored.push(windowId);
+      deferredDiscardTabIds.push(...restoredWindow.deferredDiscardTabIds);
       await workspaceDebug("restore-window-created", {
         workspaceId,
         logicalWindowId,
-        runtimeWindowId: windowId
+        runtimeWindowId: windowId,
+        deferredDiscardCount: restoredWindow.deferredDiscardTabIds.length
       });
       newMap[String(windowId)] = { workspaceId, logicalWindowId };
 
@@ -672,6 +675,27 @@ async function restoreWorkspace(workspaceId) {
   for (const windowId of restored) {
     await snapshotWindow(windowId);
   }
+
+  await workspaceDebug("restore-core-complete", {
+    workspaceId,
+    restoredWindowIds: restored,
+    deferredDiscardCount: deferredDiscardTabIds.length
+  });
+
+  // Memory cleanup is post-processing. Never block workspace activation or
+  // creation of later windows on sequential discard calls.
+  Promise.allSettled(
+    deferredDiscardTabIds.map(tabId =>
+      withTimeout(browser.tabs.discard(tabId), 3000, "tabs.discard")
+    )
+  ).then(async results => {
+    const rejected = results.filter(result => result.status === "rejected").length;
+    await workspaceDebug("restore-discard-postprocess", {
+      workspaceId,
+      requested: deferredDiscardTabIds.length,
+      rejected
+    });
+  }).catch(console.error);
 
   await workspaceDebug("restore-end", {
     workspaceId,
