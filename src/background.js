@@ -153,6 +153,8 @@ function ensureHostStats(stats, host) {
   stats[host] ??= {
     activations: 0,
     totalActiveMs: 0,
+    totalInactiveMs: 0,
+    firstSeenAt: Date.now(),
     lastActivatedAt: null,
     lastDeactivatedAt: null,
     autoDeepCount: 0
@@ -169,6 +171,13 @@ async function markActivated(tab) {
     const key = String(tab.id);
     const previous = lifecycle[key] ?? {};
     const sameActiveVisit = previous.activeSince && previous.url === tab.url;
+
+    if (!sameActiveVisit && previous.inactiveSince && previous.host) {
+      const previousStat = ensureHostStats(stats, previous.host);
+      if (previousStat) {
+        previousStat.totalInactiveMs = (previousStat.totalInactiveMs || 0) + Math.max(0, now - previous.inactiveSince);
+      }
+    }
 
     if (!sameActiveVisit && previous.activeSince && previous.host) {
       const previousStat = ensureHostStats(stats, previous.host);
@@ -255,11 +264,12 @@ async function handleActivation(activeInfo) {
   }
 
   const previousId = activeByWindow.get(activeInfo.windowId);
-  activeByWindow.set(activeInfo.windowId, activeInfo.tabId);
 
-  // Opening an extension view is treated as control UI, not as leaving the
-  // user's content page. This keeps the previous content tab logically active.
+  // Extension UI is a control surface, not user content. Keep the previous
+  // content tab as the logical active tab for lifecycle/statistics purposes.
   if (isExtensionUrl(nextTab.url)) return;
+
+  activeByWindow.set(activeInfo.windowId, activeInfo.tabId);
 
   if (previousId != null && previousId !== activeInfo.tabId) {
     try {
@@ -340,15 +350,33 @@ async function sweepDueTabs() {
 
 async function seedRuntimeState() {
   const tabs = await browser.tabs.query({});
+  const stored = await browser.storage.local.get(TAB_LIFECYCLE_KEY);
+  const lifecycle = stored[TAB_LIFECYCLE_KEY] ?? {};
+
   for (const tab of tabs) {
     if (tab.id == null || tab.windowId < 0) continue;
+    const item = lifecycle[String(tab.id)];
+
     if (tab.active) {
-      activeByWindow.set(tab.windowId, tab.id);
-      if (isHttpUrl(tab.url)) await markActivated(tab);
-    } else if (isHttpUrl(tab.url)) {
+      if (!isExtensionUrl(tab.url)) {
+        activeByWindow.set(tab.windowId, tab.id);
+      }
+
+      if (isHttpUrl(tab.url) && (!item || !item.activeSince || item.deadline)) {
+        await markActivated(tab);
+      }
+      continue;
+    }
+
+    if (!isHttpUrl(tab.url)) continue;
+
+    // Preserve an existing inactivity interval/deadline across event-page
+    // suspension/restart. Only initialize or reconcile stale active state.
+    if (!item || item.activeSince || item.url !== tab.url) {
       await markInactive(tab);
     }
   }
+
   await scheduleNextDeep();
 }
 
@@ -371,10 +399,25 @@ browser.tabs.onCreated.addListener(tab => {
 });
 
 browser.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
-  const stored = await browser.storage.local.get(TAB_LIFECYCLE_KEY);
+  const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY]);
   const lifecycle = stored[TAB_LIFECYCLE_KEY] ?? {};
+  const stats = stored[HOST_STATS_KEY] ?? {};
+  const item = lifecycle[String(tabId)];
+  const now = Date.now();
+
+  if (item?.host) {
+    const hostStat = ensureHostStats(stats, item.host);
+    if (hostStat) {
+      if (item.activeSince) hostStat.totalActiveMs += Math.max(0, now - item.activeSince);
+      if (item.inactiveSince) hostStat.totalInactiveMs = (hostStat.totalInactiveMs || 0) + Math.max(0, now - item.inactiveSince);
+    }
+  }
+
   delete lifecycle[String(tabId)];
-  await browser.storage.local.set({ [TAB_LIFECYCLE_KEY]: lifecycle });
+  await browser.storage.local.set({
+    [TAB_LIFECYCLE_KEY]: lifecycle,
+    [HOST_STATS_KEY]: stats
+  });
   await scheduleNextDeep();
   if (!removeInfo.isWindowClosing) snapshotWindow(removeInfo.windowId).catch(console.error);
 });
