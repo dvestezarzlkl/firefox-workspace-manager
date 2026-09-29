@@ -796,11 +796,29 @@ snapshotWorkspaceButton.addEventListener("click", async () => {
 });
 
 cloneWorkspaceButton.addEventListener("click", async () => {
-  const current = activeWorkspaceId ? workspaces[activeWorkspaceId] : null;
-  const name = prompt("Název nového workspace:", current ? (current.name + " kopie") : "Nový workspace");
+  const defaultName = "Workspace " + (Object.keys(workspaces ?? {}).length + 1);
+  const name = prompt("Název nového workspace z aktuálního stavu Firefoxu:", defaultName);
   if (name == null || !name.trim()) return;
-  await browser.runtime.sendMessage({ type: "cloneWorkspace", name: name.trim() });
-  await load();
+
+  cloneWorkspaceButton.disabled = true;
+  try {
+    const result = await browser.runtime.sendMessage({
+      type: "createWorkspaceFromCurrentState",
+      name: name.trim()
+    });
+
+    if (!result?.workspaceId || !result?.active || result.windows < 1 || result.tabs < 1) {
+      throw new Error("Nový workspace se nepodařilo ověřit");
+    }
+
+    expandedWorkspaceId = result.workspaceId;
+    await load();
+  } catch (error) {
+    console.error("Create workspace from current state failed", error);
+    alert("Uložení aktuálního stavu jako nového workspace selhalo: " + (error?.message ?? error));
+  } finally {
+    cloneWorkspaceButton.disabled = false;
+  }
 });
 
 hostFilter.addEventListener("input", () => renderHostPolicies().catch(console.error));
