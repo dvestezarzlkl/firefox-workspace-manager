@@ -70,7 +70,8 @@ function isProtectedFromDeep(tab) {
     tab.discarded ||
     tab.audible ||
     tab.pinned ||
-    isInternalExtensionTab(tab);
+    isInternalExtensionTab(tab) ||
+    exactUrlException(tab);
 }
 
 function hostnameFromUrl(url) {
