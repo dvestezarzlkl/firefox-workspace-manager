@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- Background tracks last active normal HTTP/HTTPS content tab per Firefox window.
+- Full manager protects that last active content tab from DEEP ALL.
+- Zavřít manager activates the previous content tab before closing manager.
+
 - Full manager split into Panely | Nastavení tabs.
 - Manager self-protection now uses its exact tab ID in addition to extension URL detection.
 - Nastavení: global AUTO settings added and persisted.
@@ -47,13 +51,12 @@ branch = dev
 
 ## Next
 
-1. Pull latest dev and verify manager can never DEEP itself.
-2. Verify Panely/Nastavení tab state persists.
-3. Verify host list behavior: no filter = only open-tab hosts; filter = matching known/saved hosts, max 30.
-4. Verify AUTO settings persist.
+1. Pull latest dev and verify: open a page, open manager, run DEEP ALL; previous page must stay loaded.
+2. Verify Zavřít returns to that previous page.
+3. Verify manager can never DEEP itself.
+4. Verify Panely/Nastavení and filtered host settings behavior.
 5. Wire AUTO settings and host policies into runtime lifecycle behavior.
-6. Add optional parent-domain/wildcard inheritance after exact-host behavior is validated.
-7. Integrate generated extension icon into manifest/action assets.
+6. Integrate generated extension icon into manifest/action assets.
 
 ## localCommand
 
