@@ -13,20 +13,58 @@
       <div id="summary" class="summary">Načítám…</div>
     </div>
     <div class="actions">
-      <button id="settingsToggle" type="button">Nastavení</button>
       <button id="deepAll" type="button">DEEP ALL EXCEPT ACTIVE</button>
       <button id="refresh" type="button">Obnovit</button>
       <button id="closeManager" type="button">Zavřít</button>
     </div>
   </header>
-  <section id="settingsPanel" class="settings-panel" hidden>
-    <div class="settings-inner">
-      <h2>Politiky podle hostname</h2>
-      <p>Pravidlo se vztahuje na celý host, např. <code>maps.zlkl.cz</code>, ne na jednotlivou záložku.</p>
+
+  <nav class="page-tabs" aria-label="Sekce správce">
+    <button class="page-tab active" type="button" data-page="panels">Panely</button>
+    <button class="page-tab" type="button" data-page="settings">Nastavení</button>
+  </nav>
+
+  <main id="panelsPage" class="page active">
+    <div id="app">Načítám…</div>
+  </main>
+
+  <main id="settingsPage" class="page">
+    <section class="settings-card">
+      <h2>AUTO</h2>
+      <div class="auto-grid">
+        <label>
+          <span>Uspat po neaktivitě</span>
+          <span><input id="autoMinutes" type="number" min="1" max="10080" step="1"> min</span>
+        </label>
+        <label>
+          <span>Po přepnutí rovnou DEEP</span>
+          <input id="autoDeepOnLeave" type="checkbox">
+        </label>
+        <label>
+          <span>Chránit pinned</span>
+          <input id="autoProtectPinned" type="checkbox">
+        </label>
+        <label>
+          <span>Chránit audio</span>
+          <input id="autoProtectAudible" type="checkbox">
+        </label>
+      </div>
+      <p class="hint">Hodnoty se ukládají už teď; automatické vyhodnocování AUTO zapojíme v dalším kroku.</p>
+    </section>
+
+    <section class="settings-card">
+      <div class="settings-title-row">
+        <div>
+          <h2>Politiky podle hostname</h2>
+          <p>Pravidlo platí pro celý host, např. <code>maps.zlkl.cz</code>.</p>
+        </div>
+        <input id="hostFilter" type="search" placeholder="Hledat hostname…" autocomplete="off">
+      </div>
       <div id="hostPolicies">Načítám…</div>
-    </div>
-  </section>
-  <main id="app">Načítám…</main>
+      <div id="hostResultInfo" class="hint"></div>
+    </section>
+  </main>
+
   <script src="manager.js"></script>
 </body>
 </html>
