@@ -437,3 +437,36 @@ main {
   opacity: .65;
   word-break: break-all;
 }
+
+.workspace-tree-group {
+  margin: 6px 0 0 18px;
+}
+
+.workspace-debug {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, CanvasText 12%, transparent);
+}
+
+.workspace-debug summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.workspace-debug-list {
+  margin-top: 8px;
+}
+
+.workspace-debug-row {
+  display: grid;
+  grid-template-columns: 70px minmax(140px, 220px) minmax(0, 1fr);
+  gap: 10px;
+  padding: 4px 0;
+  border-top: 1px solid color-mix(in srgb, CanvasText 8%, transparent);
+  font-size: 11px;
+}
+
+.workspace-debug-row code:last-child {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
