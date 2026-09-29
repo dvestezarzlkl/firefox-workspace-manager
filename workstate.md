@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- 0.3.13: Workspace Debug log has a Copy button.
+- Copied log format is plain text: HH:MM:SS | event | JSON data.
+- Clipboard output includes extension version, workspace name and workspace ID header for easier debugging in chat.
+
 - 0.3.12: Restore window creation now uses the minimum windows.create payload (URL only).
 - Added explicit restore-window-create-error logging around browser.windows.create.
 - Ghost logical windows are treated as historical artifacts from the earlier restore/snapshot race, not the current cause of the missing last window.
