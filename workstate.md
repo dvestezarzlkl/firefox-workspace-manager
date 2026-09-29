@@ -9,6 +9,12 @@ branch = dev
 
 ## Done
 
+- 0.4.1: Recovery now holds a persistent workspace snapshot lock in storage.local for the entire restore operation.
+- Snapshot entry points refuse to write while the lock is active, even if the background context reloads and workspaceRestoreDepth resets.
+- Automatic snapshotAllWindows on extension startup/install/module load was removed.
+- Blank/manager-only windows are no longer persisted into an existing workspace snapshot.
+- Imported workspace definitions therefore remain read-only during Recover session and cannot be overwritten by partially restored shell windows.
+
 - 0.4.0: Workspace recovery is now two-phase.
 - Phase 1 creates and maps all Firefox windows as about:blank shells before any tabs/groups are populated.
 - Phase 2 populates each shell with saved tabs, groups, active tab and geometry.
