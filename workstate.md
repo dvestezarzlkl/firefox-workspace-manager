@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- 0.3.5: Workspace groups now use stable groupKey values instead of relying on Firefox runtime group IDs.
+- Existing saved workspaces are migrated on load from runtimeGroupId membership to groupKey membership.
+- Restore groups tabs by stable groupKey and keeps runtime group IDs only as fallback/debug context.
+
 - 0.3.4: Workspace detail now shows window -> group -> tabs.
 - Workspace debug log is visible directly under the expanded workspace.
 - Restore/switch request has a 20s UI timeout, so a stuck background call cannot leave the button disabled forever.
