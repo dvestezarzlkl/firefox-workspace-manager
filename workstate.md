@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- 0.4.3: VS Code FF tasks no longer depend on the built-in npm task provider.
+- All FF tasks are plain shell tasks using npm commands and explicit workspace cwd.
+- Task terminals always reveal, so npm install/dev/lint/build output is visible.
+
 - 0.4.2: Automatic workspace snapshots can update only runtime windows already mapped to that workspace.
 - Unmapped runtime windows are ignored and logged as snapshot-skipped-unmapped-window; they can no longer create ghost logical windows.
 - Uložit stav explicitly adopts only genuinely unmapped content windows, never windows already owned by another workspace.
