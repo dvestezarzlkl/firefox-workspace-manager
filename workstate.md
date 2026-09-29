@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- 0.3.7: Multi-window restore no longer passes saved geometry into windows.create.
+- Window geometry is applied afterward as best-effort; negative/off-screen multi-monitor coordinates cannot abort restore.
+- Each logical window restore is isolated: failure of windowN is logged and restore continues with windowN+1.
+
 - 0.3.6: Workspace restore no longer blocks on sequential DEEP/discard operations.
 - Restore now creates all windows, tabs and groups first, persists the active workspace, then discards previously DEEP tabs in parallel as post-processing.
 - Export inspection confirmed the saved Práce workspace currently contains a stale third logical window from earlier broken restore attempts; do not auto-delete it yet.
