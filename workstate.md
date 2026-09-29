@@ -9,6 +9,11 @@ branch = dev
 
 ## Done
 
+- Full manager split into Panely | Nastavení tabs.
+- Manager self-protection now uses its exact tab ID in addition to extension URL detection.
+- Nastavení: global AUTO settings added and persisted.
+- Host policy list: without filter shows only hosts from currently open tabs; with filter searches known/saved hosts and caps output at 30.
+
 - Internal extension pages are now permanently excluded from DEEP actions.
 - Full manager has an explicit Zavřít button.
 - Settings panel open/closed state persists across manager refresh/reload.
@@ -42,11 +47,11 @@ branch = dev
 
 ## Next
 
-1. Pull latest dev and verify full manager no longer disappears after DEEP actions.
-2. Verify Nastavení stays open after refresh/re-render.
-3. Verify Zavřít closes only the manager tab.
-4. Verify DEEP ALL still discards normal inactive tabs but never moz-extension:// manager pages.
-5. Connect saved hostname policies to automatic lifecycle behavior.
+1. Pull latest dev and verify manager can never DEEP itself.
+2. Verify Panely/Nastavení tab state persists.
+3. Verify host list behavior: no filter = only open-tab hosts; filter = matching known/saved hosts, max 30.
+4. Verify AUTO settings persist.
+5. Wire AUTO settings and host policies into runtime lifecycle behavior.
 6. Add optional parent-domain/wildcard inheritance after exact-host behavior is validated.
 7. Integrate generated extension icon into manifest/action assets.
 
