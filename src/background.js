@@ -485,7 +485,7 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
   });
 
   const firstUrl = restoreUrlOrBlank(sourceTabs[0]?.url);
-  const createData = { url: firstUrl, focused: false };
+  const createData = { url: firstUrl };
 
   await workspaceDebug("restore-window-create-before", {
     workspaceId,
@@ -497,7 +497,18 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
   // Create without geometry first. Multi-monitor coordinates may be negative
   // and Firefox/OS can reject them on restore; geometry must never abort the
   // workspace restore.
-  const win = await withTimeout(browser.windows.create(createData), 10000, "windows.create");
+  let win;
+  try {
+    win = await withTimeout(browser.windows.create(createData), 10000, "windows.create");
+  } catch (error) {
+    await workspaceDebug("restore-window-create-error", {
+      workspaceId,
+      logicalWindowId,
+      firstUrl,
+      error: String(error?.message ?? error)
+    });
+    throw error;
+  }
 
   await workspaceDebug("restore-window-create-after", {
     workspaceId,
