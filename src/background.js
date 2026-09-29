@@ -11,6 +11,7 @@ const WORKSPACES_KEY = "fwm.workspaces";
 const WINDOW_WORKSPACE_MAP_KEY = "fwm.windowWorkspaceMap";
 const SYNC_ENABLED_KEY = "fwm.sync.enabled";
 const SYNC_KEYS = [AUTO_SETTINGS_KEY, HOST_POLICIES_KEY, URL_POLICIES_KEY];
+const WORKSPACE_DEBUG_KEY = "fwm.workspaceDebugLog";
 
 const activeByWindow = new Map();
 let workspaceRestoreDepth = 0;
@@ -85,6 +86,19 @@ function protectedByRuntime(tab, auto) {
   return false;
 }
 
+
+async function workspaceDebug(event, data = {}) {
+  const stored = await browser.storage.local.get(WORKSPACE_DEBUG_KEY);
+  const log = Array.isArray(stored[WORKSPACE_DEBUG_KEY]) ? stored[WORKSPACE_DEBUG_KEY] : [];
+  log.push({
+    at: Date.now(),
+    event,
+    data
+  });
+  await browser.storage.local.set({
+    [WORKSPACE_DEBUG_KEY]: log.slice(-200)
+  });
+}
 
 function newWorkspaceId() {
   return crypto.randomUUID();
@@ -213,26 +227,37 @@ async function loadWorkspaceStore() {
   return { workspaces, windowMap, activeWorkspaceId };
 }
 
-async function ensureActiveWorkspace() {
+async function ensureActiveWorkspace({ allowCreate = false } = {}) {
   const store = await loadWorkspaceStore();
   let { workspaces, windowMap, activeWorkspaceId } = store;
 
-  if (!activeWorkspaceId || !workspaces[activeWorkspaceId]) {
-    activeWorkspaceId = newWorkspaceId();
-    workspaces[activeWorkspaceId] = {
-      id: activeWorkspaceId,
-      name: "Workspace " + (Object.keys(workspaces).length + 1),
-      persistent: true,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      windows: {}
-    };
-
-    await browser.storage.local.set({
-      [WORKSPACES_KEY]: workspaces,
-      "fwm.activeWorkspaceId": activeWorkspaceId
-    });
+  if (activeWorkspaceId && workspaces[activeWorkspaceId]) {
+    return { workspaces, windowMap, activeWorkspaceId };
   }
+
+  const firstEverWorkspace = Object.keys(workspaces).length === 0;
+  if (!allowCreate && !firstEverWorkspace) {
+    return { workspaces, windowMap, activeWorkspaceId: null };
+  }
+
+  activeWorkspaceId = newWorkspaceId();
+  workspaces[activeWorkspaceId] = {
+    id: activeWorkspaceId,
+    name: "Workspace " + (Object.keys(workspaces).length + 1),
+    persistent: true,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    windows: {}
+  };
+
+  await browser.storage.local.set({
+    [WORKSPACES_KEY]: workspaces,
+    "fwm.activeWorkspaceId": activeWorkspaceId
+  });
+  await workspaceDebug("workspace-created", {
+    workspaceId: activeWorkspaceId,
+    reason: firstEverWorkspace ? "first-ever" : "explicit"
+  });
 
   return { workspaces, windowMap, activeWorkspaceId };
 }
@@ -245,9 +270,18 @@ async function saveWorkspaceSnapshot(win, groups) {
     return null;
   }
 
-  const store = (!existing.activeWorkspaceId || !existing.workspaces[existing.activeWorkspaceId])
-    ? await ensureActiveWorkspace()
-    : existing;
+  let store = existing;
+  if (!existing.activeWorkspaceId || !existing.workspaces[existing.activeWorkspaceId]) {
+    if (Object.keys(existing.workspaces).length > 0) {
+      await workspaceDebug("snapshot-skipped-no-active-workspace", {
+        windowId: win.id,
+        tabCount: (win.tabs ?? []).length
+      });
+      return null;
+    }
+    store = await ensureActiveWorkspace({ allowCreate: true });
+  }
+
   const { workspaces, windowMap, activeWorkspaceId } = store;
   const workspace = workspaces[activeWorkspaceId];
   const runtimeKey = String(win.id);
@@ -307,6 +341,14 @@ async function saveWorkspaceSnapshot(win, groups) {
     "fwm.activeWorkspaceId": activeWorkspaceId
   });
 
+  await workspaceDebug("snapshot-saved", {
+    workspaceId: activeWorkspaceId,
+    logicalWindowId: mapping.logicalWindowId,
+    runtimeWindowId: win.id,
+    tabs: workspace.windows[mapping.logicalWindowId].tabs.length,
+    groups: workspace.windows[mapping.logicalWindowId].groups.length
+  });
+
   return activeWorkspaceId;
 }
 
@@ -343,6 +385,12 @@ async function markWorkspaceClosed(windowId) {
   }
 
   await browser.storage.local.set(updates);
+  await workspaceDebug("window-closed", {
+    workspaceId: workspace.id,
+    logicalWindowId: mapping.logicalWindowId,
+    runtimeWindowId: windowId,
+    workspaceStillOpen: anyOpen
+  });
 }
 
 function restorableUrl(url) {
@@ -421,6 +469,7 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
 }
 
 async function restoreWorkspace(workspaceId) {
+  await workspaceDebug("restore-begin", { workspaceId, restoreDepth: workspaceRestoreDepth });
   const store = await loadWorkspaceStore();
   const { workspaces } = store;
   const workspace = workspaces[workspaceId];
@@ -446,6 +495,11 @@ async function restoreWorkspace(workspaceId) {
     for (const [logicalWindowId, sourceWindow] of Object.entries(workspace.windows ?? {})) {
       const windowId = await restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow);
       restored.push(windowId);
+      await workspaceDebug("restore-window-created", {
+        workspaceId,
+        logicalWindowId,
+        runtimeWindowId: windowId
+      });
       newMap[String(windowId)] = { workspaceId, logicalWindowId };
 
       sourceWindow.open = true;
@@ -481,9 +535,148 @@ async function restoreWorkspace(workspaceId) {
     await snapshotWindow(windowId);
   }
 
+  await workspaceDebug("restore-end", {
+    workspaceId,
+    restoredWindowIds: restored,
+    activeWorkspaceId: restored.length ? workspaceId : null
+  });
   return { windowIds: restored, reused: false };
 }
 
+
+
+function sanitizeWorkspaceForExport(workspace) {
+  const exported = {
+    format: "firefox-workspace-manager.workspace",
+    version: 1,
+    name: workspace?.name || "Workspace",
+    windows: []
+  };
+
+  for (const sourceWindow of Object.values(workspace?.windows ?? {})) {
+    const groupKeyByRuntime = new Map();
+    const groups = (sourceWindow.groups ?? []).map((group, index) => {
+      const key = "g" + index;
+      groupKeyByRuntime.set(group.runtimeGroupId, key);
+      return {
+        key,
+        title: group.title ?? "",
+        color: group.color ?? "grey",
+        collapsed: !!group.collapsed
+      };
+    });
+
+    const tabs = (sourceWindow.tabs ?? []).map(tab => ({
+      index: tab.index ?? 0,
+      url: tab.url ?? "about:blank",
+      title: tab.title ?? "",
+      pinned: !!tab.pinned,
+      active: !!tab.active,
+      discarded: !!tab.discarded,
+      autoDiscardable: tab.autoDiscardable !== false,
+      cookieStoreId: tab.cookieStoreId ?? null,
+      groupKey: groupKeyByRuntime.get(tab.runtimeGroupId) ?? null
+    }));
+
+    exported.windows.push({
+      window: {
+        state: sourceWindow.window?.state ?? "normal",
+        left: sourceWindow.window?.left ?? null,
+        top: sourceWindow.window?.top ?? null,
+        width: sourceWindow.window?.width ?? null,
+        height: sourceWindow.window?.height ?? null,
+        incognito: !!sourceWindow.window?.incognito
+      },
+      groups,
+      tabs
+    });
+  }
+
+  return exported;
+}
+
+async function importWorkspace(payload) {
+  if (!payload || payload.format !== "firefox-workspace-manager.workspace" || payload.version !== 1) {
+    throw new Error("Unsupported workspace JSON format");
+  }
+
+  const { workspaces } = await loadWorkspaceStore();
+  const workspaceId = newWorkspaceId();
+  const windows = {};
+
+  for (const importedWindow of Array.isArray(payload.windows) ? payload.windows : []) {
+    const logicalWindowId = newLogicalWindowId();
+    const runtimeGroupByKey = new Map();
+    const groups = (Array.isArray(importedWindow.groups) ? importedWindow.groups : []).map((group, index) => {
+      const runtimeGroupId = -(index + 1);
+      runtimeGroupByKey.set(group.key ?? ("g" + index), runtimeGroupId);
+      return {
+        runtimeGroupId,
+        title: String(group.title ?? ""),
+        color: group.color ?? "grey",
+        collapsed: !!group.collapsed
+      };
+    });
+
+    const tabs = (Array.isArray(importedWindow.tabs) ? importedWindow.tabs : []).map((tab, index) => ({
+      runtimeTabId: -(index + 1),
+      index: Number.isFinite(tab.index) ? tab.index : index,
+      url: String(tab.url ?? "about:blank"),
+      title: String(tab.title ?? ""),
+      pinned: !!tab.pinned,
+      active: !!tab.active,
+      discarded: !!tab.discarded,
+      audible: false,
+      autoDiscardable: tab.autoDiscardable !== false,
+      cookieStoreId: tab.cookieStoreId ?? null,
+      runtimeGroupId: tab.groupKey ? (runtimeGroupByKey.get(tab.groupKey) ?? -1) : -1
+    }));
+
+    windows[logicalWindowId] = {
+      id: logicalWindowId,
+      open: false,
+      runtimeWindowId: null,
+      closedAt: Date.now(),
+      updatedAt: Date.now(),
+      window: {
+        state: importedWindow.window?.state ?? "normal",
+        left: Number.isFinite(importedWindow.window?.left) ? importedWindow.window.left : null,
+        top: Number.isFinite(importedWindow.window?.top) ? importedWindow.window.top : null,
+        width: Number.isFinite(importedWindow.window?.width) ? importedWindow.window.width : null,
+        height: Number.isFinite(importedWindow.window?.height) ? importedWindow.window.height : null,
+        incognito: !!importedWindow.window?.incognito
+      },
+      groups,
+      tabs
+    };
+  }
+
+  workspaces[workspaceId] = {
+    id: workspaceId,
+    name: String(payload.name || "Importovaný workspace"),
+    persistent: true,
+    active: false,
+    open: false,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    closedAt: Date.now(),
+    windows
+  };
+
+  await browser.storage.local.set({ [WORKSPACES_KEY]: workspaces });
+  await workspaceDebug("workspace-imported", {
+    workspaceId,
+    windows: Object.keys(windows).length
+  });
+  return workspaces[workspaceId];
+}
+
+async function getWorkspaceExport(workspaceId) {
+  const { workspaces } = await loadWorkspaceStore();
+  const workspace = workspaces[workspaceId];
+  if (!workspace) throw new Error("Workspace not found");
+  return sanitizeWorkspaceForExport(workspace);
+}
 
 async function snapshotCurrentWorkspace() {
   await snapshotAllWindows();
@@ -1239,6 +1432,12 @@ browser.runtime.onMessage.addListener(message => {
   }
   if (message?.type === "deleteWorkspace" && message.workspaceId) {
     return deleteWorkspace(message.workspaceId);
+  }
+  if (message?.type === "exportWorkspace" && message.workspaceId) {
+    return getWorkspaceExport(message.workspaceId);
+  }
+  if (message?.type === "importWorkspace" && message.payload) {
+    return importWorkspace(message.payload);
   }
   if (message?.type === "pullSyncSettings") {
     return pullSettingsFromSync();
