@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- 0.3.6: Workspace restore no longer blocks on sequential DEEP/discard operations.
+- Restore now creates all windows, tabs and groups first, persists the active workspace, then discards previously DEEP tabs in parallel as post-processing.
+- Export inspection confirmed the saved Práce workspace currently contains a stale third logical window from earlier broken restore attempts; do not auto-delete it yet.
+
 - 0.3.5: Workspace groups now use stable groupKey values instead of relying on Firefox runtime group IDs.
 - Existing saved workspaces are migrated on load from runtimeGroupId membership to groupKey membership.
 - Restore groups tabs by stable groupKey and keeps runtime group IDs only as fallback/debug context.
