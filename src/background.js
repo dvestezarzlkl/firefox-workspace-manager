@@ -6,6 +6,7 @@ const AUTO_SETTINGS_KEY = "fwm.autoSettings";
 const TAB_LIFECYCLE_KEY = "fwm.tabLifecycle";
 const HOST_STATS_KEY = "fwm.hostStats";
 const NEXT_DEEP_ALARM = "fwm.nextDeep";
+const DEEP_WATCHDOG_ALARM = "fwm.deepWatchdog";
 
 const activeByWindow = new Map();
 
@@ -334,6 +335,87 @@ async function scheduleNextDeep() {
   browser.alarms.create(NEXT_DEEP_ALARM, { when: next });
 }
 
+
+async function discardWithDiagnostics(tab, reason) {
+  if (!tab || tab.id == null) return false;
+  const attemptAt = Date.now();
+
+  await mutateLifecycle(async lifecycle => {
+    const key = String(tab.id);
+    lifecycle[key] = {
+      ...(lifecycle[key] ?? {}),
+      tabId: tab.id,
+      windowId: tab.windowId,
+      url: tab.url,
+      host: hostnameFromUrl(tab.url),
+      lastDiscardAttemptAt: attemptAt,
+      lastDiscardReason: reason,
+      lastDiscardResult: "pending"
+    };
+  });
+
+  try {
+    await browser.tabs.discard(tab.id);
+    let refreshed = null;
+    try {
+      refreshed = await browser.tabs.get(tab.id);
+    } catch {}
+
+    const success = refreshed?.discarded === true;
+    const completedAt = Date.now();
+
+    await mutateLifecycle(async lifecycle => {
+      const key = String(tab.id);
+      lifecycle[key] = {
+        ...(lifecycle[key] ?? {}),
+        lastDiscardResult: success ? "discarded" : "not-discarded",
+        lastDiscardCompletedAt: completedAt,
+        discardedAt: success ? completedAt : lifecycle[key]?.discardedAt ?? null
+      };
+    });
+
+    return success;
+  } catch (error) {
+    const completedAt = Date.now();
+    await mutateLifecycle(async lifecycle => {
+      const key = String(tab.id);
+      lifecycle[key] = {
+        ...(lifecycle[key] ?? {}),
+        lastDiscardResult: "error",
+        lastDiscardError: String(error?.message ?? error),
+        lastDiscardCompletedAt: completedAt
+      };
+    });
+    console.warn("Discard failed", tab.id, reason, error);
+    return false;
+  }
+}
+
+async function deepAlwaysWatchdog() {
+  const config = await getConfig();
+  const tabs = await browser.tabs.query({});
+
+  for (const tab of tabs) {
+    if (!isHttpUrl(tab.url) || tab.id == null) continue;
+    if (resolvePolicy(tab, config) !== "DEEP") continue;
+    if (protectedByRuntime(tab, config.auto)) continue;
+
+    // DEEP ALWAYS is a desired state, not a one-shot action. Reassert it
+    // periodically in case an update/reload/runtime transition left the tab loaded.
+    await discardWithDiagnostics(tab, "deep-always-watchdog");
+  }
+}
+
+async function ensureWatchdogAlarm() {
+  const existing = await browser.alarms.get(DEEP_WATCHDOG_ALARM);
+  if (!existing) {
+    browser.alarms.create(DEEP_WATCHDOG_ALARM, {
+      delayInMinutes: 0.5,
+      periodInMinutes: 0.5
+    });
+  }
+}
+
 async function sweepDueTabs() {
   const config = await getConfig();
   const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY]);
@@ -362,19 +444,14 @@ async function sweepDueTabs() {
       continue;
     }
 
-    try {
-      await browser.tabs.discard(tab.id);
-      lifecycle[key].deadline = null;
-      lifecycle[key].discardedAt = now;
-      lifecycle[key].policy = policy;
+    const success = await discardWithDiagnostics(tab, policy === "DEEP" ? "deep-always-deadline" : "auto-deadline");
+    lifecycle[key].deadline = success ? null : now + 60_000;
+    lifecycle[key].policy = policy;
+    if (success) {
       const hostStat = ensureHostStats(stats, hostnameFromUrl(tab.url));
       if (hostStat) hostStat.autoDeepCount += 1;
-      changed = true;
-    } catch (error) {
-      console.warn("AUTO DEEP failed", tab.id, error);
-      lifecycle[key].deadline = now + 60_000;
-      changed = true;
     }
+    changed = true;
   }
 
   if (changed) {
@@ -430,6 +507,7 @@ browser.runtime.onStartup.addListener(() => {
 
 browser.alarms.onAlarm.addListener(alarm => {
   if (alarm.name === NEXT_DEEP_ALARM) sweepDueTabs().catch(console.error);
+  if (alarm.name === DEEP_WATCHDOG_ALARM) deepAlwaysWatchdog().catch(console.error);
 });
 
 browser.tabs.onCreated.addListener(tab => {
@@ -517,3 +595,4 @@ browser.windows.onRemoved.addListener(async windowId => {
 
 snapshotAllWindows().catch(console.error);
 seedRuntimeState().catch(console.error);
+ensureWatchdogAlarm().catch(console.error);
