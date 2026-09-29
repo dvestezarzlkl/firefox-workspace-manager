@@ -13,10 +13,18 @@
       <div id="summary" class="summary">Načítám…</div>
     </div>
     <div class="actions">
+      <button id="settingsToggle" type="button">Nastavení</button>
       <button id="deepAll" type="button">DEEP ALL EXCEPT ACTIVE</button>
       <button id="refresh" type="button">Obnovit</button>
     </div>
   </header>
+  <section id="settingsPanel" class="settings-panel" hidden>
+    <div class="settings-inner">
+      <h2>Politiky podle hostname</h2>
+      <p>Pravidlo se vztahuje na celý host, např. <code>maps.zlkl.cz</code>, ne na jednotlivou záložku.</p>
+      <div id="hostPolicies">Načítám…</div>
+    </div>
+  </section>
   <main id="app">Načítám…</main>
   <script src="manager.js"></script>
 </body>
