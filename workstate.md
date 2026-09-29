@@ -9,6 +9,13 @@ branch = dev
 
 ## Done
 
+- 0.4.18: Added deterministic SHA-256 fingerprints for logical Firefox windows.
+- Fingerprint input is a sorted canonical list of "normalized group title | normalized URL" rows; runtime tab/group IDs are excluded.
+- Saved window snapshots now persist fingerprintVersion=1 + fingerprint.
+- Native reopened windows compute the same fingerprint and exact matches reattach immediately.
+- Existing pre-0.4.18 snapshots get fingerprints lazily on first comparison.
+- Previous fuzzy URL/title/group scoring remains only as fallback when an exact fingerprint does not match.
+
 - 0.4.17: Native Firefox reopened windows (Ctrl+Shift+N / session restore) can be reattached to their saved logical workspace window.
 - Reattach never creates a new logical window; it only matches against an existing closed saved window.
 - Matching uses tab URL/title overlap, tab-count similarity and group-title overlap, with ambiguity rejection to avoid ghost-window adoption.
@@ -240,12 +247,13 @@ branch = dev
 
 ## Next
 
-1. Pull 0.4.17 and reload the extension.
-2. With Workspace 2 active and both windows open, close one Firefox window.
-3. Verify manager reports 1 otevřené / 2 uložená okna.
-4. Press Ctrl+Shift+N to reopen the closed native Firefox window.
-5. After restore events settle, verify manager automatically returns to 2 otevřená / 2 uložená okna without creating a ghost window.
-6. If it does not reattach, copy workspace Debug log and inspect window-reattach-ambiguous / window-reattached events and scores.
+1. Pull 0.4.18 and reload the extension.
+2. Save/update the active workspace once so current windows receive persistent fingerprints immediately (legacy snapshots also fingerprint lazily).
+3. Close one mapped Firefox window.
+4. Reopen it with Ctrl+Shift+N.
+5. Verify Debug log reports window-reattached with matchMethod=fingerprint and manager returns to 2 otevřená / 2 uložená okna.
+6. Verify no ghost logical window is created.
+7. If exact fingerprint misses because Firefox altered one URL, fuzzy fallback should still reattach and log matchMethod=fuzzy.
 
 ## localCommand
 
