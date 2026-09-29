@@ -61,3 +61,10 @@ button {
   font: inherit;
   padding: 7px 9px;
 }
+
+.version {
+  padding: 0 12px 9px;
+  text-align: right;
+  font-size: 10px;
+  opacity: .45;
+}
