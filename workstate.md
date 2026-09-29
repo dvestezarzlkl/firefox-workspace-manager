@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- Full-page manager added for large tab collections.
+- Compact Unicode status indicators added: ● active, ✓ loaded, ○ deep/unloaded; extra flags use practical symbols.
+- Popup can open/reuse the full manager tab.
+
 - Bulk DEEP action added: discards all eligible inactive tabs while protecting active, pinned and audible tabs.
 
 - Diagnostic popup added: windows, groups, tab state flags and manual DEEP discard.
@@ -30,11 +34,11 @@ branch = dev
 
 ## Next
 
-1. Pull latest dev and let web-ext reload the extension.
-2. Verify popup sees the prepared grouped tabs correctly.
-3. Test manual DEEP on a non-active tab and verify it becomes discarded but stays in its group.
-4. Verify re-activating the discarded tab reloads it normally.
-5. Design logical persistent workspace IDs before automatic restore.
+1. Pull latest dev and open the full manager from the popup.
+2. Verify 50+ tab layout remains usable.
+3. Verify status changes from ✓ to ○ immediately after DEEP and back after reactivation.
+4. Integrate the generated extension icon into manifest/action assets.
+5. Start lifecycle policy design per group/domain.
 
 ## localCommand
 
