@@ -81,3 +81,13 @@ button.deep {
   padding: 8px 9px;
   opacity: .7;
 }
+
+.header-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+#deepAll {
+  font-weight: 600;
+}
