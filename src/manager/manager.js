@@ -432,8 +432,8 @@ function renderWorkspaces() {
 
   workspaceListEl.innerHTML = entries.map(workspace => {
     const stat = workspaceStats(workspace);
-    const active = workspace.id === activeWorkspaceId;
-    const status = active ? "AKTIVNÍ" : (workspace.open ? "OTEVŘENÝ" : "ZAVŘENÝ");
+    const active = workspace.id === activeWorkspaceId && stat.openWindows > 0;
+    const status = active ? "AKTIVNÍ" : (stat.openWindows > 0 ? "OTEVŘENÝ" : "ZAVŘENÝ");
 
     return `
       <section class="workspace-card ${active ? "workspace-active" : ""}">
