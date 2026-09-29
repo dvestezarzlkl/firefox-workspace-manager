@@ -22,6 +22,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Firefox Workspace Manager"
+    "default_title": "Firefox Workspace Manager",
+    "default_popup": "src/popup/popup.html"
   }
 }
