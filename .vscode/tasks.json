@@ -17,7 +17,9 @@
         "reveal": "always",
         "panel": "dedicated",
         "clear": true
-      }
+      },
+      "dependsOn": "FF: Instalovat dev nástroje",
+      "dependsOrder": "sequence"
     },
     {
       "label": "FF: Lint extension",
