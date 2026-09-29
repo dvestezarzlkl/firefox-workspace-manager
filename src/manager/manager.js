@@ -328,7 +328,7 @@ function renderWorkspaceTree(workspace) {
   const windows = Object.values(workspace?.windows ?? {});
   if (!windows.length) return '<div class="workspace-tree-empty">Workspace nemá uložená okna.</div>';
 
-  const treeHtml = windows.map((win, index) => {
+  const treeHtml = Object.entries(workspace?.windows ?? {}).map(([logicalWindowId, win], index) => {
     const tabs = (win.tabs ?? []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
     const groups = win.groups ?? [];
     const groupedRuntimeIds = new Set();
@@ -362,7 +362,10 @@ function renderWorkspaceTree(workspace) {
 
     return `
       <div class="workspace-tree-window">
-        <strong>window${index}</strong>
+        <div class="workspace-tree-window-head">
+          <strong>window${index}</strong>
+          <button type="button" data-workspace-window-action="remove" data-workspace-id="${esc(workspace.id)}" data-logical-window-id="${esc(logicalWindowId)}">Vyřadit</button>
+        </div>
         ${groupsHtml}
         ${ungroupedHtml}
       </div>`;
@@ -645,6 +648,22 @@ hostPoliciesEl.addEventListener("change", async event => {
 
 
 workspaceListEl.addEventListener("click", async event => {
+  const windowButton = event.target.closest("button[data-workspace-window-action]");
+  if (windowButton) {
+    const workspaceId = windowButton.dataset.workspaceId;
+    const logicalWindowId = windowButton.dataset.logicalWindowId;
+    if (windowButton.dataset.workspaceWindowAction === "remove") {
+      if (!confirm("Vyřadit toto uložené okno z workspace?\n\nAktuálně otevřené Firefox okno se nezavře.")) return;
+      await browser.runtime.sendMessage({
+        type: "removeWorkspaceWindow",
+        workspaceId,
+        logicalWindowId
+      });
+      await load();
+    }
+    return;
+  }
+
   const button = event.target.closest("button[data-workspace-action]");
   if (!button) return;
 
