@@ -14,6 +14,8 @@ const urlPattern = document.getElementById("urlPattern");
 const useLastPage = document.getElementById("useLastPage");
 const addUrlKeep = document.getElementById("addUrlKeep");
 const urlPoliciesEl = document.getElementById("urlPolicies");
+const syncEnabled = document.getElementById("syncEnabled");
+const closedWorkspacesEl = document.getElementById("closedWorkspaces");
 
 const HOST_POLICIES_KEY = "fwm.hostPolicies";
 const KNOWN_HOSTS_KEY = "fwm.knownHosts";
@@ -24,6 +26,8 @@ const URL_POLICIES_KEY = "fwm.urlPolicies";
 const TAB_LIFECYCLE_KEY = "fwm.tabLifecycle";
 const HOST_STATS_KEY = "fwm.hostStats";
 const HOST_RESULT_LIMIT = 30;
+const WORKSPACES_KEY = "fwm.workspaces";
+const SYNC_ENABLED_KEY = "fwm.sync.enabled";
 
 let managerTabId = null;
 let managerWindowId = null;
@@ -101,6 +105,19 @@ async function updateKnownHosts(openHosts) {
   const previous = Array.isArray(stored[KNOWN_HOSTS_KEY]) ? stored[KNOWN_HOSTS_KEY] : [];
   knownHosts = [...new Set([...previous, ...openHosts])].sort().slice(-1000);
   await browser.storage.local.set({ [KNOWN_HOSTS_KEY]: knownHosts });
+}
+
+async function loadSyncSetting() {
+  const stored = await browser.storage.local.get(SYNC_ENABLED_KEY);
+  syncEnabled.checked = !!stored[SYNC_ENABLED_KEY];
+}
+
+async function saveSyncSetting() {
+  const enabled = !!syncEnabled.checked;
+  await browser.storage.local.set({ [SYNC_ENABLED_KEY]: enabled });
+  if (enabled) {
+    await browser.runtime.sendMessage({ type: "pushSyncSettings" });
+  }
 }
 
 async function loadAutoSettings() {
@@ -284,15 +301,46 @@ async function renderHostPolicies() {
     : `Zobrazeny pouze hostname z aktuálně otevřených panelů; max. ${HOST_RESULT_LIMIT}.`;
 }
 
+function renderClosedWorkspaces(workspaces) {
+  const closed = Object.values(workspaces ?? {})
+    .filter(workspace => workspace && workspace.persistent !== false && !workspace.open)
+    .sort((a, b) => (b.closedAt || 0) - (a.closedAt || 0));
+
+  if (!closed.length) {
+    closedWorkspacesEl.innerHTML = "";
+    return;
+  }
+
+  closedWorkspacesEl.innerHTML = `
+    <section class="closed-workspace-card">
+      <div class="closed-workspace-title">
+        <strong>Zavřené workspaces</strong>
+        <span>${closed.length}</span>
+      </div>
+      <div class="closed-workspace-list">
+        ${closed.map(workspace => `
+          <div class="closed-workspace-row">
+            <div>
+              <strong>${esc(workspace.name || "Workspace")}</strong>
+              <span>${(workspace.tabs ?? []).length} tabů · ${(workspace.groups ?? []).length} skupin</span>
+            </div>
+            <button type="button" data-restore-workspace="${esc(workspace.id)}">Obnovit</button>
+          </div>
+        `).join("")}
+      </div>
+    </section>`;
+}
+
 async function load() {
   app.textContent = "Načítám…";
 
-  const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY, URL_POLICIES_KEY, HOST_POLICIES_KEY]);
+  const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY, URL_POLICIES_KEY, HOST_POLICIES_KEY, WORKSPACES_KEY]);
   lifecycleMap = stored[TAB_LIFECYCLE_KEY] ?? {};
   hostStats = stored[HOST_STATS_KEY] ?? {};
   urlPolicies = Array.isArray(stored[URL_POLICIES_KEY]) ? stored[URL_POLICIES_KEY] : [];
   hostPolicies = stored[HOST_POLICIES_KEY] ?? {};
   renderUrlPolicies();
+  renderClosedWorkspaces(stored[WORKSPACES_KEY] ?? {});
 
   currentWindows = await browser.windows.getAll({ populate: true, windowTypes: ["normal"] });
 
@@ -487,6 +535,24 @@ hostPoliciesEl.addEventListener("change", async event => {
 });
 
 hostFilter.addEventListener("input", () => renderHostPolicies().catch(console.error));
+syncEnabled.addEventListener("change", () => saveSyncSetting().catch(console.error));
+
+closedWorkspacesEl.addEventListener("click", async event => {
+  const button = event.target.closest("button[data-restore-workspace]");
+  if (!button) return;
+
+  button.disabled = true;
+  try {
+    await browser.runtime.sendMessage({
+      type: "restoreWorkspace",
+      workspaceId: button.dataset.restoreWorkspace
+    });
+    await load();
+  } catch (error) {
+    console.error("Workspace restore failed", error);
+    button.disabled = false;
+  }
+});
 
 useLastPage.addEventListener("click", async () => {
   if (lastActiveContentTabId == null) return;
@@ -535,7 +601,7 @@ browser.tabGroups.onRemoved.addListener(() => load().catch(console.error));
 
 browser.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
-  if (changes[TAB_LIFECYCLE_KEY] || changes[HOST_STATS_KEY] || changes[URL_POLICIES_KEY] || changes[HOST_POLICIES_KEY]) {
+  if (changes[TAB_LIFECYCLE_KEY] || changes[HOST_STATS_KEY] || changes[URL_POLICIES_KEY] || changes[HOST_POLICIES_KEY] || changes[WORKSPACES_KEY]) {
     load().catch(console.error);
   }
 });
@@ -571,6 +637,7 @@ setInterval(() => {
 
   const uiState = await browser.storage.local.get(UI_PAGE_KEY);
   await setPage(uiState[UI_PAGE_KEY] === "settings" ? "settings" : "panels");
+  await loadSyncSetting();
   await loadAutoSettings();
   await load();
 })().catch(error => {
