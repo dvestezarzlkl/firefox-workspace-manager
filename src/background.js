@@ -1297,43 +1297,185 @@ async function renameWorkspace(workspaceId, name) {
   return workspace;
 }
 
-async function cloneActiveWorkspace(name) {
-  let activeWorkspaceId = await inferActiveWorkspaceFromRuntime();
-  if (activeWorkspaceId) await snapshotCurrentWorkspace();
+async function createWorkspaceFromCurrentState(name) {
+  if (await workspaceSnapshotLocked()) {
+    throw new Error("Workspace restore is still in progress");
+  }
+
+  const liveWindows = await browser.windows.getAll({
+    windowTypes: ["normal"],
+    populate: true
+  });
+
+  const captured = [];
+
+  for (const win of liveWindows) {
+    if (!hasWorkspaceContent(win)) continue;
+
+    const groups = await browser.tabGroups.query({ windowId: win.id });
+    const logicalWindowId = newLogicalWindowId();
+    const groupKeyByRuntimeId = new Map();
+
+    const savedGroups = groups.map((group, index) => {
+      const groupKey = "g" + index;
+      groupKeyByRuntimeId.set(group.id, groupKey);
+      return {
+        runtimeGroupId: group.id,
+        groupKey,
+        title: group.title,
+        color: group.color,
+        collapsed: group.collapsed
+      };
+    });
+
+    const savedTabs = (win.tabs ?? [])
+      .filter(tab => !isExtensionUrl(tab.url))
+      .map(tab => ({
+        runtimeTabId: tab.id,
+        index: tab.index,
+        url: tab.url,
+        title: tab.title,
+        pinned: tab.pinned,
+        active: tab.active,
+        discarded: tab.discarded,
+        audible: tab.audible,
+        autoDiscardable: tab.autoDiscardable,
+        cookieStoreId: tab.cookieStoreId,
+        runtimeGroupId: tab.groupId,
+        groupKey: groupKeyByRuntimeId.get(tab.groupId) ?? null
+      }));
+
+    if (!savedTabs.length) continue;
+
+    captured.push({
+      runtimeWindowId: win.id,
+      logicalWindowId,
+      snapshot: {
+        id: logicalWindowId,
+        open: true,
+        runtimeWindowId: win.id,
+        closedAt: null,
+        updatedAt: Date.now(),
+        window: {
+          state: win.state,
+          left: win.left,
+          top: win.top,
+          width: win.width,
+          height: win.height,
+          incognito: win.incognito
+        },
+        groups: savedGroups,
+        tabs: savedTabs
+      }
+    });
+  }
+
+  if (!captured.length) {
+    throw new Error("Aktuální Firefox neobsahuje žádné okno s uložitelnými panely");
+  }
 
   const store = await loadWorkspaceStore();
-  activeWorkspaceId = store.activeWorkspaceId ?? activeWorkspaceId;
-  const workspaces = store.workspaces;
-  const source = activeWorkspaceId ? workspaces[activeWorkspaceId] : null;
-  if (!source) throw new Error("No active workspace");
+  const workspaceId = newWorkspaceId();
+  const now = Date.now();
 
-  const id = newWorkspaceId();
-  const clonedWindows = {};
-  for (const sourceWindow of Object.values(source.windows ?? {})) {
-    const logicalWindowId = newLogicalWindowId();
-    clonedWindows[logicalWindowId] = {
-      ...sourceWindow,
-      id: logicalWindowId,
-      open: false,
-      runtimeWindowId: null,
-      closedAt: Date.now()
+  // Detach captured runtime windows from their previous workspace ownership,
+  // but keep all existing saved definitions intact as closed snapshots.
+  for (const item of captured) {
+    const runtimeKey = String(item.runtimeWindowId);
+    const previousMapping = store.windowMap[runtimeKey];
+
+    if (previousMapping) {
+      const previousWorkspace = store.workspaces[previousMapping.workspaceId];
+      const previousWindow = previousWorkspace?.windows?.[previousMapping.logicalWindowId];
+
+      if (previousWindow) {
+        previousWindow.open = false;
+        previousWindow.runtimeWindowId = null;
+        previousWindow.closedAt = now;
+        previousWindow.updatedAt = now;
+      }
+
+      delete store.windowMap[runtimeKey];
+    }
+  }
+
+  for (const workspace of Object.values(store.workspaces)) {
+    if (!workspace) continue;
+    workspace.active = false;
+    workspace.open = Object.values(workspace.windows ?? {}).some(win => !!win?.open);
+    if (!workspace.open && !workspace.closedAt) workspace.closedAt = now;
+  }
+
+  const windows = {};
+  for (const item of captured) {
+    windows[item.logicalWindowId] = item.snapshot;
+    store.windowMap[String(item.runtimeWindowId)] = {
+      workspaceId,
+      logicalWindowId: item.logicalWindowId
     };
   }
 
-  workspaces[id] = {
-    ...source,
-    id,
-    name: String(name || "").trim() || "Workspace " + (Object.keys(workspaces).length + 1),
-    active: false,
-    open: false,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    closedAt: Date.now(),
-    windows: clonedWindows
+  const workspace = {
+    id: workspaceId,
+    name: String(name || "").trim() || ("Workspace " + (Object.keys(store.workspaces).length + 1)),
+    persistent: true,
+    active: true,
+    open: true,
+    createdAt: now,
+    updatedAt: now,
+    closedAt: null,
+    windows
   };
 
-  await browser.storage.local.set({ [WORKSPACES_KEY]: workspaces });
-  return workspaces[id];
+  store.workspaces[workspaceId] = workspace;
+  store.activeWorkspaceId = workspaceId;
+
+  await browser.storage.local.set({
+    [WORKSPACES_KEY]: store.workspaces,
+    [WINDOW_WORKSPACE_MAP_KEY]: store.windowMap,
+    "fwm.activeWorkspaceId": workspaceId
+  });
+
+  const tabCount = captured.reduce((sum, item) => sum + item.snapshot.tabs.length, 0);
+  const groupCount = captured.reduce((sum, item) => sum + item.snapshot.groups.length, 0);
+
+  await workspaceDebug("workspace-created-from-current-state", {
+    workspaceId,
+    windows: captured.length,
+    tabs: tabCount,
+    groups: groupCount,
+    runtimeWindowIds: captured.map(item => item.runtimeWindowId)
+  });
+
+  // Verify persistence before reporting success to the manager UI.
+  const verify = await browser.storage.local.get([
+    WORKSPACES_KEY,
+    WINDOW_WORKSPACE_MAP_KEY,
+    "fwm.activeWorkspaceId"
+  ]);
+
+  const verifiedWorkspace = verify[WORKSPACES_KEY]?.[workspaceId];
+  const verifiedActiveId = verify["fwm.activeWorkspaceId"];
+  const verifiedWindows = Object.keys(verifiedWorkspace?.windows ?? {}).length;
+  const verifiedTabs = Object.values(verifiedWorkspace?.windows ?? {})
+    .reduce((sum, win) => sum + (win.tabs ?? []).length, 0);
+
+  if (
+    !verifiedWorkspace ||
+    verifiedActiveId !== workspaceId ||
+    verifiedWindows !== captured.length ||
+    verifiedTabs !== tabCount
+  ) {
+    throw new Error("Kontrola uloženého workspace selhala");
+  }
+
+  return {
+    workspaceId,
+    active: true,
+    windows: captured.length,
+    tabs: tabCount,
+    groups: groupCount
+  };
 }
 
 async function deleteWorkspace(workspaceId) {
@@ -2046,8 +2188,8 @@ browser.runtime.onMessage.addListener(message => {
   if (message?.type === "snapshotWorkspace") {
     return snapshotCurrentWorkspace();
   }
-  if (message?.type === "cloneWorkspace") {
-    return cloneActiveWorkspace(message.name);
+  if (message?.type === "createWorkspaceFromCurrentState") {
+    return createWorkspaceFromCurrentState(message.name);
   }
   if (message?.type === "deleteWorkspace" && message.workspaceId) {
     return deleteWorkspace(message.workspaceId);
