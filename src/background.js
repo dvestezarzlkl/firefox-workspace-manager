@@ -652,6 +652,65 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
   return { windowId: win.id, deferredDiscardTabIds };
 }
 
+async function findLiveWorkspaceWindows(workspaceId, workspaces, windowMap) {
+  const liveWindows = await browser.windows.getAll({ windowTypes: ["normal"] });
+  const liveIds = new Set(liveWindows.map(win => String(win.id)));
+  const workspace = workspaces[workspaceId];
+  if (!workspace) return [];
+
+  const result = [];
+  for (const [runtimeId, mapping] of Object.entries(windowMap ?? {})) {
+    if (mapping?.workspaceId !== workspaceId || !liveIds.has(runtimeId)) continue;
+    const logicalWindow = workspace.windows?.[mapping.logicalWindowId];
+    if (!logicalWindow) continue;
+
+    logicalWindow.open = true;
+    logicalWindow.runtimeWindowId = Number(runtimeId);
+    logicalWindow.closedAt = null;
+    result.push({
+      runtimeWindowId: Number(runtimeId),
+      logicalWindowId: mapping.logicalWindowId
+    });
+  }
+  return result;
+}
+
+async function inferActiveWorkspaceFromRuntime() {
+  const store = await loadWorkspaceStore();
+  if (store.activeWorkspaceId && store.workspaces[store.activeWorkspaceId]) {
+    return store.activeWorkspaceId;
+  }
+
+  const liveWindows = await browser.windows.getAll({ windowTypes: ["normal"] });
+  const liveIds = new Set(liveWindows.map(win => String(win.id)));
+  const counts = new Map();
+
+  for (const [runtimeId, mapping] of Object.entries(store.windowMap ?? {})) {
+    if (!liveIds.has(runtimeId) || !mapping?.workspaceId || !store.workspaces[mapping.workspaceId]) continue;
+    counts.set(mapping.workspaceId, (counts.get(mapping.workspaceId) ?? 0) + 1);
+  }
+
+  if (!counts.size) return null;
+
+  const [workspaceId] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+  const workspace = store.workspaces[workspaceId];
+  workspace.active = true;
+  workspace.open = true;
+  workspace.closedAt = null;
+
+  await browser.storage.local.set({
+    [WORKSPACES_KEY]: store.workspaces,
+    "fwm.activeWorkspaceId": workspaceId
+  });
+
+  await workspaceDebug("active-workspace-inferred", {
+    workspaceId,
+    mappedLiveWindows: counts.get(workspaceId)
+  });
+
+  return workspaceId;
+}
+
 async function restoreWorkspace(workspaceId) {
   await workspaceDebug("restore-begin", { workspaceId, restoreDepth: workspaceRestoreDepth });
   const store = await loadWorkspaceStore();
@@ -659,16 +718,35 @@ async function restoreWorkspace(workspaceId) {
   const workspace = workspaces[workspaceId];
   if (!workspace) throw new Error("Workspace not found");
 
-  const openWindows = Object.values(workspace.windows ?? {}).filter(win => win.open && win.runtimeWindowId != null);
-  if (openWindows.length) {
-    await browser.storage.local.set({ "fwm.activeWorkspaceId": workspaceId });
+  const liveMappedWindows = await findLiveWorkspaceWindows(workspaceId, workspaces, store.windowMap);
+  if (liveMappedWindows.length) {
     workspace.active = true;
     workspace.open = true;
-    await browser.storage.local.set({ [WORKSPACES_KEY]: workspaces });
+    workspace.closedAt = null;
+    workspace.updatedAt = Date.now();
+
+    for (const [id, other] of Object.entries(workspaces)) {
+      if (id !== workspaceId && other) other.active = false;
+    }
+
+    await browser.storage.local.set({
+      [WORKSPACES_KEY]: workspaces,
+      "fwm.activeWorkspaceId": workspaceId
+    });
+
+    await workspaceDebug("restore-reused-live-windows", {
+      workspaceId,
+      runtimeWindowIds: liveMappedWindows.map(item => item.runtimeWindowId)
+    });
+
     try {
-      await browser.windows.update(openWindows[0].runtimeWindowId, { focused: true });
-      return { windowIds: openWindows.map(win => win.runtimeWindowId), reused: true };
+      await browser.windows.update(liveMappedWindows[0].runtimeWindowId, { focused: true });
     } catch {}
+
+    return {
+      windowIds: liveMappedWindows.map(item => item.runtimeWindowId),
+      reused: true
+    };
   }
 
   const restored = [];
@@ -938,9 +1016,10 @@ async function removeWorkspaceWindow(workspaceId, logicalWindowId) {
 }
 
 async function snapshotCurrentWorkspace() {
+  const activeWorkspaceId = await inferActiveWorkspaceFromRuntime();
+  if (!activeWorkspaceId) return null;
   await snapshotAllWindows();
-  const stored = await browser.storage.local.get("fwm.activeWorkspaceId");
-  return stored["fwm.activeWorkspaceId"] ?? null;
+  return activeWorkspaceId;
 }
 
 async function renameWorkspace(workspaceId, name) {
@@ -954,8 +1033,12 @@ async function renameWorkspace(workspaceId, name) {
 }
 
 async function cloneActiveWorkspace(name) {
-  await snapshotAllWindows();
-  const { workspaces, activeWorkspaceId } = await loadWorkspaceStore();
+  let activeWorkspaceId = await inferActiveWorkspaceFromRuntime();
+  if (activeWorkspaceId) await snapshotAllWindows();
+
+  const store = await loadWorkspaceStore();
+  activeWorkspaceId = store.activeWorkspaceId ?? activeWorkspaceId;
+  const workspaces = store.workspaces;
   const source = activeWorkspaceId ? workspaces[activeWorkspaceId] : null;
   if (!source) throw new Error("No active workspace");
 
