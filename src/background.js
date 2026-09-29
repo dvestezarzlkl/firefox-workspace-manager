@@ -472,14 +472,16 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
   const firstUrl = restorableUrl(sourceTabs[0]?.url) || "about:blank";
   const createData = { url: firstUrl, focused: false };
 
-  if (sourceWindow.window?.state === "normal") {
-    for (const key of ["left", "top", "width", "height"]) {
-      if (Number.isFinite(sourceWindow.window[key])) createData[key] = sourceWindow.window[key];
-    }
-  }
+  await workspaceDebug("restore-window-create-before", {
+    workspaceId,
+    logicalWindowId,
+    firstUrl,
+    requestedGeometry: sourceWindow.window ?? null
+  });
 
-  await workspaceDebug("restore-window-create-before", { workspaceId, logicalWindowId, firstUrl });
-
+  // Create without geometry first. Multi-monitor coordinates may be negative
+  // and Firefox/OS can reject them on restore; geometry must never abort the
+  // workspace restore.
   const win = await withTimeout(browser.windows.create(createData), 10000, "windows.create");
 
   await workspaceDebug("restore-window-create-after", {
@@ -487,6 +489,33 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
     logicalWindowId,
     runtimeWindowId: win.id
   });
+
+  if (sourceWindow.window?.state === "normal") {
+    const geometry = {};
+    for (const key of ["left", "top", "width", "height"]) {
+      if (Number.isFinite(sourceWindow.window[key])) geometry[key] = sourceWindow.window[key];
+    }
+
+    if (Object.keys(geometry).length) {
+      try {
+        await withTimeout(browser.windows.update(win.id, geometry), 5000, "windows.update geometry");
+        await workspaceDebug("restore-window-geometry-after", {
+          workspaceId,
+          logicalWindowId,
+          runtimeWindowId: win.id,
+          geometry
+        });
+      } catch (error) {
+        await workspaceDebug("restore-window-geometry-error", {
+          workspaceId,
+          logicalWindowId,
+          runtimeWindowId: win.id,
+          geometry,
+          error: String(error?.message ?? error)
+        });
+      }
+    }
+  }
 
   const liveTabs = (await withTimeout(browser.tabs.query({ windowId: win.id }), 5000, "tabs.query"))
     .slice()
@@ -631,22 +660,33 @@ async function restoreWorkspace(workspaceId) {
   workspaceRestoreDepth++;
   try {
     for (const [logicalWindowId, sourceWindow] of Object.entries(workspace.windows ?? {})) {
-      const restoredWindow = await restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow);
-      const windowId = restoredWindow.windowId;
-      restored.push(windowId);
-      deferredDiscardTabIds.push(...restoredWindow.deferredDiscardTabIds);
-      await workspaceDebug("restore-window-created", {
-        workspaceId,
-        logicalWindowId,
-        runtimeWindowId: windowId,
-        deferredDiscardCount: restoredWindow.deferredDiscardTabIds.length
-      });
-      newMap[String(windowId)] = { workspaceId, logicalWindowId };
+      try {
+        const restoredWindow = await restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow);
+        const windowId = restoredWindow.windowId;
+        restored.push(windowId);
+        deferredDiscardTabIds.push(...restoredWindow.deferredDiscardTabIds);
+        await workspaceDebug("restore-window-created", {
+          workspaceId,
+          logicalWindowId,
+          runtimeWindowId: windowId,
+          deferredDiscardCount: restoredWindow.deferredDiscardTabIds.length
+        });
+        newMap[String(windowId)] = { workspaceId, logicalWindowId };
 
-      sourceWindow.open = true;
-      sourceWindow.runtimeWindowId = windowId;
-      sourceWindow.closedAt = null;
-      sourceWindow.updatedAt = Date.now();
+        sourceWindow.open = true;
+        sourceWindow.runtimeWindowId = windowId;
+        sourceWindow.closedAt = null;
+        sourceWindow.updatedAt = Date.now();
+      } catch (error) {
+        sourceWindow.open = false;
+        sourceWindow.runtimeWindowId = null;
+        sourceWindow.updatedAt = Date.now();
+        await workspaceDebug("restore-window-error", {
+          workspaceId,
+          logicalWindowId,
+          error: String(error?.message ?? error)
+        });
+      }
     }
 
     workspace.open = restored.length > 0;
