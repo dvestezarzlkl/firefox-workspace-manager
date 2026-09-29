@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- Verified multi-window active-tab behavior: one active tab per Firefox window is protected from DEEP, so an apparently persistent tab may simply be active in another window.
+- MPI TECH case explained by being the active tab in the second window; after pull/reload it disappeared when no longer protected.
+- Keep the 30s watchdog as a recovery/self-heal mechanism for update/reload edge cases.
+
 - 30-second watchdog now covers both DEEP ALWAYS enforcement and AUTO self-healing.
 - AUTO tabs missing lifecycle/deadline state are recreated by watchdog; existing inactiveSince is preserved when available.
 - Per-tab discard diagnostics exposed in manager: attempt time, reason, result and discardedAt.
