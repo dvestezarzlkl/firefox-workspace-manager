@@ -9,6 +9,11 @@ branch = dev
 
 ## Done
 
+- 0.4.2: Automatic workspace snapshots can update only runtime windows already mapped to that workspace.
+- Unmapped runtime windows are ignored and logged as snapshot-skipped-unmapped-window; they can no longer create ghost logical windows.
+- Uložit stav explicitly adopts only genuinely unmapped content windows, never windows already owned by another workspace.
+- Uložit jako nový now uses the explicit save path before cloning.
+
 - 0.4.1: Recovery now holds a persistent workspace snapshot lock in storage.local for the entire restore operation.
 - Snapshot entry points refuse to write while the lock is active, even if the background context reloads and workspaceRestoreDepth resets.
 - Automatic snapshotAllWindows on extension startup/install/module load was removed.
