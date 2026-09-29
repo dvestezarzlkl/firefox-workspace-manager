@@ -243,6 +243,86 @@ async function reconcileWorkspaceRuntimeState() {
     await browser.storage.local.set({ [WORKSPACES_KEY]: workspaces });
   }
 
+  // Firefox may restore native windows before the extension background starts.
+  // Reattach such windows by exact content fingerprint only; never fuzzy-match
+  // during startup reconciliation.
+  const populatedLiveWindows = await browser.windows.getAll({
+    windowTypes: ["normal"],
+    populate: true
+  });
+
+  const closedByFingerprint = new Map();
+  for (const [workspaceId, workspace] of Object.entries(workspaces)) {
+    for (const [logicalWindowId, savedWindow] of Object.entries(workspace?.windows ?? {})) {
+      if (savedWindow?.open || savedWindow?.runtimeWindowId != null) continue;
+      const fingerprint = savedWindow.fingerprint || await fingerprintSavedWindow(savedWindow);
+      savedWindow.fingerprintVersion = 1;
+      savedWindow.fingerprint = fingerprint;
+
+      const list = closedByFingerprint.get(fingerprint) ?? [];
+      list.push({ workspaceId, logicalWindowId, savedWindow });
+      closedByFingerprint.set(fingerprint, list);
+    }
+  }
+
+  let fingerprintReattached = false;
+
+  for (const liveWindow of populatedLiveWindows) {
+    const runtimeKey = String(liveWindow.id);
+    if (windowMap[runtimeKey] || !hasWorkspaceContent(liveWindow)) continue;
+
+    let liveGroups = [];
+    try {
+      liveGroups = await browser.tabGroups.query({ windowId: liveWindow.id });
+    } catch {}
+
+    const fingerprint = await fingerprintLiveWindow(liveWindow, liveGroups);
+    const matches = closedByFingerprint.get(fingerprint) ?? [];
+    if (matches.length !== 1) continue;
+
+    const match = matches[0];
+    const workspace = workspaces[match.workspaceId];
+    const logicalWindow = workspace?.windows?.[match.logicalWindowId];
+    if (!workspace || !logicalWindow) continue;
+
+    windowMap[runtimeKey] = {
+      workspaceId: match.workspaceId,
+      logicalWindowId: match.logicalWindowId
+    };
+
+    logicalWindow.open = true;
+    logicalWindow.runtimeWindowId = liveWindow.id;
+    logicalWindow.closedAt = null;
+    logicalWindow.updatedAt = Date.now();
+
+    workspace.open = true;
+    workspace.active = true;
+    workspace.closedAt = null;
+    workspace.updatedAt = Date.now();
+
+    activeWorkspaceId = match.workspaceId;
+    fingerprintReattached = true;
+
+    await workspaceDebug("startup-fingerprint-reattached", {
+      workspaceId: match.workspaceId,
+      logicalWindowId: match.logicalWindowId,
+      runtimeWindowId: liveWindow.id,
+      fingerprint
+    });
+  }
+
+  if (fingerprintReattached) {
+    for (const [workspaceId, workspace] of Object.entries(workspaces)) {
+      workspace.active = workspaceId === activeWorkspaceId && workspace.open;
+    }
+
+    await browser.storage.local.set({
+      [WORKSPACES_KEY]: workspaces,
+      [WINDOW_WORKSPACE_MAP_KEY]: windowMap,
+      "fwm.activeWorkspaceId": activeWorkspaceId
+    });
+  }
+
   return { workspaces, windowMap, activeWorkspaceId };
 }
 
@@ -1378,7 +1458,7 @@ async function restoreWorkspace(workspaceId) {
 }
 
 
-function sanitizeWorkspaceForExport(workspace) {
+async function sanitizeWorkspaceForExport(workspace) {
   const exported = {
     format: "firefox-workspace-manager.workspace",
     version: 1,
@@ -1411,7 +1491,18 @@ function sanitizeWorkspaceForExport(workspace) {
       groupKey: tab.groupKey ?? groupKeyByRuntime.get(tab.runtimeGroupId) ?? null
     }));
 
+    const fingerprintVersion = 1;
+    const fingerprint = await fingerprintSavedWindow({
+      groups: (sourceWindow.groups ?? []).map((group, index) => ({
+        ...group,
+        groupKey: group.groupKey ?? ("g" + index)
+      })),
+      tabs: sourceWindow.tabs ?? []
+    });
+
     exported.windows.push({
+      fingerprintVersion,
+      fingerprint,
       window: {
         state: sourceWindow.window?.state ?? "normal",
         left: sourceWindow.window?.left ?? null,
@@ -1467,7 +1558,7 @@ async function importWorkspace(payload) {
       groupKey: tab.groupKey ?? null
     }));
 
-    windows[logicalWindowId] = {
+    const importedSnapshot = {
       id: logicalWindowId,
       open: false,
       runtimeWindowId: null,
@@ -1484,6 +1575,23 @@ async function importWorkspace(payload) {
       groups,
       tabs
     };
+
+    importedSnapshot.fingerprintVersion = 1;
+    importedSnapshot.fingerprint = await fingerprintSavedWindow(importedSnapshot);
+
+    if (
+      importedWindow.fingerprint &&
+      importedWindow.fingerprintVersion === 1 &&
+      importedWindow.fingerprint !== importedSnapshot.fingerprint
+    ) {
+      await workspaceDebug("workspace-import-fingerprint-mismatch", {
+        importedFingerprint: importedWindow.fingerprint,
+        computedFingerprint: importedSnapshot.fingerprint,
+        logicalWindowId
+      });
+    }
+
+    windows[logicalWindowId] = importedSnapshot;
   }
 
   workspaces[workspaceId] = {
@@ -1510,7 +1618,7 @@ async function getWorkspaceExport(workspaceId) {
   const { workspaces } = await loadWorkspaceStore();
   const workspace = workspaces[workspaceId];
   if (!workspace) throw new Error("Workspace not found");
-  return sanitizeWorkspaceForExport(workspace);
+  return await sanitizeWorkspaceForExport(workspace);
 }
 
 async function removeWorkspaceWindow(workspaceId, logicalWindowId) {
