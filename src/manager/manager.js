@@ -10,12 +10,19 @@ const autoMinutes = document.getElementById("autoMinutes");
 const autoDeepOnLeave = document.getElementById("autoDeepOnLeave");
 const autoProtectPinned = document.getElementById("autoProtectPinned");
 const autoProtectAudible = document.getElementById("autoProtectAudible");
+const urlPattern = document.getElementById("urlPattern");
+const useLastPage = document.getElementById("useLastPage");
+const addUrlKeep = document.getElementById("addUrlKeep");
+const urlPoliciesEl = document.getElementById("urlPolicies");
 
 const HOST_POLICIES_KEY = "fwm.hostPolicies";
 const KNOWN_HOSTS_KEY = "fwm.knownHosts";
 const AUTO_SETTINGS_KEY = "fwm.autoSettings";
 const UI_PAGE_KEY = "fwm.ui.page";
 const LAST_ACTIVE_CONTENT_KEY = "fwm.lastActiveContentTabs";
+const URL_POLICIES_KEY = "fwm.urlPolicies";
+const TAB_LIFECYCLE_KEY = "fwm.tabLifecycle";
+const HOST_STATS_KEY = "fwm.hostStats";
 const HOST_RESULT_LIMIT = 30;
 
 let managerTabId = null;
@@ -24,6 +31,9 @@ let lastActiveContentTabId = null;
 let currentOpenHosts = [];
 let knownHosts = [];
 let currentWindows = [];
+let lifecycleMap = {};
+let hostStats = {};
+let urlPolicies = [];
 
 function esc(value) {
   return String(value ?? "")
@@ -117,6 +127,20 @@ async function saveAutoSettings() {
   });
 }
 
+function formatRemaining(deadline) {
+  const remaining = Math.max(0, Number(deadline) - Date.now());
+  const totalSeconds = Math.ceil(remaining / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes + ":" + String(seconds).padStart(2, "0");
+}
+
+function lifecycleText(tab) {
+  const item = lifecycleMap[String(tab.id)];
+  if (!item?.deadline || tab.active || tab.discarded) return "";
+  return '<span class="countdown" data-deadline="' + item.deadline + '">DEEP za ' + formatRemaining(item.deadline) + '</span>';
+}
+
 function renderTab(tab) {
   const disabled = isProtectedFromDeep(tab);
   return `
@@ -127,10 +151,19 @@ function renderTab(tab) {
           ${stateBadge(tab)}
           <span>#${tab.id}</span>
           <span class="flags" title="Další stavové příznaky">${esc(extraFlags(tab).join(" "))}</span>
+          ${lifecycleText(tab)}
         </div>
       </div>
       <button type="button" data-action="deep" data-tab-id="${tab.id}" ${disabled ? "disabled" : ""}>DEEP</button>
     </div>`;
+}
+
+function formatDuration(ms) {
+  const seconds = Math.round((ms || 0) / 1000);
+  if (seconds < 60) return seconds + " s";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return minutes + " min";
+  return (minutes / 60).toFixed(1) + " h";
 }
 
 async function renderHostPolicies() {
@@ -150,7 +183,10 @@ async function renderHostPolicies() {
         const mode = policies[host] ?? "AUTO";
         return `
           <label class="policy-row">
-            <span class="policy-host" title="${esc(host)}">${esc(host)}</span>
+            <span class="policy-host" title="${esc(host)}">
+              ${esc(host)}
+              ${hostStats[host]?.activations ? '<span class="host-stats">' + hostStats[host].activations + '× aktivní · průměr ' + formatDuration(hostStats[host].totalActiveMs / hostStats[host].activations) + '</span>' : ''}
+            </span>
             <select data-host-policy="${esc(host)}">
               <option value="AUTO" ${mode === "AUTO" ? "selected" : ""}>AUTO</option>
               <option value="KEEP" ${mode === "KEEP" ? "selected" : ""}>KEEP</option>
@@ -168,6 +204,13 @@ async function renderHostPolicies() {
 
 async function load() {
   app.textContent = "Načítám…";
+
+  const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY, URL_POLICIES_KEY]);
+  lifecycleMap = stored[TAB_LIFECYCLE_KEY] ?? {};
+  hostStats = stored[HOST_STATS_KEY] ?? {};
+  urlPolicies = Array.isArray(stored[URL_POLICIES_KEY]) ? stored[URL_POLICIES_KEY] : [];
+  renderUrlPolicies();
+
   currentWindows = await browser.windows.getAll({ populate: true, windowTypes: ["normal"] });
 
   let totalTabs = 0;
@@ -224,6 +267,27 @@ async function load() {
 
   await updateKnownHosts(currentOpenHosts);
   await renderHostPolicies();
+}
+
+
+function renderUrlPolicies() {
+  urlPoliciesEl.innerHTML = urlPolicies.length
+    ? urlPolicies
+        .slice()
+        .sort((a, b) => b.pattern.length - a.pattern.length)
+        .map(rule => `
+          <div class="url-rule">
+            <strong>${esc(rule.mode || "KEEP")}</strong>
+            <code title="${esc(rule.pattern)}">${esc(rule.pattern)}</code>
+            <button type="button" data-remove-url-rule="${esc(rule.pattern)}">Smazat</button>
+          </div>`)
+        .join("")
+    : '<div class="empty">Žádné URL výjimky.</div>';
+}
+
+async function saveUrlPolicies() {
+  await browser.storage.local.set({ [URL_POLICIES_KEY]: urlPolicies });
+  renderUrlPolicies();
 }
 
 async function setPage(page) {
@@ -312,6 +376,31 @@ hostPoliciesEl.addEventListener("change", async event => {
 });
 
 hostFilter.addEventListener("input", () => renderHostPolicies().catch(console.error));
+
+useLastPage.addEventListener("click", async () => {
+  if (lastActiveContentTabId == null) return;
+  try {
+    const tab = await browser.tabs.get(lastActiveContentTabId);
+    if (/^https?:\/\//i.test(tab.url ?? "")) urlPattern.value = tab.url;
+  } catch {}
+});
+
+addUrlKeep.addEventListener("click", async () => {
+  const pattern = urlPattern.value.trim();
+  if (!/^https?:\/\//i.test(pattern)) return;
+
+  urlPolicies = urlPolicies.filter(rule => rule.pattern !== pattern);
+  urlPolicies.push({ pattern, mode: "KEEP" });
+  await saveUrlPolicies();
+  urlPattern.value = "";
+});
+
+urlPoliciesEl.addEventListener("click", async event => {
+  const button = event.target.closest("button[data-remove-url-rule]");
+  if (!button) return;
+  urlPolicies = urlPolicies.filter(rule => rule.pattern !== button.dataset.removeUrlRule);
+  await saveUrlPolicies();
+});
 [autoMinutes, autoDeepOnLeave, autoProtectPinned, autoProtectAudible].forEach(el => {
   el.addEventListener("change", () => saveAutoSettings().catch(console.error));
 });
@@ -329,6 +418,22 @@ browser.tabs.onRemoved.addListener(tabId => {
 browser.tabGroups.onCreated.addListener(() => load().catch(console.error));
 browser.tabGroups.onUpdated.addListener(() => load().catch(console.error));
 browser.tabGroups.onRemoved.addListener(() => load().catch(console.error));
+
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local") return;
+  if (changes[TAB_LIFECYCLE_KEY] || changes[HOST_STATS_KEY] || changes[URL_POLICIES_KEY]) {
+    load().catch(console.error);
+  }
+});
+
+setInterval(() => {
+  document.querySelectorAll(".countdown[data-deadline]").forEach(el => {
+    const deadline = Number(el.dataset.deadline);
+    el.textContent = deadline > Date.now()
+      ? "DEEP za " + formatRemaining(deadline)
+      : "DEEP…";
+  });
+}, 1000);
 
 (async () => {
   const current = await browser.tabs.getCurrent();
