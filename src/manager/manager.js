@@ -2,12 +2,25 @@ const app = document.getElementById("app");
 const summary = document.getElementById("summary");
 const refreshButton = document.getElementById("refresh");
 const deepAllButton = document.getElementById("deepAll");
-const settingsToggle = document.getElementById("settingsToggle");
 const closeButton = document.getElementById("closeManager");
-const settingsPanel = document.getElementById("settingsPanel");
 const hostPoliciesEl = document.getElementById("hostPolicies");
+const hostResultInfo = document.getElementById("hostResultInfo");
+const hostFilter = document.getElementById("hostFilter");
+const autoMinutes = document.getElementById("autoMinutes");
+const autoDeepOnLeave = document.getElementById("autoDeepOnLeave");
+const autoProtectPinned = document.getElementById("autoProtectPinned");
+const autoProtectAudible = document.getElementById("autoProtectAudible");
 
 const HOST_POLICIES_KEY = "fwm.hostPolicies";
+const KNOWN_HOSTS_KEY = "fwm.knownHosts";
+const AUTO_SETTINGS_KEY = "fwm.autoSettings";
+const UI_PAGE_KEY = "fwm.ui.page";
+const HOST_RESULT_LIMIT = 30;
+
+let managerTabId = null;
+let currentOpenHosts = [];
+let knownHosts = [];
+let currentWindows = [];
 
 function esc(value) {
   return String(value ?? "")
@@ -32,11 +45,18 @@ function extraFlags(tab) {
 }
 
 function isInternalExtensionTab(tab) {
-  return typeof tab?.url === "string" && tab.url.startsWith(browser.runtime.getURL(""));
+  const url = tab?.url ?? "";
+  return url.startsWith("moz-extension://") || url.startsWith("chrome-extension://");
 }
 
 function isProtectedFromDeep(tab) {
-  return tab.id == null || tab.active || tab.discarded || tab.audible || tab.pinned || isInternalExtensionTab(tab);
+  return tab.id == null ||
+    tab.id === managerTabId ||
+    tab.active ||
+    tab.discarded ||
+    tab.audible ||
+    tab.pinned ||
+    isInternalExtensionTab(tab);
 }
 
 function hostnameFromUrl(url) {
@@ -55,16 +75,46 @@ async function loadHostPolicies() {
 
 async function saveHostPolicy(host, mode) {
   const policies = await loadHostPolicies();
-  if (mode === "AUTO") {
-    delete policies[host];
-  } else {
-    policies[host] = mode;
-  }
+  if (mode === "AUTO") delete policies[host];
+  else policies[host] = mode;
   await browser.storage.local.set({ [HOST_POLICIES_KEY]: policies });
 }
 
+async function updateKnownHosts(openHosts) {
+  const stored = await browser.storage.local.get(KNOWN_HOSTS_KEY);
+  const previous = Array.isArray(stored[KNOWN_HOSTS_KEY]) ? stored[KNOWN_HOSTS_KEY] : [];
+  knownHosts = [...new Set([...previous, ...openHosts])].sort().slice(-1000);
+  await browser.storage.local.set({ [KNOWN_HOSTS_KEY]: knownHosts });
+}
+
+async function loadAutoSettings() {
+  const stored = await browser.storage.local.get(AUTO_SETTINGS_KEY);
+  const value = {
+    minutes: 60,
+    deepOnLeave: false,
+    protectPinned: true,
+    protectAudible: true,
+    ...(stored[AUTO_SETTINGS_KEY] ?? {})
+  };
+  autoMinutes.value = value.minutes;
+  autoDeepOnLeave.checked = value.deepOnLeave;
+  autoProtectPinned.checked = value.protectPinned;
+  autoProtectAudible.checked = value.protectAudible;
+}
+
+async function saveAutoSettings() {
+  await browser.storage.local.set({
+    [AUTO_SETTINGS_KEY]: {
+      minutes: Math.max(1, Math.min(10080, Number(autoMinutes.value) || 60)),
+      deepOnLeave: autoDeepOnLeave.checked,
+      protectPinned: autoProtectPinned.checked,
+      protectAudible: autoProtectAudible.checked
+    }
+  });
+}
+
 function renderTab(tab) {
-  const disabled = tab.active || tab.discarded || isInternalExtensionTab(tab);
+  const disabled = isProtectedFromDeep(tab);
   return `
     <div class="tab" data-tab-id="${tab.id}">
       <div class="tab-main">
@@ -79,9 +129,42 @@ function renderTab(tab) {
     </div>`;
 }
 
+async function renderHostPolicies() {
+  const policies = await loadHostPolicies();
+  const filter = hostFilter.value.trim().toLowerCase();
+
+  const baseHosts = filter
+    ? [...new Set([...knownHosts, ...Object.keys(policies), ...currentOpenHosts])]
+        .filter(host => host.includes(filter))
+    : currentOpenHosts;
+
+  const hosts = baseHosts.slice(0, HOST_RESULT_LIMIT);
+
+  hostPoliciesEl.innerHTML = hosts.length ? `
+    <div class="policy-grid">
+      ${hosts.map(host => {
+        const mode = policies[host] ?? "AUTO";
+        return `
+          <label class="policy-row">
+            <span class="policy-host" title="${esc(host)}">${esc(host)}</span>
+            <select data-host-policy="${esc(host)}">
+              <option value="AUTO" ${mode === "AUTO" ? "selected" : ""}>AUTO</option>
+              <option value="KEEP" ${mode === "KEEP" ? "selected" : ""}>KEEP</option>
+              <option value="DEEP" ${mode === "DEEP" ? "selected" : ""}>DEEP</option>
+            </select>
+          </label>`;
+      }).join("")}
+    </div>` : '<div class="empty">Nic nenalezeno.</div>';
+
+  const total = baseHosts.length;
+  hostResultInfo.textContent = filter
+    ? `Nalezeno ${total}; zobrazeno max. ${Math.min(total, HOST_RESULT_LIMIT)}.`
+    : `Zobrazeny pouze hostname z aktuálně otevřených panelů; max. ${HOST_RESULT_LIMIT}.`;
+}
+
 async function load() {
   app.textContent = "Načítám…";
-  const windows = await browser.windows.getAll({ populate: true, windowTypes: ["normal"] });
+  currentWindows = await browser.windows.getAll({ populate: true, windowTypes: ["normal"] });
 
   let totalTabs = 0;
   let deepTabs = 0;
@@ -89,7 +172,7 @@ async function load() {
   let activeTabs = 0;
   const chunks = [];
 
-  for (const win of windows) {
+  for (const win of currentWindows) {
     const groups = await browser.tabGroups.query({ windowId: win.id });
     const tabs = win.tabs ?? [];
     totalTabs += tabs.length;
@@ -128,41 +211,40 @@ async function load() {
       </section>`);
   }
 
-  summary.textContent = `${windows.length} oken · ${totalTabs} tabů · ${loadedTabs} loaded · ${deepTabs} deep · ${activeTabs} active`;
+  summary.textContent = `${currentWindows.length} oken · ${totalTabs} tabů · ${loadedTabs} loaded · ${deepTabs} deep · ${activeTabs} active`;
   app.innerHTML = chunks.length ? chunks.join("") : '<div class="empty">Žádné normální Firefox okno.</div>';
 
-  const policies = await loadHostPolicies();
-  const hosts = [...new Set(
-    windows.flatMap(win => (win.tabs ?? []).map(tab => hostnameFromUrl(tab.url)).filter(Boolean))
+  currentOpenHosts = [...new Set(
+    currentWindows.flatMap(win => (win.tabs ?? []).map(tab => hostnameFromUrl(tab.url)).filter(Boolean))
   )].sort();
 
-  hostPoliciesEl.innerHTML = hosts.length ? `
-    <div class="policy-grid">
-      ${hosts.map(host => {
-        const mode = policies[host] ?? "AUTO";
-        return `
-          <label class="policy-row">
-            <span class="policy-host" title="${esc(host)}">${esc(host)}</span>
-            <select data-host-policy="${esc(host)}">
-              <option value="AUTO" ${mode === "AUTO" ? "selected" : ""}>AUTO</option>
-              <option value="KEEP" ${mode === "KEEP" ? "selected" : ""}>KEEP</option>
-              <option value="DEEP" ${mode === "DEEP" ? "selected" : ""}>DEEP</option>
-            </select>
-          </label>`;
-      }).join("")}
-    </div>` : '<div class="empty">Žádné HTTP/HTTPS hosty.</div>';
+  await updateKnownHosts(currentOpenHosts);
+  await renderHostPolicies();
 }
+
+async function setPage(page) {
+  document.querySelectorAll(".page-tab").forEach(button => {
+    button.classList.toggle("active", button.dataset.page === page);
+  });
+  document.getElementById("panelsPage").classList.toggle("active", page === "panels");
+  document.getElementById("settingsPage").classList.toggle("active", page === "settings");
+  await browser.storage.local.set({ [UI_PAGE_KEY]: page });
+}
+
+document.querySelector(".page-tabs").addEventListener("click", event => {
+  const button = event.target.closest(".page-tab");
+  if (button) setPage(button.dataset.page).catch(console.error);
+});
 
 app.addEventListener("click", async event => {
   const tabButton = event.target.closest('button[data-action="deep"]');
   if (tabButton) {
     const tabId = Number(tabButton.dataset.tabId);
+    const tab = await browser.tabs.get(tabId);
+    if (isProtectedFromDeep(tab)) return;
     tabButton.disabled = true;
-    try {
-      await browser.tabs.discard(tabId);
-    } catch (error) {
-      console.error("DEEP discard failed", error);
-    }
+    try { await browser.tabs.discard(tabId); }
+    catch (error) { console.error("DEEP discard failed", error); }
     await load();
     return;
   }
@@ -175,11 +257,8 @@ app.addEventListener("click", async event => {
       const tabs = await browser.tabs.query({ groupId });
       for (const tab of tabs) {
         if (isProtectedFromDeep(tab)) continue;
-        try {
-          await browser.tabs.discard(tab.id);
-        } catch (error) {
-          console.warn("Group DEEP skipped tab", tab.id, error);
-        }
+        try { await browser.tabs.discard(tab.id); }
+        catch (error) { console.warn("Group DEEP skipped tab", tab.id, error); }
       }
     } finally {
       groupButton.disabled = false;
@@ -194,11 +273,8 @@ deepAllButton.addEventListener("click", async () => {
     const tabs = await browser.tabs.query({});
     for (const tab of tabs) {
       if (isProtectedFromDeep(tab)) continue;
-      try {
-        await browser.tabs.discard(tab.id);
-      } catch (error) {
-        console.warn("Bulk DEEP skipped tab", tab.id, error);
-      }
+      try { await browser.tabs.discard(tab.id); }
+      catch (error) { console.warn("Bulk DEEP skipped tab", tab.id, error); }
     }
   } finally {
     deepAllButton.disabled = false;
@@ -208,48 +284,44 @@ deepAllButton.addEventListener("click", async () => {
 
 refreshButton.addEventListener("click", () => load().catch(console.error));
 
-browser.tabs.onUpdated.addListener((_tabId, changeInfo) => {
-  if ("discarded" in changeInfo || "status" in changeInfo || "audible" in changeInfo || "pinned" in changeInfo) {
-    load().catch(console.error);
-  }
-});
-
-browser.tabs.onActivated.addListener(() => load().catch(console.error));
-browser.tabs.onCreated.addListener(() => load().catch(console.error));
-browser.tabs.onRemoved.addListener(() => load().catch(console.error));
-browser.tabGroups.onCreated.addListener(() => load().catch(console.error));
-browser.tabGroups.onUpdated.addListener(() => load().catch(console.error));
-browser.tabGroups.onRemoved.addListener(() => load().catch(console.error));
-
-restoreUiState().catch(console.error);
-
-load().catch(error => {
-  console.error(error);
-  app.textContent = "Chyba při načítání. Podrobnosti jsou v konzoli rozšíření.";
-});
-
-
-const SETTINGS_OPEN_KEY = "fwm.ui.settingsOpen";
-
-async function restoreUiState() {
-  const stored = await browser.storage.local.get(SETTINGS_OPEN_KEY);
-  settingsPanel.hidden = stored[SETTINGS_OPEN_KEY] !== true;
-}
-
-settingsToggle.addEventListener("click", async () => {
-  settingsPanel.hidden = !settingsPanel.hidden;
-  await browser.storage.local.set({ [SETTINGS_OPEN_KEY]: !settingsPanel.hidden });
-});
-
 closeButton.addEventListener("click", async () => {
-  const current = await browser.tabs.getCurrent();
-  if (current?.id != null) {
-    await browser.tabs.remove(current.id);
-  }
+  if (managerTabId != null) await browser.tabs.remove(managerTabId);
 });
 
 hostPoliciesEl.addEventListener("change", async event => {
   const select = event.target.closest("select[data-host-policy]");
   if (!select) return;
   await saveHostPolicy(select.dataset.hostPolicy, select.value);
+});
+
+hostFilter.addEventListener("input", () => renderHostPolicies().catch(console.error));
+[autoMinutes, autoDeepOnLeave, autoProtectPinned, autoProtectAudible].forEach(el => {
+  el.addEventListener("change", () => saveAutoSettings().catch(console.error));
+});
+
+browser.tabs.onUpdated.addListener((_tabId, changeInfo) => {
+  if ("discarded" in changeInfo || "status" in changeInfo || "audible" in changeInfo || "pinned" in changeInfo || "url" in changeInfo) {
+    load().catch(console.error);
+  }
+});
+browser.tabs.onActivated.addListener(() => load().catch(console.error));
+browser.tabs.onCreated.addListener(() => load().catch(console.error));
+browser.tabs.onRemoved.addListener(tabId => {
+  if (tabId !== managerTabId) load().catch(console.error);
+});
+browser.tabGroups.onCreated.addListener(() => load().catch(console.error));
+browser.tabGroups.onUpdated.addListener(() => load().catch(console.error));
+browser.tabGroups.onRemoved.addListener(() => load().catch(console.error));
+
+(async () => {
+  const current = await browser.tabs.getCurrent();
+  managerTabId = current?.id ?? null;
+
+  const uiState = await browser.storage.local.get(UI_PAGE_KEY);
+  await setPage(uiState[UI_PAGE_KEY] === "settings" ? "settings" : "panels");
+  await loadAutoSettings();
+  await load();
+})().catch(error => {
+  console.error(error);
+  app.textContent = "Chyba při načítání. Podrobnosti jsou v konzoli rozšíření.";
 });
