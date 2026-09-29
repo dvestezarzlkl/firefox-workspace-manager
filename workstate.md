@@ -9,6 +9,8 @@ branch = dev
 
 ## Done
 
+- Diagnostic popup added: windows, groups, tab state flags and manual DEEP discard.
+
 - Repository initialized.
 - `main` and `dev` branches created.
 - Initial Manifest V3 extension skeleton added.
@@ -26,17 +28,17 @@ branch = dev
 
 ## Next
 
-1. Finalize VS Code task for sandbox Firefox launch.
-2. Verify current Firefox/tabGroups API behavior in the isolated profile.
-3. Add diagnostic UI showing windows, groups, tabs and discarded state.
-4. Implement first safe manual DEEP discard action.
+1. Pull latest dev and let web-ext reload the extension.
+2. Verify popup sees the prepared grouped tabs correctly.
+3. Test manual DEEP on a non-active tab and verify it becomes discarded but stays in its group.
+4. Verify re-activating the discarded tab reloads it normally.
 5. Design logical persistent workspace IDs before automatic restore.
 
 ## localCommand
 
-status = idle
-owner = none
-task = none
+status = pending
+owner = local-user
+task = Pull latest dev, open the extension popup, verify grouped tabs are listed correctly, then press DEEP on one non-active test tab. Confirm the tab remains in its group, changes to discarded, and reloads normally when activated.
 
 ## localResult
 
