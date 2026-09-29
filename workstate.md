@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- Internal extension pages are now permanently excluded from DEEP actions.
+- Full manager has an explicit Zavřít button.
+- Settings panel open/closed state persists across manager refresh/reload.
+
 - Group-level DEEP action added; it protects active, pinned and audible tabs.
 - Settings panel added with lifecycle policy stored per exact hostname/subdomain, not per tab.
 - Host policy modes: AUTO, KEEP, DEEP.
@@ -38,12 +42,13 @@ branch = dev
 
 ## Next
 
-1. Pull latest dev and verify DEEP group action.
-2. Verify settings list unique exact hostnames (e.g. maps.zlkl.cz separately from zlkl.cz).
-3. Verify host policy persists after manager reload/restart.
-4. Connect saved host policies to automatic lifecycle behavior.
-5. Add optional parent-domain/wildcard inheritance only after exact-host behavior is validated.
-6. Integrate generated extension icon into manifest/action assets.
+1. Pull latest dev and verify full manager no longer disappears after DEEP actions.
+2. Verify Nastavení stays open after refresh/re-render.
+3. Verify Zavřít closes only the manager tab.
+4. Verify DEEP ALL still discards normal inactive tabs but never moz-extension:// manager pages.
+5. Connect saved hostname policies to automatic lifecycle behavior.
+6. Add optional parent-domain/wildcard inheritance after exact-host behavior is validated.
+7. Integrate generated extension icon into manifest/action assets.
 
 ## localCommand
 
