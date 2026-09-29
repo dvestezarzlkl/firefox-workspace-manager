@@ -20,6 +20,8 @@ const snapshotWorkspaceButton = document.getElementById("snapshotWorkspace");
 const cloneWorkspaceButton = document.getElementById("cloneWorkspace");
 const importWorkspaceButton = document.getElementById("importWorkspace");
 const importWorkspaceFile = document.getElementById("importWorkspaceFile");
+const managerVersion = document.getElementById("managerVersion");
+const managerDeveloper = document.getElementById("managerDeveloper");
 
 const HOST_POLICIES_KEY = "fwm.hostPolicies";
 const KNOWN_HOSTS_KEY = "fwm.knownHosts";
