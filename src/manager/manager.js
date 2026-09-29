@@ -135,6 +135,11 @@ function formatRemaining(deadline) {
   return minutes + ":" + String(seconds).padStart(2, "0");
 }
 
+function exactUrlException(tab) {
+  const url = tab?.url ?? "";
+  return urlPolicies.some(rule => rule?.mode === "KEEP" && rule?.url === url);
+}
+
 function lifecycleText(tab) {
   const item = lifecycleMap[String(tab.id)];
   if (!item?.deadline || tab.active || tab.discarded) return "";
@@ -143,6 +148,7 @@ function lifecycleText(tab) {
 
 function renderTab(tab) {
   const disabled = isProtectedFromDeep(tab);
+  const excepted = exactUrlException(tab);
   return `
     <div class="tab" data-tab-id="${tab.id}">
       <div class="tab-main">
@@ -151,10 +157,14 @@ function renderTab(tab) {
           ${stateBadge(tab)}
           <span>#${tab.id}</span>
           <span class="flags" title="Další stavové příznaky">${esc(extraFlags(tab).join(" "))}</span>
+          ${excepted ? '<span class="except-badge" title="Přesná URL je ve výjimkách">EXCEPT</span>' : ''}
           ${lifecycleText(tab)}
         </div>
       </div>
-      <button type="button" data-action="deep" data-tab-id="${tab.id}" ${disabled ? "disabled" : ""}>DEEP</button>
+      <div class="tab-actions">
+        <button type="button" data-action="except" data-tab-id="${tab.id}" class="${excepted ? "except-active" : ""}">${excepted ? "EXCEPT ✓" : "EXCEPT"}</button>
+        <button type="button" data-action="deep" data-tab-id="${tab.id}" ${disabled || excepted ? "disabled" : ""}>DEEP</button>
+      </div>
     </div>`;
 }
 
@@ -274,12 +284,13 @@ function renderUrlPolicies() {
   urlPoliciesEl.innerHTML = urlPolicies.length
     ? urlPolicies
         .slice()
-        .sort((a, b) => b.pattern.length - a.pattern.length)
+        .filter(rule => rule?.url)
+        .sort((a, b) => b.url.length - a.url.length)
         .map(rule => `
           <div class="url-rule">
             <strong>${esc(rule.mode || "KEEP")}</strong>
-            <code title="${esc(rule.pattern)}">${esc(rule.pattern)}</code>
-            <button type="button" data-remove-url-rule="${esc(rule.pattern)}">Smazat</button>
+            <code title="${esc(rule.url)}">${esc(rule.url)}</code>
+            <button type="button" data-remove-url-rule="${esc(rule.url)}">Smazat</button>
           </div>`)
         .join("")
     : '<div class="empty">Žádné URL výjimky.</div>';
@@ -305,6 +316,33 @@ document.querySelector(".page-tabs").addEventListener("click", event => {
 });
 
 app.addEventListener("click", async event => {
+  const exceptButton = event.target.closest('button[data-action="except"]');
+  if (exceptButton) {
+    const tabId = Number(exceptButton.dataset.tabId);
+    let tab;
+    try {
+      tab = await browser.tabs.get(tabId);
+    } catch {
+      return;
+    }
+
+    const url = tab.url ?? "";
+    if (!/^https?:\/\//i.test(url)) return;
+
+    const exists = urlPolicies.some(rule => rule?.mode === "KEEP" && rule?.url === url);
+    const question = exists
+      ? "Opravdu vyjmout tuto přesnou URL z výjimek?\n\n" + url
+      : "Opravdu vložit tuto přesnou URL do výjimek?\n\n" + url;
+
+    if (!confirm(question)) return;
+
+    urlPolicies = urlPolicies.filter(rule => rule.url !== url);
+    if (!exists) urlPolicies.push({ url, mode: "KEEP" });
+    await saveUrlPolicies();
+    await load();
+    return;
+  }
+
   const tabButton = event.target.closest('button[data-action="deep"]');
   if (tabButton) {
     const tabId = Number(tabButton.dataset.tabId);
@@ -386,19 +424,22 @@ useLastPage.addEventListener("click", async () => {
 });
 
 addUrlKeep.addEventListener("click", async () => {
-  const pattern = urlPattern.value.trim();
-  if (!/^https?:\/\//i.test(pattern)) return;
+  const url = urlPattern.value.trim();
+  if (!/^https?:\/\//i.test(url)) return;
 
-  urlPolicies = urlPolicies.filter(rule => rule.pattern !== pattern);
-  urlPolicies.push({ pattern, mode: "KEEP" });
+  if (!confirm("Opravdu vložit tuto přesnou URL do výjimek?\n\n" + url)) return;
+
+  urlPolicies = urlPolicies.filter(rule => rule.url !== url);
+  urlPolicies.push({ url, mode: "KEEP" });
   await saveUrlPolicies();
   urlPattern.value = "";
+  await load();
 });
 
 urlPoliciesEl.addEventListener("click", async event => {
   const button = event.target.closest("button[data-remove-url-rule]");
   if (!button) return;
-  urlPolicies = urlPolicies.filter(rule => rule.pattern !== button.dataset.removeUrlRule);
+  urlPolicies = urlPolicies.filter(rule => rule.url !== button.dataset.removeUrlRule);
   await saveUrlPolicies();
 });
 [autoMinutes, autoDeepOnLeave, autoProtectPinned, autoProtectAudible].forEach(el => {
