@@ -1,135 +1,109 @@
-const app = document.getElementById("app");
+const stats = document.getElementById("stats");
 const refreshButton = document.getElementById("refresh");
 const deepAllButton = document.getElementById("deepAll");
 const openManagerButton = document.getElementById("openManager");
 
+const HOST_POLICIES_KEY = "fwm.hostPolicies";
+const URL_POLICIES_KEY = "fwm.urlPolicies";
+const TAB_LIFECYCLE_KEY = "fwm.tabLifecycle";
+
 function isInternalExtensionTab(tab) {
-  return typeof tab?.url === "string" && tab.url.startsWith(browser.runtime.getURL(""));
+  return /^(moz|chrome)-extension:\/\//i.test(tab?.url ?? "");
 }
 
-function esc(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
+function hostnameFromUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return ["http:", "https:"].includes(parsed.protocol) ? parsed.hostname.toLowerCase() : null;
+  } catch {
+    return null;
+  }
 }
 
-function flags(tab) {
-  const out = [];
-  if (tab.active) out.push("active");
-  if (tab.discarded) out.push("discarded");
-  if (tab.audible) out.push("audible");
-  if (tab.pinned) out.push("pinned");
-  return out;
+function exactUrlException(tab, urlPolicies) {
+  return urlPolicies.some(rule => rule?.mode === "KEEP" && rule?.url === (tab?.url ?? ""));
 }
 
-function renderTab(tab) {
-  const tabFlags = flags(tab);
-  const disabled = tab.active || tab.discarded;
-  return `
-    <div class="tab" data-tab-id="${tab.id}">
-      <div>
-        <div class="tab-title" title="${esc(tab.url)}">${esc(tab.title || tab.url || "(bez názvu)")}</div>
-        <div class="meta">
-          #${tab.id}
-          ${tabFlags.map(flag => `<span class="badge">${esc(flag)}</span>`).join("")}
-        </div>
-      </div>
-      <button class="deep" type="button" data-action="deep" data-tab-id="${tab.id}" ${disabled ? "disabled" : ""}>
-        DEEP
-      </button>
-    </div>`;
+function effectivePolicy(tab, hostPolicies, urlPolicies) {
+  if (exactUrlException(tab, urlPolicies)) return "EXCEPT";
+  const host = hostnameFromUrl(tab.url);
+  return host ? (hostPolicies[host] ?? "AUTO") : "AUTO";
 }
 
 async function load() {
-  app.textContent = "Načítám…";
+  const [windows, stored] = await Promise.all([
+    browser.windows.getAll({ populate: true, windowTypes: ["normal"] }),
+    browser.storage.local.get([HOST_POLICIES_KEY, URL_POLICIES_KEY, TAB_LIFECYCLE_KEY])
+  ]);
 
-  const windows = await browser.windows.getAll({
-    populate: true,
-    windowTypes: ["normal"]
-  });
+  const hostPolicies = stored[HOST_POLICIES_KEY] ?? {};
+  const urlPolicies = Array.isArray(stored[URL_POLICIES_KEY]) ? stored[URL_POLICIES_KEY] : [];
+  const lifecycle = stored[TAB_LIFECYCLE_KEY] ?? {};
+  const tabs = windows.flatMap(win => win.tabs ?? []);
 
-  const chunks = [];
+  let loaded = 0;
+  let deep = 0;
+  let active = 0;
+  let autoPending = 0;
+  let deepAlways = 0;
+  let keepAlways = 0;
+  let except = 0;
 
-  for (const win of windows) {
-    const groups = await browser.tabGroups.query({ windowId: win.id });
-    const tabs = win.tabs ?? [];
-    const groupedIds = new Set();
+  for (const tab of tabs) {
+    tab.discarded ? deep++ : loaded++;
+    if (tab.active) active++;
 
-    const groupHtml = groups.map(group => {
-      const groupTabs = tabs.filter(tab => tab.groupId === group.id);
-      groupTabs.forEach(tab => groupedIds.add(tab.id));
-      return `
-        <section class="group">
-          <h3>${esc(group.title || "(skupina bez názvu)")} · ${groupTabs.length} tabů · ${esc(group.color)}${group.collapsed ? " · collapsed" : ""}</h3>
-          ${groupTabs.length ? groupTabs.map(renderTab).join("") : '<div class="empty">Prázdná skupina</div>'}
-        </section>`;
-    }).join("");
-
-    const ungrouped = tabs.filter(tab => !groupedIds.has(tab.id));
-    const ungroupedHtml = ungrouped.length
-      ? `
-        <section class="ungrouped">
-          <h3>Bez skupiny · ${ungrouped.length} tabů</h3>
-          ${ungrouped.map(renderTab).join("")}
-        </section>`
-      : "";
-
-    chunks.push(`
-      <section class="window">
-        <h2>Okno #${win.id} · ${tabs.length} tabů · ${groups.length} skupin</h2>
-        ${groupHtml}
-        ${ungroupedHtml}
-      </section>`);
+    const policy = effectivePolicy(tab, hostPolicies, urlPolicies);
+    if (policy === "EXCEPT") except++;
+    else if (policy === "DEEP") deepAlways++;
+    else if (policy === "KEEP") keepAlways++;
+    else if (lifecycle[String(tab.id)]?.deadline && !tab.discarded) autoPending++;
   }
 
-  app.innerHTML = chunks.length ? chunks.join("") : '<div class="empty">Žádné normální Firefox okno.</div>';
+  const groupLists = await Promise.all(
+    windows.map(win => browser.tabGroups.query({ windowId: win.id }))
+  );
+  const groups = groupLists.reduce((sum, list) => sum + list.length, 0);
+
+  stats.innerHTML = `
+    <div class="stat"><strong>${windows.length}</strong><span>oken</span></div>
+    <div class="stat"><strong>${tabs.length}</strong><span>panelů</span></div>
+    <div class="stat"><strong>${groups}</strong><span>skupin</span></div>
+    <div class="stat"><strong>${active}</strong><span>aktivní</span></div>
+    <div class="stat"><strong>${loaded}</strong><span>loaded</span></div>
+    <div class="stat"><strong>${deep}</strong><span>deep</span></div>
+    <div class="stat"><strong>${autoPending}</strong><span>AUTO čeká</span></div>
+    <div class="stat"><strong>${deepAlways}</strong><span>DEEP always</span></div>
+    <div class="stat"><strong>${keepAlways}</strong><span>KEEP always</span></div>
+    <div class="stat"><strong>${except}</strong><span>URL výjimky</span></div>
+  `;
 }
-
-app.addEventListener("click", async event => {
-  const button = event.target.closest('button[data-action="deep"]');
-  if (!button) return;
-
-  const tabId = Number(button.dataset.tabId);
-  button.disabled = true;
-
-  try {
-    await browser.tabs.discard(tabId);
-  } catch (error) {
-    console.error("DEEP discard failed", error);
-    button.disabled = false;
-  }
-
-  await load();
-});
-
-refreshButton.addEventListener("click", () => load().catch(console.error));
-load().catch(error => {
-  console.error(error);
-  app.textContent = "Chyba při načítání. Podrobnosti jsou v konzoli rozšíření.";
-});
-
 
 deepAllButton.addEventListener("click", async () => {
   deepAllButton.disabled = true;
-
   try {
+    const stored = await browser.storage.local.get([HOST_POLICIES_KEY, URL_POLICIES_KEY]);
+    const hostPolicies = stored[HOST_POLICIES_KEY] ?? {};
+    const urlPolicies = Array.isArray(stored[URL_POLICIES_KEY]) ? stored[URL_POLICIES_KEY] : [];
     const tabs = await browser.tabs.query({});
-    const candidates = tabs.filter(tab =>
-      !tab.active &&
-      !tab.discarded &&
-      !tab.audible &&
-      !tab.pinned &&
-      !isInternalExtensionTab(tab) &&
-      tab.id != null
-    );
 
-    for (const tab of candidates) {
+    for (const tab of tabs) {
+      const policy = effectivePolicy(tab, hostPolicies, urlPolicies);
+      if (
+        tab.id == null ||
+        tab.active ||
+        tab.discarded ||
+        tab.audible ||
+        tab.pinned ||
+        isInternalExtensionTab(tab) ||
+        policy === "EXCEPT" ||
+        policy === "KEEP"
+      ) continue;
+
       try {
         await browser.tabs.discard(tab.id);
       } catch (error) {
-        console.warn("Bulk DEEP skipped tab", tab.id, error);
+        console.warn("Popup DEEP ALL skipped tab", tab.id, error);
       }
     }
   } finally {
@@ -137,7 +111,6 @@ deepAllButton.addEventListener("click", async () => {
     await load();
   }
 });
-
 
 openManagerButton.addEventListener("click", async () => {
   const url = browser.runtime.getURL("src/manager/manager.html");
@@ -149,4 +122,10 @@ openManagerButton.addEventListener("click", async () => {
     await browser.tabs.create({ url });
   }
   window.close();
+});
+
+refreshButton.addEventListener("click", () => load().catch(console.error));
+load().catch(error => {
+  console.error(error);
+  stats.textContent = "Chyba při načítání.";
 });
