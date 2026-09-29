@@ -9,6 +9,9 @@ branch = dev
 
 ## Done
 
+- AUTO timeout changes now preserve each tab's original inactiveSince; changing timeout no longer restarts countdowns from zero.
+- Pending inactive tabs are recomputed against the new timeout and overdue tabs are swept immediately.
+
 - Multi-window listing verified with two Firefox windows; groups and ungrouped tabs render separately per window.
 - Countdown persistence fixed across manager close/reopen by preserving existing inactiveSince/deadline state.
 - Extension manager no longer replaces logical active content tab for lifecycle/statistics.
@@ -68,12 +71,11 @@ branch = dev
 
 ## Next
 
-1. Pull latest dev and verify countdowns do not reset when manager is closed and reopened.
-2. Verify multi-window countdowns remain independent.
-3. Verify DEEP ALWAYS, KEEP ALWAYS and EXCEPT badges appear correctly on tab rows.
-4. Verify host statistics show active/background ratio and total observed time.
-5. Let statistics accumulate, then define a conservative recommendation rule for AUTO -> DEEP ALWAYS candidates.
-6. Continue testing exact URL exception behavior on the is.zlkl.cz event page.
+1. Pull latest dev and verify changing AUTO timeout preserves elapsed inactivity time.
+2. Example: tab inactive for ~90 s, change timeout to 2 min -> countdown should continue at ~0:30, not restart at 2:00.
+3. Verify overdue tabs deep immediately after shortening timeout.
+4. Continue checking about:processes versus tab.discarded state; Firefox may retain/reuse content processes even after a tab is discarded.
+5. Continue accumulating usage statistics before defining recommendation heuristics.
 
 ## localCommand
 
