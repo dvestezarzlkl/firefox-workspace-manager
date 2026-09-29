@@ -9,6 +9,9 @@ branch = dev
 
 ## Done
 
+- 0.4.13: Added standard Firefox manifest developer metadata (dvestezar.cz + homepage URL).
+- Manager footer now reads developer name/URL dynamically from browser.runtime.getManifest(); "pro ZLKL" remains UI-specific metadata.
+
 - 0.4.12: Added a subtle manager footer with dynamic manifest version and attribution: "od dvestezar.cz · pro ZLKL".
 
 - 0.4.11: Uložit jako nový replaced by Uložit akt. stav jako nový.
