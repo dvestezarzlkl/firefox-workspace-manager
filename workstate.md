@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- 0.4.8: Added Firefox MV3 data_collection_permissions required:["none"] for AMO signing.
+- Added npm script sign:unlisted using web-ext sign --channel=unlisted.
+- AMO API credentials must come from WEB_EXT_API_KEY / WEB_EXT_API_SECRET environment variables; do not store them in the repository.
+
 - 0.4.7: Dedicated Firefox dev profile moved outside the repository to ../.dev/firefox-profile.
 - predev now creates ../.dev and web-ext no longer needs to ignore .dev because the profile is outside --source-dir.
 
