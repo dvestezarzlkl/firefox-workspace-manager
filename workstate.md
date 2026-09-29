@@ -9,6 +9,9 @@ branch = dev
 
 ## Done
 
+- 0.4.16: VS Code signing task now loads AMO credentials from ../.dev/amo-sign.cmd before running npm run sign:unlisted.
+- Credentials stay outside the repository and are not committed to Git.
+
 - 0.4.15: Fixed empty manager footer metadata by moving manager.js after the footer DOM, so version/developer elements exist before script initialization.
 
 - 0.4.14: Fixed manager startup regression introduced by footer metadata: managerVersion and managerDeveloper DOM elements are now declared before use.
