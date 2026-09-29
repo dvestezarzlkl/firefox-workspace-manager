@@ -1,6 +1,7 @@
 const app = document.getElementById("app");
 const refreshButton = document.getElementById("refresh");
 const deepAllButton = document.getElementById("deepAll");
+const openManagerButton = document.getElementById("openManager");
 
 function esc(value) {
   return String(value ?? "")
@@ -130,4 +131,17 @@ deepAllButton.addEventListener("click", async () => {
     deepAllButton.disabled = false;
     await load();
   }
+});
+
+
+openManagerButton.addEventListener("click", async () => {
+  const url = browser.runtime.getURL("src/manager/manager.html");
+  const existing = await browser.tabs.query({ url });
+  if (existing.length) {
+    await browser.tabs.update(existing[0].id, { active: true });
+    await browser.windows.update(existing[0].windowId, { focused: true });
+  } else {
+    await browser.tabs.create({ url });
+  }
+  window.close();
 });
