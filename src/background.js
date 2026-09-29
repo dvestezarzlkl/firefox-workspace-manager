@@ -588,36 +588,19 @@ async function populateRestoredWindow(workspaceId, logicalWindowId, sourceWindow
     sourceGroupCount: (sourceWindow.groups ?? []).length
   });
 
-  const liveTabs = (await withTimeout(
+  const shellTabs = (await withTimeout(
     browser.tabs.query({ windowId }),
     5000,
     "tabs.query restore shell"
   )).slice().sort((a, b) => a.index - b.index);
 
+  const shellTabIds = shellTabs.map(tab => tab.id).filter(id => id != null);
   const liveTabIds = [];
-  const firstTabId = liveTabs[0]?.id ?? null;
 
-  if (sourceTabs.length && firstTabId != null) {
-    const firstUrl = restoreUrlOrBlank(sourceTabs[0].url);
-    await workspaceDebug("restore-tab-update-first", {
-      workspaceId,
-      logicalWindowId,
-      runtimeWindowId: windowId,
-      tabId: firstTabId,
-      url: sourceTabs[0].url,
-      restoreUrl: firstUrl,
-      substituted: firstUrl !== sourceTabs[0].url
-    });
-
-    await withTimeout(
-      browser.tabs.update(firstTabId, { url: firstUrl }),
-      5000,
-      "tabs.update first restore URL"
-    );
-    liveTabIds.push(firstTabId);
-  }
-
-  for (let i = 1; i < sourceTabs.length; i++) {
+  // Never reuse the shell about:blank tab as restored content. Creating every
+  // saved tab explicitly avoids the first-tab URL reverting to about:blank
+  // during navigation/discard/session transitions.
+  for (let i = 0; i < sourceTabs.length; i++) {
     const source = sourceTabs[i];
     const restoreUrl = restoreUrlOrBlank(source.url);
 
@@ -637,6 +620,22 @@ async function populateRestoredWindow(workspaceId, logicalWindowId, sourceWindow
     }), 5000, "tabs.create");
 
     liveTabIds.push(created.id);
+  }
+
+  if (sourceTabs.length && shellTabIds.length) {
+    for (const shellTabId of shellTabIds) {
+      try {
+        await withTimeout(browser.tabs.remove(shellTabId), 3000, "tabs.remove restore shell");
+      } catch (error) {
+        await workspaceDebug("restore-shell-tab-remove-error", {
+          workspaceId,
+          logicalWindowId,
+          runtimeWindowId: windowId,
+          tabId: shellTabId,
+          error: String(error?.message ?? error)
+        });
+      }
+    }
   }
 
   await workspaceDebug("restore-tabs-created", {
@@ -770,16 +769,23 @@ async function populateRestoredWindow(workspaceId, logicalWindowId, sourceWindow
     }
   }
 
-  const deferredDiscardTabIds = sourceTabs
+  const deferredDiscardEntries = sourceTabs
     .filter(source => source.discarded && !source.active)
-    .map(source => newTabByOldRuntimeId.get(source.runtimeTabId))
-    .filter(tabId => tabId != null);
+    .map(source => ({
+      tabId: newTabByOldRuntimeId.get(source.runtimeTabId),
+      sourceUrl: source.url,
+      restoreUrl: restoreUrlOrBlank(source.url)
+    }))
+    .filter(item => item.tabId != null);
+
+  const deferredDiscardTabIds = deferredDiscardEntries.map(item => item.tabId);
 
   await workspaceDebug("restore-window-populate-end", {
     workspaceId,
     logicalWindowId,
     runtimeWindowId: windowId,
-    deferredDiscardCount: deferredDiscardTabIds.length
+    deferredDiscardCount: deferredDiscardTabIds.length,
+    deferredDiscardEntries
   });
 
   return { windowId, deferredDiscardTabIds };
