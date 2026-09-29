@@ -470,3 +470,15 @@ main {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+.workspace-debug summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.workspace-debug-copy {
+  font-size: 11px;
+  padding: 2px 7px;
+}
