@@ -471,88 +471,85 @@ function restoreUrlOrBlank(url) {
   return restorableUrl(url) || "about:blank";
 }
 
-async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow) {
-  const sourceTabs = (sourceWindow.tabs ?? [])
-    .slice()
-    .sort((a, b) => a.index - b.index)
-    .filter(tab => !isExtensionUrl(tab.url));
-
-  await workspaceDebug("restore-window-begin", {
+async function createRestoreWindowShell(workspaceId, logicalWindowId, sourceWindow) {
+  await workspaceDebug("restore-window-shell-before", {
     workspaceId,
     logicalWindowId,
-    sourceTabCount: sourceTabs.length,
-    sourceGroupCount: (sourceWindow.groups ?? []).length
-  });
-
-  const firstUrl = restoreUrlOrBlank(sourceTabs[0]?.url);
-  const createData = { url: firstUrl };
-
-  await workspaceDebug("restore-window-create-before", {
-    workspaceId,
-    logicalWindowId,
-    firstUrl,
     requestedGeometry: sourceWindow.window ?? null
   });
 
-  // Create without geometry first. Multi-monitor coordinates may be negative
-  // and Firefox/OS can reject them on restore; geometry must never abort the
-  // workspace restore.
   let win;
   try {
-    win = await withTimeout(browser.windows.create(createData), 10000, "windows.create");
+    win = await withTimeout(
+      browser.windows.create({ url: "about:blank" }),
+      10000,
+      "windows.create shell"
+    );
   } catch (error) {
-    await workspaceDebug("restore-window-create-error", {
+    await workspaceDebug("restore-window-shell-error", {
       workspaceId,
       logicalWindowId,
-      firstUrl,
       error: String(error?.message ?? error)
     });
     throw error;
   }
 
-  await workspaceDebug("restore-window-create-after", {
+  await workspaceDebug("restore-window-shell-after", {
     workspaceId,
     logicalWindowId,
     runtimeWindowId: win.id
   });
 
-  if (sourceWindow.window?.state === "normal") {
-    const geometry = {};
-    for (const key of ["left", "top", "width", "height"]) {
-      if (Number.isFinite(sourceWindow.window[key])) geometry[key] = sourceWindow.window[key];
-    }
+  return win.id;
+}
 
-    if (Object.keys(geometry).length) {
-      try {
-        await withTimeout(browser.windows.update(win.id, geometry), 5000, "windows.update geometry");
-        await workspaceDebug("restore-window-geometry-after", {
-          workspaceId,
-          logicalWindowId,
-          runtimeWindowId: win.id,
-          geometry
-        });
-      } catch (error) {
-        await workspaceDebug("restore-window-geometry-error", {
-          workspaceId,
-          logicalWindowId,
-          runtimeWindowId: win.id,
-          geometry,
-          error: String(error?.message ?? error)
-        });
-      }
-    }
-  }
-
-  const liveTabs = (await withTimeout(browser.tabs.query({ windowId: win.id }), 5000, "tabs.query"))
+async function populateRestoredWindow(workspaceId, logicalWindowId, sourceWindow, windowId) {
+  const sourceTabs = (sourceWindow.tabs ?? [])
     .slice()
-    .sort((a, b) => a.index - b.index);
+    .sort((a, b) => a.index - b.index)
+    .filter(tab => !isExtensionUrl(tab.url));
+
+  await workspaceDebug("restore-window-populate-begin", {
+    workspaceId,
+    logicalWindowId,
+    runtimeWindowId: windowId,
+    sourceTabCount: sourceTabs.length,
+    sourceGroupCount: (sourceWindow.groups ?? []).length
+  });
+
+  const liveTabs = (await withTimeout(
+    browser.tabs.query({ windowId }),
+    5000,
+    "tabs.query restore shell"
+  )).slice().sort((a, b) => a.index - b.index);
 
   const liveTabIds = [];
-  if (liveTabs[0]?.id != null) liveTabIds.push(liveTabs[0].id);
+  const firstTabId = liveTabs[0]?.id ?? null;
+
+  if (sourceTabs.length && firstTabId != null) {
+    const firstUrl = restoreUrlOrBlank(sourceTabs[0].url);
+    await workspaceDebug("restore-tab-update-first", {
+      workspaceId,
+      logicalWindowId,
+      runtimeWindowId: windowId,
+      tabId: firstTabId,
+      url: sourceTabs[0].url,
+      restoreUrl: firstUrl,
+      substituted: firstUrl !== sourceTabs[0].url
+    });
+
+    await withTimeout(
+      browser.tabs.update(firstTabId, { url: firstUrl }),
+      5000,
+      "tabs.update first restore URL"
+    );
+    liveTabIds.push(firstTabId);
+  }
 
   for (let i = 1; i < sourceTabs.length; i++) {
     const source = sourceTabs[i];
     const restoreUrl = restoreUrlOrBlank(source.url);
+
     await workspaceDebug("restore-tab-create-before", {
       workspaceId,
       logicalWindowId,
@@ -563,8 +560,8 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
     });
 
     const created = await withTimeout(browser.tabs.create({
-      windowId: win.id,
-      url: restoreUrlOrBlank(source.url),
+      windowId,
+      url: restoreUrl,
       active: false
     }), 5000, "tabs.create");
 
@@ -574,16 +571,21 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
   await workspaceDebug("restore-tabs-created", {
     workspaceId,
     logicalWindowId,
-    runtimeWindowId: win.id,
+    runtimeWindowId: windowId,
     liveTabCount: liveTabIds.length
   });
 
   const newTabByOldRuntimeId = new Map();
   for (let i = 0; i < Math.min(sourceTabs.length, liveTabIds.length); i++) {
     newTabByOldRuntimeId.set(sourceTabs[i].runtimeTabId, liveTabIds[i]);
+
     if (sourceTabs[i].pinned) {
       try {
-        await withTimeout(browser.tabs.update(liveTabIds[i], { pinned: true }), 3000, "tabs.update pinned");
+        await withTimeout(
+          browser.tabs.update(liveTabIds[i], { pinned: true }),
+          3000,
+          "tabs.update pinned"
+        );
       } catch (error) {
         await workspaceDebug("restore-pin-error", {
           workspaceId,
@@ -598,7 +600,10 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
   for (const [groupIndex, group] of (sourceWindow.groups ?? []).entries()) {
     const groupKey = group.groupKey ?? ("g" + groupIndex);
     const tabIds = sourceTabs
-      .filter(tab => (tab.groupKey ?? null) === groupKey || (!tab.groupKey && tab.runtimeGroupId === group.runtimeGroupId))
+      .filter(tab =>
+        (tab.groupKey ?? null) === groupKey ||
+        (!tab.groupKey && tab.runtimeGroupId === group.runtimeGroupId)
+      )
       .map(tab => newTabByOldRuntimeId.get(tab.runtimeTabId))
       .filter(id => id != null);
 
@@ -615,15 +620,23 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
 
     try {
       const newGroupId = await withTimeout(
-        browser.tabs.group({ tabIds, createProperties: { windowId: win.id } }),
+        browser.tabs.group({
+          tabIds,
+          createProperties: { windowId }
+        }),
         5000,
         "tabs.group"
       );
-      await withTimeout(browser.tabGroups.update(newGroupId, {
-        title: group.title ?? "",
-        color: group.color,
-        collapsed: !!group.collapsed
-      }), 5000, "tabGroups.update");
+
+      await withTimeout(
+        browser.tabGroups.update(newGroupId, {
+          title: group.title ?? "",
+          color: group.color,
+          collapsed: !!group.collapsed
+        }),
+        5000,
+        "tabGroups.update"
+      );
 
       await workspaceDebug("restore-group-after", {
         workspaceId,
@@ -637,15 +650,50 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
         workspaceId,
         logicalWindowId,
         title: group.title ?? "",
+        groupKey,
         error: String(error?.message ?? error)
       });
     }
   }
 
   const activeSource = sourceTabs.find(tab => tab.active);
-  const activeTabId = activeSource ? newTabByOldRuntimeId.get(activeSource.runtimeTabId) : null;
+  const activeTabId = activeSource
+    ? newTabByOldRuntimeId.get(activeSource.runtimeTabId)
+    : null;
+
   if (activeTabId != null) {
-    try { await withTimeout(browser.tabs.update(activeTabId, { active: true }), 3000, "activate tab"); } catch {}
+    try {
+      await withTimeout(
+        browser.tabs.update(activeTabId, { active: true }),
+        3000,
+        "activate restored tab"
+      );
+    } catch {}
+  }
+
+  if (sourceWindow.window?.state === "normal") {
+    const geometry = {};
+    for (const key of ["left", "top", "width", "height"]) {
+      if (Number.isFinite(sourceWindow.window[key])) geometry[key] = sourceWindow.window[key];
+    }
+
+    if (Object.keys(geometry).length) {
+      try {
+        await withTimeout(
+          browser.windows.update(windowId, geometry),
+          5000,
+          "windows.update geometry"
+        );
+      } catch (error) {
+        await workspaceDebug("restore-window-geometry-error", {
+          workspaceId,
+          logicalWindowId,
+          runtimeWindowId: windowId,
+          geometry,
+          error: String(error?.message ?? error)
+        });
+      }
+    }
   }
 
   const deferredDiscardTabIds = sourceTabs
@@ -653,15 +701,16 @@ async function restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow
     .map(source => newTabByOldRuntimeId.get(source.runtimeTabId))
     .filter(tabId => tabId != null);
 
-  await workspaceDebug("restore-window-end", {
+  await workspaceDebug("restore-window-populate-end", {
     workspaceId,
     logicalWindowId,
-    runtimeWindowId: win.id,
+    runtimeWindowId: windowId,
     deferredDiscardCount: deferredDiscardTabIds.length
   });
 
-  return { windowId: win.id, deferredDiscardTabIds };
+  return { windowId, deferredDiscardTabIds };
 }
+
 
 async function findLiveWorkspaceWindows(workspaceId, workspaces, windowMap) {
   const liveWindows = await browser.windows.getAll({ windowTypes: ["normal"] });
@@ -723,13 +772,22 @@ async function inferActiveWorkspaceFromRuntime() {
 }
 
 async function restoreWorkspace(workspaceId) {
-  await workspaceDebug("restore-begin", { workspaceId, restoreDepth: workspaceRestoreDepth });
+  await workspaceDebug("restore-begin", {
+    workspaceId,
+    restoreDepth: workspaceRestoreDepth
+  });
+
   const store = await loadWorkspaceStore();
   const { workspaces } = store;
   const workspace = workspaces[workspaceId];
   if (!workspace) throw new Error("Workspace not found");
 
-  const liveMappedWindows = await findLiveWorkspaceWindows(workspaceId, workspaces, store.windowMap);
+  const liveMappedWindows = await findLiveWorkspaceWindows(
+    workspaceId,
+    workspaces,
+    store.windowMap
+  );
+
   if (liveMappedWindows.length) {
     workspace.active = true;
     workspace.open = true;
@@ -751,7 +809,10 @@ async function restoreWorkspace(workspaceId) {
     });
 
     try {
-      await browser.windows.update(liveMappedWindows[0].runtimeWindowId, { focused: true });
+      await browser.windows.update(
+        liveMappedWindows[0].runtimeWindowId,
+        { focused: true }
+      );
     } catch {}
 
     return {
@@ -760,24 +821,25 @@ async function restoreWorkspace(workspaceId) {
     };
   }
 
+  const entries = Object.entries(workspace.windows ?? {});
   const restored = [];
   const deferredDiscardTabIds = [];
+  const shellByLogicalWindowId = new Map();
   const newMap = { ...store.windowMap };
 
   workspaceRestoreDepth++;
   try {
-    for (const [logicalWindowId, sourceWindow] of Object.entries(workspace.windows ?? {})) {
+    // Phase 1: create ALL windows first and map them immediately.
+    for (const [logicalWindowId, sourceWindow] of entries) {
       try {
-        const restoredWindow = await restoreWorkspaceWindow(workspaceId, logicalWindowId, sourceWindow);
-        const windowId = restoredWindow.windowId;
-        restored.push(windowId);
-        deferredDiscardTabIds.push(...restoredWindow.deferredDiscardTabIds);
-        await workspaceDebug("restore-window-created", {
+        const windowId = await createRestoreWindowShell(
           workspaceId,
           logicalWindowId,
-          runtimeWindowId: windowId,
-          deferredDiscardCount: restoredWindow.deferredDiscardTabIds.length
-        });
+          sourceWindow
+        );
+
+        shellByLogicalWindowId.set(logicalWindowId, windowId);
+        restored.push(windowId);
         newMap[String(windowId)] = { workspaceId, logicalWindowId };
 
         sourceWindow.open = true;
@@ -788,7 +850,8 @@ async function restoreWorkspace(workspaceId) {
         sourceWindow.open = false;
         sourceWindow.runtimeWindowId = null;
         sourceWindow.updatedAt = Date.now();
-        await workspaceDebug("restore-window-error", {
+
+        await workspaceDebug("restore-window-shell-failed", {
           workspaceId,
           logicalWindowId,
           error: String(error?.message ?? error)
@@ -806,21 +869,50 @@ async function restoreWorkspace(workspaceId) {
       if (id !== workspaceId && other) other.active = false;
     }
 
+    // Persist mapping BEFORE populating tabs/groups.
     await browser.storage.local.set({
       [WORKSPACES_KEY]: workspaces,
       [WINDOW_WORKSPACE_MAP_KEY]: newMap,
       "fwm.activeWorkspaceId": restored.length ? workspaceId : null
     });
+
+    await workspaceDebug("restore-shells-complete", {
+      workspaceId,
+      restoredWindowIds: restored,
+      requestedWindowCount: entries.length
+    });
+
+    // Phase 2: populate each existing shell.
+    for (const [logicalWindowId, sourceWindow] of entries) {
+      const windowId = shellByLogicalWindowId.get(logicalWindowId);
+      if (windowId == null) continue;
+
+      try {
+        const result = await populateRestoredWindow(
+          workspaceId,
+          logicalWindowId,
+          sourceWindow,
+          windowId
+        );
+
+        deferredDiscardTabIds.push(...result.deferredDiscardTabIds);
+      } catch (error) {
+        await workspaceDebug("restore-window-populate-error", {
+          workspaceId,
+          logicalWindowId,
+          runtimeWindowId: windowId,
+          error: String(error?.message ?? error)
+        });
+      }
+    }
   } finally {
     workspaceRestoreDepth--;
   }
 
   if (restored.length) {
-    try { await browser.windows.update(restored[0], { focused: true }); } catch {}
-  }
-
-  for (const windowId of restored) {
-    await snapshotWindow(windowId);
+    try {
+      await browser.windows.update(restored[0], { focused: true });
+    } catch {}
   }
 
   await workspaceDebug("restore-core-complete", {
@@ -829,29 +921,32 @@ async function restoreWorkspace(workspaceId) {
     deferredDiscardCount: deferredDiscardTabIds.length
   });
 
-  // Memory cleanup is post-processing. Never block workspace activation or
-  // creation of later windows on sequential discard calls.
-  Promise.allSettled(
+  // Only after every shell, tab and group is restored do we apply the saved
+  // discarded state. This is part of restore, not lifecycle policy evaluation.
+  const discardResults = await Promise.allSettled(
     deferredDiscardTabIds.map(tabId =>
       withTimeout(browser.tabs.discard(tabId), 3000, "tabs.discard")
     )
-  ).then(async results => {
-    const rejected = results.filter(result => result.status === "rejected").length;
-    await workspaceDebug("restore-discard-postprocess", {
-      workspaceId,
-      requested: deferredDiscardTabIds.length,
-      rejected
-    });
-  }).catch(console.error);
+  );
+
+  await workspaceDebug("restore-discard-postprocess", {
+    workspaceId,
+    requested: deferredDiscardTabIds.length,
+    rejected: discardResults.filter(result => result.status === "rejected").length
+  });
+
+  // Rebuild lifecycle only after restore is fully complete.
+  await seedRuntimeState();
+  await scheduleNextDeep();
 
   await workspaceDebug("restore-end", {
     workspaceId,
     restoredWindowIds: restored,
     activeWorkspaceId: restored.length ? workspaceId : null
   });
+
   return { windowIds: restored, reused: false };
 }
-
 
 
 function sanitizeWorkspaceForExport(workspace) {
@@ -1394,6 +1489,7 @@ async function markInactive(tab) {
 }
 
 async function recomputeInactivePolicy(tab) {
+  if (workspaceRestoreDepth > 0) return;
   if (!tab || tab.id == null || !isHttpUrl(tab.url) || tab.active) return;
 
   const config = await getConfig();
@@ -1432,6 +1528,7 @@ async function recomputeInactivePolicy(tab) {
 }
 
 async function handleActivation(activeInfo) {
+  if (workspaceRestoreDepth > 0) return;
   let nextTab;
   try {
     nextTab = await browser.tabs.get(activeInfo.tabId);
@@ -1458,6 +1555,7 @@ async function handleActivation(activeInfo) {
 }
 
 async function scheduleNextDeep() {
+  if (workspaceRestoreDepth > 0) return;
   const stored = await browser.storage.local.get(TAB_LIFECYCLE_KEY);
   const lifecycle = stored[TAB_LIFECYCLE_KEY] ?? {};
   const now = Date.now();
@@ -1529,6 +1627,7 @@ async function discardWithDiagnostics(tab, reason) {
 }
 
 async function deepAlwaysWatchdog() {
+  if (workspaceRestoreDepth > 0) return;
   const config = await getConfig();
   const tabs = await browser.tabs.query({});
   const stored = await browser.storage.local.get(TAB_LIFECYCLE_KEY);
@@ -1571,6 +1670,7 @@ async function ensureWatchdogAlarm() {
 }
 
 async function sweepDueTabs() {
+  if (workspaceRestoreDepth > 0) return;
   const config = await getConfig();
   const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY]);
   const lifecycle = stored[TAB_LIFECYCLE_KEY] ?? {};
@@ -1660,6 +1760,7 @@ browser.runtime.onStartup.addListener(() => {
 });
 
 browser.alarms.onAlarm.addListener(alarm => {
+  if (workspaceRestoreDepth > 0) return;
   if (alarm.name === NEXT_DEEP_ALARM) sweepDueTabs().catch(console.error);
   if (alarm.name === DEEP_WATCHDOG_ALARM) deepAlwaysWatchdog().catch(console.error);
 });
@@ -1694,11 +1795,13 @@ browser.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
 });
 
 browser.tabs.onActivated.addListener(activeInfo => {
+  if (workspaceRestoreDepth > 0) return;
   handleActivation(activeInfo).catch(console.error);
-  if (workspaceRestoreDepth === 0) snapshotWindow(activeInfo.windowId).catch(console.error);
+  snapshotWindow(activeInfo.windowId).catch(console.error);
 });
 
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (workspaceRestoreDepth > 0) return;
   const relevant = ["url", "title", "pinned", "discarded", "autoDiscardable", "audible"];
   if (relevant.some(key => Object.hasOwn(changeInfo, key))) {
     if (workspaceRestoreDepth === 0) snapshotWindow(tab.windowId).catch(console.error);
@@ -1739,7 +1842,7 @@ browser.storage.onChanged.addListener((changes, area) => {
     }).catch(console.error);
   }
 
-  if (changes[HOST_POLICIES_KEY] || changes[URL_POLICIES_KEY] || changes[AUTO_SETTINGS_KEY]) {
+  if (workspaceRestoreDepth === 0 && (changes[HOST_POLICIES_KEY] || changes[URL_POLICIES_KEY] || changes[AUTO_SETTINGS_KEY])) {
     // Recalculate only currently pending inactive lifecycle entries. Preserve
     // their original inactiveSince so changing the timeout does not restart it.
     browser.tabs.query({}).then(async tabs => {
