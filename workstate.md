@@ -9,6 +9,12 @@ branch = dev
 
 ## Done
 
+- Fixed workspace data model: one workspace now owns multiple windows, not one workspace per window.
+- Legacy per-window workspace records are migrated into a single multi-window workspace.
+- Closing one window only closes that logical window inside the workspace; closing the last window closes the workspace.
+- Restore now recreates all windows belonging to the workspace, including tabs and groups per window.
+- Closed-workspace UI now shows window/tab/group totals across the whole workspace.
+
 - Added stable logical workspaceId mapping for normal Firefox windows.
 - Workspace snapshots are stored separately from runtime windowId.
 - Closing a Firefox window marks its workspace closed instead of deleting the snapshot.
@@ -91,12 +97,12 @@ branch = dev
 
 ## Next
 
-1. Pull latest dev and restart dev task if required.
-2. Close a normal Firefox window with X and verify it appears under Zavřené workspaces.
-3. Click Obnovit and verify tabs, groups, pinned state and active tab return in a new window.
-4. Verify the restored workspace keeps the same logical workspaceId despite the new runtime windowId.
-5. Test Firefox Sync toggle on this profile; actual cross-device sync requires Firefox Sync with Add-ons enabled.
-6. After manual restore is stable, add optional automatic reopen-on-close behavior.
+1. Pull latest dev and restart the dev task.
+2. Close both normal Firefox windows belonging to the current workspace.
+3. Open Firefox/manager again and verify exactly one closed workspace is shown.
+4. Restore it and verify both windows return, each with its own tab groups and tabs.
+5. Verify no stale second workspace remains after restore.
+6. After this passes, add the dedicated Workspace tab and active-workspace naming/switching model.
 
 ## localCommand
 
