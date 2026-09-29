@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- Popup redesigned as a compact statistics dashboard; no duplicate tab list.
+- Popup now follows dark/light theme via color-scheme.
+- web-ext dev watcher now ignores .git metadata plus non-runtime project files; this targets unexplained manager-tab closures caused by extension reloads from background Git/VS Code file changes.
+
 - Verified multi-window active-tab behavior: one active tab per Firefox window is protected from DEEP, so an apparently persistent tab may simply be active in another window.
 - MPI TECH case explained by being the active tab in the second window; after pull/reload it disappeared when no longer protected.
 - Keep the 30s watchdog as a recovery/self-heal mechanism for update/reload edge cases.
@@ -79,11 +83,11 @@ branch = dev
 
 ## Next
 
-1. Pull latest dev and verify an AUTO tab without a deadline is repaired within 30 seconds.
-2. Verify DEEP ALWAYS tabs are re-discarded by watchdog if they become loaded while inactive.
-3. Inspect discard diagnostics on Google after watchdog runs.
-4. Verify manager reopen does not reset existing AUTO countdowns.
-5. Continue monitoring watchdog overhead and multi-window behavior.
+1. Pull latest dev; restart the dev task once so the new web-ext watch-ignore arguments take effect.
+2. Open manager and leave it open without editing runtime files; verify it no longer closes spontaneously.
+3. If it still closes, capture whether the web-ext terminal logs an extension reload at the same moment.
+4. Verify popup statistics and dark/light appearance.
+5. Continue DEEP ALWAYS watchdog diagnostics separately.
 
 ## localCommand
 
