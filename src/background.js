@@ -12,6 +12,8 @@ const WINDOW_WORKSPACE_MAP_KEY = "fwm.windowWorkspaceMap";
 const SYNC_ENABLED_KEY = "fwm.sync.enabled";
 const SYNC_KEYS = [AUTO_SETTINGS_KEY, HOST_POLICIES_KEY, URL_POLICIES_KEY];
 const WORKSPACE_DEBUG_KEY = "fwm.workspaceDebugLog";
+const WORKSPACE_SNAPSHOT_LOCK_KEY = "fwm.workspaceSnapshotLock";
+const WORKSPACE_SNAPSHOT_LOCK_TTL_MS = 120000;
 
 const activeByWindow = new Map();
 let workspaceRestoreDepth = 0;
@@ -51,6 +53,40 @@ function hasWorkspaceContent(win) {
     const url = tab?.url ?? "";
     if (isExtensionUrl(url)) return false;
     return !["about:blank", "about:newtab", "about:home"].includes(url);
+  });
+}
+
+async function workspaceSnapshotLocked() {
+  if (workspaceRestoreDepth > 0) return true;
+
+  const stored = await browser.storage.local.get(WORKSPACE_SNAPSHOT_LOCK_KEY);
+  const lock = stored[WORKSPACE_SNAPSHOT_LOCK_KEY];
+  if (!lock) return false;
+
+  const acquiredAt = Number(lock.acquiredAt) || 0;
+  if (Date.now() - acquiredAt > WORKSPACE_SNAPSHOT_LOCK_TTL_MS) {
+    await browser.storage.local.remove(WORKSPACE_SNAPSHOT_LOCK_KEY);
+    return false;
+  }
+
+  return true;
+}
+
+async function acquireWorkspaceSnapshotLock(workspaceId, reason = "restore") {
+  const lock = { workspaceId, reason, acquiredAt: Date.now() };
+  await browser.storage.local.set({ [WORKSPACE_SNAPSHOT_LOCK_KEY]: lock });
+  await workspaceDebug("snapshot-lock-acquired", lock);
+}
+
+async function releaseWorkspaceSnapshotLock(workspaceId) {
+  const stored = await browser.storage.local.get(WORKSPACE_SNAPSHOT_LOCK_KEY);
+  const lock = stored[WORKSPACE_SNAPSHOT_LOCK_KEY];
+  if (!lock) return;
+  if (workspaceId && lock.workspaceId && lock.workspaceId !== workspaceId) return;
+
+  await browser.storage.local.remove(WORKSPACE_SNAPSHOT_LOCK_KEY);
+  await workspaceDebug("snapshot-lock-released", {
+    workspaceId: workspaceId ?? lock.workspaceId ?? null
   });
 }
 
@@ -319,7 +355,7 @@ async function ensureActiveWorkspace({ allowCreate = false } = {}) {
 }
 
 async function saveWorkspaceSnapshot(win, groups) {
-  if (workspaceRestoreDepth > 0) return null;
+  if (await workspaceSnapshotLocked()) return null;
 
   const existing = await loadWorkspaceStore();
   if ((!existing.activeWorkspaceId || !existing.workspaces[existing.activeWorkspaceId]) && !hasWorkspaceContent(win)) {
@@ -341,6 +377,15 @@ async function saveWorkspaceSnapshot(win, groups) {
   const { workspaces, windowMap, activeWorkspaceId } = store;
   const workspace = workspaces[activeWorkspaceId];
   const runtimeKey = String(win.id);
+
+  if (!hasWorkspaceContent(win)) {
+    await workspaceDebug("snapshot-skipped-empty-window", {
+      workspaceId: activeWorkspaceId,
+      runtimeWindowId: win.id,
+      tabCount: (win.tabs ?? []).length
+    });
+    return null;
+  }
 
   let mapping = windowMap[runtimeKey];
   if (!mapping || mapping.workspaceId !== activeWorkspaceId || !workspace.windows?.[mapping.logicalWindowId]) {
@@ -823,6 +868,8 @@ async function restoreWorkspace(workspaceId) {
 
   const entries = Object.entries(workspace.windows ?? {});
   const restored = [];
+
+  await acquireWorkspaceSnapshotLock(workspaceId, "restore");
   const deferredDiscardTabIds = [];
   const shellByLogicalWindowId = new Map();
   const newMap = { ...store.windowMap };
@@ -945,6 +992,7 @@ async function restoreWorkspace(workspaceId) {
     activeWorkspaceId: restored.length ? workspaceId : null
   });
 
+  await releaseWorkspaceSnapshotLock(workspaceId);
   return { windowIds: restored, reused: false };
 }
 
@@ -1314,6 +1362,8 @@ async function saveState(state) {
 }
 
 async function snapshotWindow(windowId) {
+  if (await workspaceSnapshotLocked()) return null;
+
   let win;
   try {
     win = await browser.windows.get(windowId, { populate: true });
@@ -1358,6 +1408,8 @@ async function snapshotWindow(windowId) {
 }
 
 async function snapshotAllWindows() {
+  if (await workspaceSnapshotLocked()) return null;
+
   const windows = await browser.windows.getAll({ windowTypes: ["normal"] });
   for (const win of windows) await snapshotWindow(win.id);
 }
@@ -1750,12 +1802,10 @@ async function seedRuntimeState() {
 }
 
 browser.runtime.onInstalled.addListener(() => {
-  snapshotAllWindows().catch(console.error);
   seedRuntimeState().catch(console.error);
 });
 
 browser.runtime.onStartup.addListener(() => {
-  snapshotAllWindows().catch(console.error);
   seedRuntimeState().catch(console.error);
 });
 
@@ -1791,7 +1841,9 @@ browser.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
     [HOST_STATS_KEY]: stats
   });
   await scheduleNextDeep();
-  if (!removeInfo.isWindowClosing) snapshotWindow(removeInfo.windowId).catch(console.error);
+  if (!removeInfo.isWindowClosing && !(await workspaceSnapshotLocked())) {
+    snapshotWindow(removeInfo.windowId).catch(console.error);
+  }
 });
 
 browser.tabs.onActivated.addListener(activeInfo => {
@@ -1920,7 +1972,6 @@ browser.windows.onRemoved.addListener(async windowId => {
 });
 
 reconcileWorkspaceRuntimeState().catch(console.error);
-snapshotAllWindows().catch(console.error);
 seedRuntimeState().catch(console.error);
 ensureWatchdogAlarm().catch(console.error);
 pullSettingsFromSync().catch(console.error);
