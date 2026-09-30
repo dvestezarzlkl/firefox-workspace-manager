@@ -316,3 +316,10 @@ task = Pull latest dev and test DEEP ALL EXCEPT ACTIVE. Verify active, pinned an
 
 status = success
 summary = DEEP ALL EXCEPT ACTIVE ověřeno v sandbox Firefoxu. Při aktivním nic.cz byly ostatní vhodné taby uvolněny z paměti; about:processes po akci ukazoval prakticky jen aktivní nic.cz, service worker YouTube a systémové Firefox procesy. Skupiny/taby zůstaly zachované.
+
+
+## Backlog
+
+- Workspace collection backup/restore: export/import all saved workspaces in one bundle.
+- Import duplicate-name guard: if a workspace with the same name already exists, require a new name or cancel instead of creating another identical name.
+- Workspace provenance metadata: keep visible createdAt and, for imported workspaces, importedAt plus original/source name so the manager can show when and where the workspace came from.
