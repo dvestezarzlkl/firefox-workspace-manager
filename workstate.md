@@ -9,6 +9,9 @@ branch = dev
 
 ## Done
 
+- 0.6.3: Version bumped for the first listed AMO submission. Extension code is unchanged from 0.6.2 plus the AMO publication tooling/metadata.
+- Only manifest.json carries the extension release version; package.json/package-lock.json are intentionally not bumped for extension-only releases.
+
 - Added bilingual CZ/EN AMO listing metadata in amo-metadata.json for the first listed submission.
 - AMO category is Tabs; license MPL-2.0; reviewer notes document plain JS/native modules, no remote code and no data collection.
 - Added npm script sign:listed and VS Code task "FF: Publikovat listed na AMO", reusing local ../.dev/amo-sign.cmd credentials.
