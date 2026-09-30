@@ -323,3 +323,4 @@ summary = DEEP ALL EXCEPT ACTIVE ověřeno v sandbox Firefoxu. Při aktivním ni
 - Workspace collection backup/restore: export/import all saved workspaces in one bundle.
 - Import duplicate-name guard: if a workspace with the same name already exists, require a new name or cancel instead of creating another identical name.
 - Workspace provenance metadata: keep visible createdAt and, for imported workspaces, importedAt plus original/source name so the manager can show when and where the workspace came from.
+- Complete application backup/restore in Settings: one versioned backup file containing all settings, all workspaces and relevant application metadata for disaster recovery.
