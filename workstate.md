@@ -9,6 +9,11 @@ branch = dev
 
 ## Done
 
+- Firefox 157 production stress test passed on 0.6.1: ZLKL office workspace ~127-128 tabs / 33 groups / 2 windows.
+- Tested copying workspace, removing one window and several tabs/groups, switching both directions, restarting Firefox after switches, and returning to the large workspace; active workspace was re-detected correctly after every restart.
+- No new about:blank corruption observed during this test.
+- Large-session restore visibly creates tabs first and groups them afterwards; treat this as a performance/UX optimization candidate, not a correctness bug.
+
 - 0.6.1: Panel filters now temporarily expand every matching window and group; clearing the filter restores the persisted manual disclosure state.
 - Panel visual polish completed after the 0.6.0 structural refactor: stronger window hierarchy, flatter groups, native Firefox group-color indicators, quieter inactive filters and secondary Expand/Collapse controls.
 - Removed textual group color names (purple/cyan/orange/...) from panel headers; color is now shown visually.
