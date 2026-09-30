@@ -77,3 +77,10 @@ Do not use `localCommand` for secrets. Never place passwords, tokens, private ke
 - Every listed AMO release/update must include saved **Version Notes** describing that version's changes.
 - Keep AMO summary/description as the long-lived product description; use Version Notes only for per-version release changes.
 - Prefer generating Version Notes from repository release notes/changelog when practical so the step is not forgotten manually.
+
+
+## DOM rendering safety
+
+- Dynamic manager/popup UI must use DOM nodes, not dynamic `innerHTML`.
+- Use `src/shared/H.js` for concise DOM construction. `H` is intentionally a DOM-only helper and must not become a general utility dumping ground.
+- Keep `H` methods typed and documented with JSDoc; short names are acceptable because the class purpose and method contracts are explicit.
