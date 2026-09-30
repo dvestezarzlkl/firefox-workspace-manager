@@ -1195,8 +1195,8 @@ async function restoreWorkspace(workspaceId) {
   });
 
   // Rebuild lifecycle only after restore is fully complete.
-  await seedRuntimeState();
-  await scheduleNextDeep();
+  await lifecycleManager.seedRuntimeState();
+  await lifecycleManager.scheduleNextDeep();
 
   await workspaceDebug("restore-end", {
     workspaceId,
