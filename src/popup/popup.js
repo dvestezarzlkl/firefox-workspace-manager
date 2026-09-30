@@ -1,3 +1,15 @@
+// @ts-check
+
+import {
+  ACTIVE_WORKSPACE_KEY,
+  HOST_POLICIES_KEY,
+  LAST_WORKSPACE_KEY,
+  TAB_LIFECYCLE_KEY,
+  URL_POLICIES_KEY,
+  WORKSPACES_KEY
+} from "../shared/constants.js";
+import { hostnameFromUrl, isExtensionUrl } from "../shared/url.js";
+
 const stats = document.getElementById("stats");
 const refreshButton = document.getElementById("refresh");
 const deepAllButton = document.getElementById("deepAll");
@@ -6,13 +18,6 @@ const versionEl = document.getElementById("version");
 const workspaceTitleEl = document.getElementById("workspaceTitle");
 const workspaceSubtitleEl = document.getElementById("workspaceSubtitle");
 const recoverSessionButton = document.getElementById("recoverSession");
-
-const HOST_POLICIES_KEY = "fwm.hostPolicies";
-const URL_POLICIES_KEY = "fwm.urlPolicies";
-const TAB_LIFECYCLE_KEY = "fwm.tabLifecycle";
-const WORKSPACES_KEY = "fwm.workspaces";
-const ACTIVE_WORKSPACE_KEY = "fwm.activeWorkspaceId";
-const LAST_WORKSPACE_KEY = "fwm.lastWorkspaceId";
 
 let recoveryWorkspaceId = null;
 
@@ -27,16 +32,7 @@ function mostRecentlyUsedWorkspace(workspaces) {
 }
 
 function isInternalExtensionTab(tab) {
-  return /^(moz|chrome)-extension:\/\//i.test(tab?.url ?? "");
-}
-
-function hostnameFromUrl(url) {
-  try {
-    const parsed = new URL(url);
-    return ["http:", "https:"].includes(parsed.protocol) ? parsed.hostname.toLowerCase() : null;
-  } catch {
-    return null;
-  }
+  return isExtensionUrl(tab?.url);
 }
 
 function exactUrlException(tab, urlPolicies) {
