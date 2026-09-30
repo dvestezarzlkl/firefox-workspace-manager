@@ -460,6 +460,36 @@ async function ensureActiveWorkspace({ allowCreate = false } = {}) {
   return { workspaces, windowMap, activeWorkspaceId };
 }
 
+function isTransientBlankUrl(url) {
+  return ["about:blank", "about:newtab", "about:home"].includes(String(url ?? ""));
+}
+
+/**
+ * A discarded/lazy-restored Firefox tab can temporarily report about:blank
+ * even though the workspace already knows its real URL. Never let that
+ * transient runtime representation destroy the canonical workspace snapshot.
+ */
+function preserveCanonicalSnapshotTab(previousTab, liveTab) {
+  if (!previousTab || !liveTab) return false;
+  if (!isTransientBlankUrl(liveTab.url)) return false;
+  if (!previousTab.url || isTransientBlankUrl(previousTab.url)) return false;
+
+  // Normal DEEP/lazy tabs are the primary corruption case.
+  if (liveTab.discarded || previousTab.discarded) return true;
+
+  // Privileged about:* pages cannot be recreated by tabs.create(), so restore
+  // intentionally uses about:blank as a runtime placeholder. Preserve the
+  // original canonical URL in the workspace.
+  if (
+    String(previousTab.url).startsWith("about:") &&
+    restoreUrlOrBlank(previousTab.url) === "about:blank"
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 async function saveWorkspaceSnapshot(win, groups) {
   if (await workspaceSnapshotLocked()) return null;
 
@@ -504,6 +534,49 @@ async function saveWorkspaceSnapshot(win, groups) {
   }
 
   workspace.windows ??= {};
+  const previousWindow = workspace.windows[mapping.logicalWindowId];
+  const previousTabsByIndex = new Map(
+    (previousWindow?.tabs ?? []).map(tab => [Number(tab.index), tab])
+  );
+  const preservedCanonicalTabs = [];
+
+  const snapshotTabs = (win.tabs ?? [])
+    .filter(tab => !isExtensionUrl(tab.url))
+    .map(tab => {
+      const groupIndex = groups.findIndex(group => group.id === tab.groupId);
+      const previousTab = previousTabsByIndex.get(Number(tab.index));
+      const preserveCanonical = preserveCanonicalSnapshotTab(previousTab, tab);
+      const url = preserveCanonical ? previousTab.url : tab.url;
+      const title = preserveCanonical
+        ? (previousTab.title || tab.title)
+        : tab.title;
+
+      if (preserveCanonical) {
+        preservedCanonicalTabs.push({
+          runtimeTabId: tab.id,
+          index: tab.index,
+          liveUrl: tab.url,
+          canonicalUrl: previousTab.url,
+          discarded: !!tab.discarded
+        });
+      }
+
+      return {
+        runtimeTabId: tab.id,
+        index: tab.index,
+        url,
+        title,
+        pinned: tab.pinned,
+        active: tab.active,
+        discarded: tab.discarded,
+        audible: tab.audible,
+        autoDiscardable: tab.autoDiscardable,
+        cookieStoreId: tab.cookieStoreId,
+        runtimeGroupId: tab.groupId,
+        groupKey: groupIndex >= 0 ? "g" + groupIndex : null
+      };
+    });
+
   workspace.windows[mapping.logicalWindowId] = {
     id: mapping.logicalWindowId,
     open: true,
@@ -525,24 +598,17 @@ async function saveWorkspaceSnapshot(win, groups) {
       color: group.color,
       collapsed: group.collapsed
     })),
-    tabs: (win.tabs ?? []).filter(tab => !isExtensionUrl(tab.url)).map(tab => {
-      const groupIndex = groups.findIndex(group => group.id === tab.groupId);
-      return ({
-      runtimeTabId: tab.id,
-      index: tab.index,
-      url: tab.url,
-      title: tab.title,
-      pinned: tab.pinned,
-      active: tab.active,
-      discarded: tab.discarded,
-      audible: tab.audible,
-      autoDiscardable: tab.autoDiscardable,
-      cookieStoreId: tab.cookieStoreId,
-      runtimeGroupId: tab.groupId,
-      groupKey: groupIndex >= 0 ? "g" + groupIndex : null
-    });
-    })
+    tabs: snapshotTabs
   };
+
+  if (preservedCanonicalTabs.length) {
+    await workspaceDebug("snapshot-preserved-canonical-url", {
+      workspaceId: activeWorkspaceId,
+      logicalWindowId: mapping.logicalWindowId,
+      runtimeWindowId: win.id,
+      tabs: preservedCanonicalTabs
+    });
+  }
 
   workspace.windows[mapping.logicalWindowId].fingerprintVersion = 1;
   workspace.windows[mapping.logicalWindowId].fingerprint =
@@ -1024,14 +1090,49 @@ async function populateRestoredWindow(workspaceId, logicalWindowId, sourceWindow
       sourceIndex: i,
       url: source.url,
       restoreUrl,
-      substituted: restoreUrl !== source.url
+      substituted: restoreUrl !== source.url,
+      createDiscarded: !!source.discarded && !source.active
     });
 
-    const created = await withTimeout(browser.tabs.create({
+    const createDiscarded = !!source.discarded && !source.active;
+    const createProperties = {
       windowId,
       url: restoreUrl,
       active: false
-    }), 5000, "tabs.create");
+    };
+
+    if (createDiscarded) {
+      createProperties.discarded = true;
+      if (source.title) createProperties.title = source.title;
+    }
+
+    let created;
+    try {
+      created = await withTimeout(
+        browser.tabs.create(createProperties),
+        5000,
+        createDiscarded ? "tabs.create discarded" : "tabs.create"
+      );
+    } catch (error) {
+      // Defensive fallback for a Firefox/API edge case: create normally and
+      // defer discard. This path must not be the normal restore path.
+      if (!createDiscarded) throw error;
+
+      await workspaceDebug("restore-create-discarded-fallback", {
+        workspaceId,
+        logicalWindowId,
+        sourceIndex: i,
+        sourceUrl: source.url,
+        restoreUrl,
+        error: String(error?.message ?? error)
+      });
+
+      created = await withTimeout(browser.tabs.create({
+        windowId,
+        url: restoreUrl,
+        active: false
+      }), 5000, "tabs.create fallback");
+    }
 
     liveTabIds.push(created.id);
   }
@@ -1183,14 +1284,26 @@ async function populateRestoredWindow(workspaceId, logicalWindowId, sourceWindow
     }
   }
 
-  const deferredDiscardEntries = sourceTabs
-    .filter(source => source.discarded && !source.active)
-    .map(source => ({
-      tabId: newTabByOldRuntimeId.get(source.runtimeTabId),
+  const deferredDiscardEntries = [];
+  for (const source of sourceTabs.filter(source => source.discarded && !source.active)) {
+    const tabId = newTabByOldRuntimeId.get(source.runtimeTabId);
+    if (tabId == null) continue;
+
+    let liveTab = null;
+    try {
+      liveTab = await browser.tabs.get(tabId);
+    } catch {}
+
+    // tabs.create({ discarded: true }) is the safe path and needs no later
+    // discard. Only the defensive fallback reaches the post-process queue.
+    if (liveTab?.discarded) continue;
+
+    deferredDiscardEntries.push({
+      tabId,
       sourceUrl: source.url,
       restoreUrl: restoreUrlOrBlank(source.url)
-    }))
-    .filter(item => item.tabId != null);
+    });
+  }
 
   const deferredDiscardTabIds = deferredDiscardEntries.map(item => item.tabId);
 
