@@ -1,3 +1,23 @@
+// @ts-check
+
+import {
+  ACTIVE_WORKSPACE_KEY,
+  AUTO_SETTINGS_KEY,
+  HOST_POLICIES_KEY,
+  HOST_RESULT_LIMIT,
+  HOST_STATS_KEY,
+  KNOWN_HOSTS_KEY,
+  LAST_ACTIVE_CONTENT_KEY,
+  SYNC_ENABLED_KEY,
+  TAB_LIFECYCLE_KEY,
+  UI_PAGE_KEY,
+  URL_POLICIES_KEY,
+  WORKSPACES_KEY,
+  WORKSPACE_DEBUG_KEY
+} from "../shared/constants.js";
+import { hostnameFromUrl, isExtensionUrl } from "../shared/url.js";
+import { PanelExplorerController } from "./PanelExplorerController.js";
+
 const app = document.getElementById("app");
 const summary = document.getElementById("summary");
 const refreshButton = document.getElementById("refresh");
@@ -32,21 +52,6 @@ const panelCollapseAll = document.getElementById("panelCollapseAll");
 const panelAlwaysExpanded = document.getElementById("panelAlwaysExpanded");
 const panelAutoRefresh = document.getElementById("panelAutoRefresh");
 
-const HOST_POLICIES_KEY = "fwm.hostPolicies";
-const KNOWN_HOSTS_KEY = "fwm.knownHosts";
-const AUTO_SETTINGS_KEY = "fwm.autoSettings";
-const UI_PAGE_KEY = "fwm.ui.page";
-const LAST_ACTIVE_CONTENT_KEY = "fwm.lastActiveContentTabs";
-const URL_POLICIES_KEY = "fwm.urlPolicies";
-const TAB_LIFECYCLE_KEY = "fwm.tabLifecycle";
-const HOST_STATS_KEY = "fwm.hostStats";
-const HOST_RESULT_LIMIT = 30;
-const WORKSPACES_KEY = "fwm.workspaces";
-const SYNC_ENABLED_KEY = "fwm.sync.enabled";
-const ACTIVE_WORKSPACE_KEY = "fwm.activeWorkspaceId";
-const WORKSPACE_DEBUG_KEY = "fwm.workspaceDebugLog";
-const PANEL_EXPLORER_STATE_KEY = "fwm.panelExplorerState";
-
 let managerTabId = null;
 let managerWindowId = null;
 let lastActiveContentTabId = null;
@@ -65,93 +70,15 @@ let workspaceDebugLog = [];
 let panelStateFilterSet = new Set();
 let panelPolicyFilterSet = new Set();
 
-function loadPanelExplorerState() {
-  try {
-    const raw = localStorage.getItem(PANEL_EXPLORER_STATE_KEY);
-    const parsed = raw ? JSON.parse(raw) : {};
-    return {
-      windows: new Set(Array.isArray(parsed.windows) ? parsed.windows : []),
-      groups: new Set(Array.isArray(parsed.groups) ? parsed.groups : []),
-      alwaysExpanded: !!parsed.alwaysExpanded,
-      refreshSeconds: [0, 5, 10, 30, 60].includes(Number(parsed.refreshSeconds))
-        ? Number(parsed.refreshSeconds)
-        : 0
-    };
-  } catch {
-    return {
-      windows: new Set(),
-      groups: new Set(),
-      alwaysExpanded: false,
-      refreshSeconds: 0
-    };
-  }
-}
-
-const panelExplorerState = loadPanelExplorerState();
-
-function savePanelExplorerState() {
-  try {
-    localStorage.setItem(PANEL_EXPLORER_STATE_KEY, JSON.stringify({
-      windows: [...panelExplorerState.windows],
-      groups: [...panelExplorerState.groups],
-      alwaysExpanded: panelExplorerState.alwaysExpanded,
-      refreshSeconds: panelExplorerState.refreshSeconds
-    }));
-  } catch {}
-}
-
-let panelAutoRefreshTimer = null;
-let panelAutoRefreshBusy = false;
-
-function capturePanelExplorerOpenState() {
-  if (panelFilterActive() || panelExplorerState.alwaysExpanded) return;
-
-  const windowDetails = app.querySelectorAll("details[data-panel-window-key]");
-  const groupDetails = app.querySelectorAll("details[data-panel-group-key]");
-  if (!windowDetails.length && !groupDetails.length) return;
-
-  panelExplorerState.windows.clear();
-  panelExplorerState.groups.clear();
-
-  windowDetails.forEach(details => {
-    if (details.open) panelExplorerState.windows.add(details.dataset.panelWindowKey);
-  });
-
-  groupDetails.forEach(details => {
-    if (details.open) panelExplorerState.groups.add(details.dataset.panelGroupKey);
-  });
-
-  savePanelExplorerState();
-}
-
-function configurePanelAutoRefresh() {
-  if (panelAutoRefreshTimer) {
-    clearInterval(panelAutoRefreshTimer);
-    panelAutoRefreshTimer = null;
-  }
-
-  const seconds = Number(panelExplorerState.refreshSeconds) || 0;
-  if (panelAutoRefresh) panelAutoRefresh.value = String(seconds);
-  if (!seconds) return;
-
-  panelAutoRefreshTimer = setInterval(async () => {
-    if (panelAutoRefreshBusy || document.hidden) return;
-
-    panelAutoRefreshBusy = true;
-    try {
-      await load();
-    } catch (error) {
-      console.error("Panel auto refresh failed", error);
-    } finally {
-      panelAutoRefreshBusy = false;
-    }
-  }, seconds * 1000);
-}
-
-if (panelAlwaysExpanded) {
-  panelAlwaysExpanded.checked = panelExplorerState.alwaysExpanded;
-}
-configurePanelAutoRefresh();
+const panelExplorer = new PanelExplorerController({
+  root: app,
+  alwaysExpandedInput: panelAlwaysExpanded,
+  refreshSelect: panelAutoRefresh,
+  isFilterActive: panelFilterActive,
+  reload: load
+});
+const panelExplorerState = panelExplorer.state;
+panelExplorer.configureAutoRefresh();
 
 const manifestMeta = browser.runtime.getManifest();
 if (managerVersion) managerVersion.textContent = "v" + manifestMeta.version;
@@ -183,8 +110,7 @@ function extraFlags(tab) {
 }
 
 function isInternalExtensionTab(tab) {
-  const url = tab?.url ?? "";
-  return url.startsWith("moz-extension://") || url.startsWith("chrome-extension://");
+  return isExtensionUrl(tab?.url);
 }
 
 function isProtectedFromDeep(tab) {
@@ -197,15 +123,6 @@ function isProtectedFromDeep(tab) {
     tab.pinned ||
     isInternalExtensionTab(tab) ||
     exactUrlException(tab);
-}
-
-function hostnameFromUrl(url) {
-  try {
-    const parsed = new URL(url);
-    return ["http:", "https:"].includes(parsed.protocol) ? parsed.hostname.toLowerCase() : null;
-  } catch {
-    return null;
-  }
 }
 
 async function loadHostPolicies() {
@@ -778,7 +695,7 @@ function renderPanels() {
 }
 
 async function load() {
-  capturePanelExplorerOpenState();
+  panelExplorer.captureOpenState();
   app.textContent = "Načítám…";
 
   const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY, URL_POLICIES_KEY, HOST_POLICIES_KEY, WORKSPACES_KEY, ACTIVE_WORKSPACE_KEY, WORKSPACE_DEBUG_KEY]);
@@ -856,43 +773,22 @@ document.querySelector(".page-tabs").addEventListener("click", event => {
 panelSearch.addEventListener("input", () => renderPanels());
 
 panelExpandAll.addEventListener("click", () => {
-  for (const win of currentWindows) {
-    panelExplorerState.windows.add(String(win.id));
-
-    const groups = currentWindowGroups.get(win.id) ?? [];
-    for (const group of groups) {
-      panelExplorerState.groups.add(String(win.id) + ":" + String(group.id));
-    }
-
-    if ((win.tabs ?? []).some(tab => tab.groupId == null || tab.groupId === -1)) {
-      panelExplorerState.groups.add(String(win.id) + ":ungrouped");
-    }
-  }
-
-  savePanelExplorerState();
+  panelExplorer.expandAll(currentWindows, currentWindowGroups);
   renderPanels();
 });
 
 panelCollapseAll.addEventListener("click", () => {
-  panelExplorerState.alwaysExpanded = false;
-  panelExplorerState.windows.clear();
-  panelExplorerState.groups.clear();
-
-  if (panelAlwaysExpanded) panelAlwaysExpanded.checked = false;
-  savePanelExplorerState();
+  panelExplorer.collapseAll();
   renderPanels();
 });
 
 panelAlwaysExpanded.addEventListener("change", () => {
-  panelExplorerState.alwaysExpanded = panelAlwaysExpanded.checked;
-  savePanelExplorerState();
+  panelExplorer.setAlwaysExpanded(panelAlwaysExpanded.checked);
   renderPanels();
 });
 
 panelAutoRefresh.addEventListener("change", () => {
-  panelExplorerState.refreshSeconds = Number(panelAutoRefresh.value) || 0;
-  savePanelExplorerState();
-  configurePanelAutoRefresh();
+  panelExplorer.setRefreshSeconds(Number(panelAutoRefresh.value) || 0);
 });
 
 function togglePanelFilter(button) {
@@ -924,22 +820,7 @@ panelFilterReset.addEventListener("click", () => {
 });
 
 app.addEventListener("toggle", event => {
-  if (panelFilterActive() || panelExplorerState.alwaysExpanded) return;
-  const details = event.target;
-  const windowKey = details?.dataset?.panelWindowKey;
-  const groupKey = details?.dataset?.panelGroupKey;
-
-  if (windowKey) {
-    if (details.open) panelExplorerState.windows.add(windowKey);
-    else panelExplorerState.windows.delete(windowKey);
-  }
-
-  if (groupKey) {
-    if (details.open) panelExplorerState.groups.add(groupKey);
-    else panelExplorerState.groups.delete(groupKey);
-  }
-
-  if (windowKey || groupKey) savePanelExplorerState();
+  panelExplorer.rememberToggle(event);
 }, true);
 
 app.addEventListener("click", async event => {
