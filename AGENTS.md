@@ -70,3 +70,10 @@ Do not use `localCommand` for secrets. Never place passwords, tokens, private ke
 - Architectural comments explain invariants and reasons, not obvious line-by-line behavior.
 - Keep restore/snapshot/fingerprint invariants documented in `docs/architecture.md` synchronized with code changes.
 - Do not hand-edit `package-lock.json`; regenerate it through npm locally when dependencies/package metadata require it.
+
+
+## AMO listed release process
+
+- Every listed AMO release/update must include saved **Version Notes** describing that version's changes.
+- Keep AMO summary/description as the long-lived product description; use Version Notes only for per-version release changes.
+- Prefer generating Version Notes from repository release notes/changelog when practical so the step is not forgotten manually.
