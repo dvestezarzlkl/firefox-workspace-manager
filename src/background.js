@@ -239,7 +239,8 @@ async function reconcileWorkspaceRuntimeState() {
     await browser.storage.local.set({
       [WORKSPACES_KEY]: workspaces,
       [WINDOW_WORKSPACE_MAP_KEY]: windowMap,
-      [ACTIVE_WORKSPACE_KEY]: activeWorkspaceId
+      [ACTIVE_WORKSPACE_KEY]: activeWorkspaceId,
+      ...(activeWorkspaceId ? { [LAST_WORKSPACE_KEY]: activeWorkspaceId } : {})
     });
   }
 
@@ -428,7 +429,8 @@ async function saveWorkspaceSnapshot(win, groups) {
   await browser.storage.local.set({
     [WORKSPACES_KEY]: workspaces,
     [WINDOW_WORKSPACE_MAP_KEY]: windowMap,
-    [ACTIVE_WORKSPACE_KEY]: activeWorkspaceId
+    [ACTIVE_WORKSPACE_KEY]: activeWorkspaceId,
+    [LAST_WORKSPACE_KEY]: activeWorkspaceId
   });
 
   await workspaceDebug("snapshot-saved", {
