@@ -2,7 +2,7 @@
 
 Firefox WebExtension for persistent multi-window workspaces, tab lifecycle management and safe restore.
 
-Current development version: **0.3.0**
+Current development version: **0.6.0**
 
 ## Branches
 
@@ -45,7 +45,7 @@ Native window close cannot be intercepted before Firefox closes the window. The 
 
 The full-page manager contains:
 
-- **Panely** - windows, groups, tabs, lifecycle states and manual actions
+- **Panely** - searchable/collapsible windows, groups and tabs, combinable lifecycle/policy filters, manual actions and optional auto-refresh
 - **Workspaces** - workspace management and switching
 - **Nastavení** - AUTO settings, hostname rules, exact URL exceptions and optional Firefox Sync
 - **Nápověda** - built-in usage and behavior reference
@@ -54,7 +54,7 @@ The full-page manager contains:
 
 Compact dashboard showing:
 
-- active workspace name
+- active workspace name, or last-used inactive workspace with one-click session recovery
 - windows
 - tabs
 - groups
@@ -85,6 +85,16 @@ Before stable 1.0:
 
 The popup reads the version directly from `manifest.json`.
 
+## Architecture
+
+Runtime code uses native ES modules and plain JavaScript with `// @ts-check` + JSDoc.
+Stateful domains are separated into services/controllers; stateless algorithms live in
+shared modules. See `docs/architecture.md` for module boundaries and invariants.
+
+Key persistent identities are extension-owned workspace/logical-window IDs and a
+deterministic SHA-256 window-content fingerprint. Firefox runtime IDs are attachment
+metadata only.
+
 ## Development
 
 Development runs through `web-ext` using a dedicated profile under `.dev/firefox-profile`.
@@ -97,6 +107,13 @@ npm run dev
 npm run lint
 npm run build
 ```
+
+VS Code uses `jsconfig.json` for project-wide JavaScript type checking. Runtime
+entrypoints and modules use `// @ts-check`; shared shapes are documented in
+`src/types/domain.js`.
+
+Do not hand-edit `package-lock.json`; regenerate it with npm when package metadata
+or dependencies actually change.
 
 The development watcher ignores Git metadata and non-runtime project files. Changes to runtime extension files still reload the extension; an open `moz-extension://` manager tab can therefore disappear during development reloads.
 
