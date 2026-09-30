@@ -753,12 +753,39 @@ main {
 }
 
 .tab-icon {
-  width: 10px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
   margin-top: 0;
-  border: 1px solid currentColor;
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 76%, 0 100%);
+  border: 0;
+  clip-path: none;
   box-sizing: border-box;
+  opacity: .62;
+}
+
+.tab-icon::before,
+.tab-icon::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 5px;
+  border: 1.4px solid currentColor;
+  border-radius: 5px;
+  box-sizing: border-box;
+  transform: rotate(-38deg);
+}
+
+.tab-icon::before {
+  left: 0;
+  top: 2px;
+}
+
+.tab-icon::after {
+  right: 0;
+  bottom: 2px;
+}
+
+.tab-title-row:hover .tab-icon {
+  opacity: .9;
 }
 
 .window-header {
@@ -846,4 +873,111 @@ main {
 
 .workspace-status-closed {
   opacity: .58;
+}
+
+/* Panel visual hierarchy ---------------------------------------------------- */
+
+.window {
+  border-color: color-mix(in srgb, CanvasText 18%, transparent);
+  box-shadow: 0 1px 0 color-mix(in srgb, CanvasText 4%, transparent);
+}
+
+.window-header {
+  padding-block: 11px;
+  background: color-mix(in srgb, CanvasText 8%, Canvas);
+  border-left-color: color-mix(in srgb, CanvasText 42%, transparent);
+}
+
+.window-header .disclosure-title {
+  font-size: 15px;
+}
+
+.header-meta {
+  font-weight: 500;
+  opacity: .66;
+}
+
+.group {
+  border-color: color-mix(in srgb, CanvasText 10%, transparent);
+  background: color-mix(in srgb, CanvasText 2.5%, Canvas);
+  box-shadow: none;
+}
+
+.group-header {
+  min-height: 42px;
+  background: color-mix(in srgb, CanvasText 3.5%, Canvas);
+  border-left-color: color-mix(in srgb, CanvasText 14%, transparent);
+}
+
+.group[open] > .group-header {
+  background: color-mix(in srgb, CanvasText 5.5%, Canvas);
+}
+
+.group-header .header-meta {
+  opacity: .62;
+}
+
+.group-color-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--group-accent, currentColor);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--group-accent, currentColor) 18%, transparent);
+}
+
+.group-header[data-group-color="blue"]   { --group-accent: #45a1ff; }
+.group-header[data-group-color="purple"] { --group-accent: #cb7cff; }
+.group-header[data-group-color="cyan"]   { --group-accent: #00c8d7; }
+.group-header[data-group-color="orange"] { --group-accent: #ff9f32; }
+.group-header[data-group-color="yellow"] { --group-accent: #f5cf47; }
+.group-header[data-group-color="red"]    { --group-accent: #ff6b6b; }
+.group-header[data-group-color="pink"]   { --group-accent: #ff7eb6; }
+.group-header[data-group-color="green"]  { --group-accent: #54c77a; }
+.group-header[data-group-color="grey"],
+.group-header[data-group-color="gray"]   { --group-accent: #9aa0a6; }
+
+.group-header[data-group-color] {
+  border-left-color: color-mix(in srgb, var(--group-accent) 48%, transparent);
+}
+
+.ungrouped-header {
+  border-left-color: color-mix(in srgb, CanvasText 12%, transparent);
+}
+
+.panel-filter {
+  border-color: color-mix(in srgb, CanvasText 20%, transparent);
+  background: color-mix(in srgb, CanvasText 3%, Canvas);
+  opacity: .78;
+}
+
+.panel-filter:hover {
+  opacity: 1;
+  background: color-mix(in srgb, CanvasText 7%, Canvas);
+}
+
+.panel-filter.active {
+  opacity: 1;
+  border-color: color-mix(in srgb, AccentColor 65%, CanvasText);
+  background: color-mix(in srgb, AccentColor 18%, Canvas);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, AccentColor 18%, transparent);
+}
+
+.panel-tree-buttons button {
+  opacity: .74;
+  border-color: color-mix(in srgb, CanvasText 16%, transparent);
+  background: color-mix(in srgb, CanvasText 2.5%, Canvas);
+}
+
+.panel-tree-buttons button:hover {
+  opacity: 1;
+}
+
+.tab {
+  border-top-color: color-mix(in srgb, CanvasText 8%, transparent);
+}
+
+.tab-title {
+  min-width: 0;
+  font-weight: 600;
 }
