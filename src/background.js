@@ -33,10 +33,14 @@ import {
   scoreWorkspaceWindowMatch
 } from "./shared/windowFingerprint.js";
 import { WorkspaceStore } from "./background/WorkspaceStore.js";
+import { TabLifecycleManager } from "./background/TabLifecycleManager.js";
 
 const workspaceStore = new WorkspaceStore();
+const lifecycleManager = new TabLifecycleManager({
+  isRestoreActive: () => workspaceRestoreDepth > 0,
+  snapshotWindow: windowId => snapshotWindow(windowId)
+});
 
-const activeByWindow = new Map();
 const workspaceReattachTimers = new Map();
 let workspaceRestoreDepth = 0;
 
@@ -55,39 +59,6 @@ async function acquireWorkspaceSnapshotLock(workspaceId, reason = "restore") {
 async function releaseWorkspaceSnapshotLock(workspaceId) {
   return workspaceStore.releaseSnapshotLock(workspaceId);
 }
-
-async function getConfig() {
-  const stored = await browser.storage.local.get([
-    HOST_POLICIES_KEY,
-    URL_POLICIES_KEY,
-    AUTO_SETTINGS_KEY
-  ]);
-  return {
-    hostPolicies: stored[HOST_POLICIES_KEY] ?? {},
-    urlPolicies: Array.isArray(stored[URL_POLICIES_KEY]) ? stored[URL_POLICIES_KEY] : [],
-    auto: { ...defaultAutoSettings(), ...(stored[AUTO_SETTINGS_KEY] ?? {}) }
-  };
-}
-
-function resolvePolicy(tab, config) {
-  const url = tab.url ?? "";
-  if (isExtensionUrl(url)) return "KEEP";
-
-  const urlRule = config.urlPolicies.find(rule => rule?.url === url);
-  if (urlRule?.mode) return urlRule.mode;
-
-  const host = hostnameFromUrl(url);
-  if (host && config.hostPolicies[host]) return config.hostPolicies[host];
-  return "AUTO";
-}
-
-function protectedByRuntime(tab, auto) {
-  if (tab.id == null || tab.active || tab.discarded || isExtensionUrl(tab.url)) return true;
-  if (auto.protectPinned && tab.pinned) return true;
-  if (auto.protectAudible && tab.audible) return true;
-  return false;
-}
-
 
 async function withTimeout(promise, ms, label) {
   let timer;
@@ -1894,405 +1865,16 @@ async function snapshotAllWindows() {
   for (const win of windows) await snapshotWindow(win.id);
 }
 
-async function rememberActiveContentTab(tab) {
-  if (!tab || tab.id == null || !isHttpUrl(tab.url)) return;
-  const stored = await browser.storage.local.get(LAST_ACTIVE_CONTENT_KEY);
-  const map = stored[LAST_ACTIVE_CONTENT_KEY] ?? {};
-  map[String(tab.windowId)] = tab.id;
-  await browser.storage.local.set({ [LAST_ACTIVE_CONTENT_KEY]: map });
-}
-
-async function mutateLifecycle(mutator) {
-  const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY]);
-  const lifecycle = stored[TAB_LIFECYCLE_KEY] ?? {};
-  const stats = stored[HOST_STATS_KEY] ?? {};
-  await mutator(lifecycle, stats);
-  await browser.storage.local.set({
-    [TAB_LIFECYCLE_KEY]: lifecycle,
-    [HOST_STATS_KEY]: stats
-  });
-}
-
-function ensureHostStats(stats, host) {
-  if (!host) return null;
-  stats[host] ??= {
-    activations: 0,
-    totalActiveMs: 0,
-    totalInactiveMs: 0,
-    firstSeenAt: Date.now(),
-    lastActivatedAt: null,
-    lastDeactivatedAt: null,
-    autoDeepCount: 0
-  };
-  return stats[host];
-}
-
-async function markActivated(tab) {
-  if (!tab || tab.id == null || !isHttpUrl(tab.url)) return;
-  const now = Date.now();
-  const host = hostnameFromUrl(tab.url);
-
-  await mutateLifecycle(async (lifecycle, stats) => {
-    const key = String(tab.id);
-    const previous = lifecycle[key] ?? {};
-    const sameActiveVisit = previous.activeSince && previous.url === tab.url;
-
-    if (!sameActiveVisit && previous.inactiveSince && previous.host) {
-      const previousStat = ensureHostStats(stats, previous.host);
-      if (previousStat) {
-        previousStat.totalInactiveMs = (previousStat.totalInactiveMs || 0) + Math.max(0, now - previous.inactiveSince);
-      }
-    }
-
-    if (!sameActiveVisit && previous.activeSince && previous.host) {
-      const previousStat = ensureHostStats(stats, previous.host);
-      if (previousStat) {
-        previousStat.totalActiveMs += Math.max(0, now - previous.activeSince);
-        previousStat.lastDeactivatedAt = now;
-      }
-    }
-
-    lifecycle[key] = {
-      ...previous,
-      tabId: tab.id,
-      windowId: tab.windowId,
-      url: tab.url,
-      host,
-      activeSince: sameActiveVisit ? previous.activeSince : now,
-      inactiveSince: null,
-      deadline: null,
-      policy: "ACTIVE"
-    };
-
-    if (!sameActiveVisit) {
-      const hostStat = ensureHostStats(stats, host);
-      if (hostStat) {
-        hostStat.activations += 1;
-        hostStat.lastActivatedAt = now;
-      }
-    }
-  });
-
-  await rememberActiveContentTab(tab);
-}
-
-async function markInactive(tab) {
-  if (!tab || tab.id == null || !isHttpUrl(tab.url)) return;
-  const now = Date.now();
-  const config = await getConfig();
-  const policy = resolvePolicy(tab, config);
-  const host = hostnameFromUrl(tab.url);
-
-  await mutateLifecycle(async (lifecycle, stats) => {
-    const key = String(tab.id);
-    const previous = lifecycle[key] ?? {};
-    if (previous.activeSince) {
-      const hostStat = ensureHostStats(stats, host);
-      if (hostStat) {
-        hostStat.totalActiveMs += Math.max(0, now - previous.activeSince);
-        hostStat.lastDeactivatedAt = now;
-      }
-    }
-
-    let deadline = null;
-    if (!protectedByRuntime(tab, config.auto)) {
-      if (policy === "DEEP") deadline = now;
-      else if (policy === "AUTO") {
-        deadline = config.auto.deepOnLeave
-          ? now
-          : now + Math.max(2, Number(config.auto.minutes) || 60) * 60_000;
-      }
-    }
-
-    lifecycle[key] = {
-      ...previous,
-      tabId: tab.id,
-      windowId: tab.windowId,
-      url: tab.url,
-      host,
-      activeSince: null,
-      inactiveSince: now,
-      deadline,
-      policy
-    };
-  });
-
-  await scheduleNextDeep();
-}
-
-async function recomputeInactivePolicy(tab) {
-  if (workspaceRestoreDepth > 0) return;
-  if (!tab || tab.id == null || !isHttpUrl(tab.url) || tab.active) return;
-
-  const config = await getConfig();
-  const policy = resolvePolicy(tab, config);
-  const host = hostnameFromUrl(tab.url);
-  const now = Date.now();
-
-  await mutateLifecycle(async (lifecycle) => {
-    const key = String(tab.id);
-    const previous = lifecycle[key] ?? {};
-    const inactiveSince = previous.inactiveSince || now;
-
-    let deadline = null;
-    if (!protectedByRuntime(tab, config.auto)) {
-      if (policy === "DEEP") {
-        deadline = now;
-      } else if (policy === "AUTO") {
-        deadline = config.auto.deepOnLeave
-          ? now
-          : inactiveSince + Math.max(2, Number(config.auto.minutes) || 60) * 60_000;
-      }
-    }
-
-    lifecycle[key] = {
-      ...previous,
-      tabId: tab.id,
-      windowId: tab.windowId,
-      url: tab.url,
-      host,
-      activeSince: null,
-      inactiveSince,
-      deadline,
-      policy
-    };
-  });
-}
-
-async function handleActivation(activeInfo) {
-  if (workspaceRestoreDepth > 0) return;
-  let nextTab;
-  try {
-    nextTab = await browser.tabs.get(activeInfo.tabId);
-  } catch {
-    return;
-  }
-
-  const previousId = activeByWindow.get(activeInfo.windowId);
-
-  // Extension UI is a control surface, not user content. Keep the previous
-  // content tab as the logical active tab for lifecycle/statistics purposes.
-  if (isExtensionUrl(nextTab.url)) return;
-
-  activeByWindow.set(activeInfo.windowId, activeInfo.tabId);
-
-  if (previousId != null && previousId !== activeInfo.tabId) {
-    try {
-      const previousTab = await browser.tabs.get(previousId);
-      if (!isExtensionUrl(previousTab.url)) await markInactive(previousTab);
-    } catch {}
-  }
-
-  await markActivated(nextTab);
-}
-
-async function scheduleNextDeep() {
-  if (workspaceRestoreDepth > 0) return;
-  const stored = await browser.storage.local.get(TAB_LIFECYCLE_KEY);
-  const lifecycle = stored[TAB_LIFECYCLE_KEY] ?? {};
-  const now = Date.now();
-  const deadlines = Object.values(lifecycle)
-    .map(item => item?.deadline)
-    .filter(deadline => Number.isFinite(deadline) && deadline > 0);
-
-  await browser.alarms.clear(NEXT_DEEP_ALARM);
-  if (!deadlines.length) return;
-
-  const next = Math.max(now + 1000, Math.min(...deadlines));
-  browser.alarms.create(NEXT_DEEP_ALARM, { when: next });
-}
-
-
-async function discardWithDiagnostics(tab, reason) {
-  if (!tab || tab.id == null) return false;
-  const attemptAt = Date.now();
-
-  await mutateLifecycle(async lifecycle => {
-    const key = String(tab.id);
-    lifecycle[key] = {
-      ...(lifecycle[key] ?? {}),
-      tabId: tab.id,
-      windowId: tab.windowId,
-      url: tab.url,
-      host: hostnameFromUrl(tab.url),
-      lastDiscardAttemptAt: attemptAt,
-      lastDiscardReason: reason,
-      lastDiscardResult: "pending"
-    };
-  });
-
-  try {
-    await browser.tabs.discard(tab.id);
-    let refreshed = null;
-    try {
-      refreshed = await browser.tabs.get(tab.id);
-    } catch {}
-
-    const success = refreshed?.discarded === true;
-    const completedAt = Date.now();
-
-    await mutateLifecycle(async lifecycle => {
-      const key = String(tab.id);
-      lifecycle[key] = {
-        ...(lifecycle[key] ?? {}),
-        lastDiscardResult: success ? "discarded" : "not-discarded",
-        lastDiscardCompletedAt: completedAt,
-        discardedAt: success ? completedAt : lifecycle[key]?.discardedAt ?? null
-      };
-    });
-
-    return success;
-  } catch (error) {
-    const completedAt = Date.now();
-    await mutateLifecycle(async lifecycle => {
-      const key = String(tab.id);
-      lifecycle[key] = {
-        ...(lifecycle[key] ?? {}),
-        lastDiscardResult: "error",
-        lastDiscardError: String(error?.message ?? error),
-        lastDiscardCompletedAt: completedAt
-      };
-    });
-    console.warn("Discard failed", tab.id, reason, error);
-    return false;
-  }
-}
-
-async function deepAlwaysWatchdog() {
-  if (workspaceRestoreDepth > 0) return;
-  const config = await getConfig();
-  const tabs = await browser.tabs.query({});
-  const stored = await browser.storage.local.get(TAB_LIFECYCLE_KEY);
-  const lifecycle = stored[TAB_LIFECYCLE_KEY] ?? {};
-
-  for (const tab of tabs) {
-    if (!isHttpUrl(tab.url) || tab.id == null) continue;
-    const policy = resolvePolicy(tab, config);
-    const item = lifecycle[String(tab.id)];
-
-    if (policy === "DEEP") {
-      if (protectedByRuntime(tab, config.auto)) continue;
-
-      // DEEP ALWAYS is a desired state, not a one-shot action. Reassert it
-      // periodically in case an update/reload/runtime transition left the tab loaded.
-      await discardWithDiagnostics(tab, "deep-always-watchdog");
-      continue;
-    }
-
-    if (policy === "AUTO" && !tab.active && !tab.discarded) {
-      // Self-heal missing AUTO lifecycle state. Keep an existing inactiveSince
-      // when possible; otherwise start the interval now.
-      if (!item || !item.inactiveSince || !item.deadline || item.url !== tab.url) {
-        await recomputeInactivePolicy(tab);
-      }
-    }
-  }
-
-  await scheduleNextDeep();
-}
-
-async function ensureWatchdogAlarm() {
-  const existing = await browser.alarms.get(DEEP_WATCHDOG_ALARM);
-  if (!existing) {
-    browser.alarms.create(DEEP_WATCHDOG_ALARM, {
-      delayInMinutes: 0.5,
-      periodInMinutes: 0.5
-    });
-  }
-}
-
-async function sweepDueTabs() {
-  if (workspaceRestoreDepth > 0) return;
-  const config = await getConfig();
-  const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY]);
-  const lifecycle = stored[TAB_LIFECYCLE_KEY] ?? {};
-  const stats = stored[HOST_STATS_KEY] ?? {};
-  const now = Date.now();
-  let changed = false;
-
-  for (const [key, item] of Object.entries(lifecycle)) {
-    if (!item?.deadline || item.deadline > now) continue;
-
-    let tab;
-    try {
-      tab = await browser.tabs.get(Number(key));
-    } catch {
-      delete lifecycle[key];
-      changed = true;
-      continue;
-    }
-
-    const policy = resolvePolicy(tab, config);
-    if (policy === "KEEP" || protectedByRuntime(tab, config.auto)) {
-      lifecycle[key].deadline = null;
-      lifecycle[key].policy = policy;
-      changed = true;
-      continue;
-    }
-
-    const success = await discardWithDiagnostics(tab, policy === "DEEP" ? "deep-always-deadline" : "auto-deadline");
-    lifecycle[key].deadline = success ? null : now + 60_000;
-    lifecycle[key].policy = policy;
-    if (success) {
-      const hostStat = ensureHostStats(stats, hostnameFromUrl(tab.url));
-      if (hostStat) hostStat.autoDeepCount += 1;
-    }
-    changed = true;
-  }
-
-  if (changed) {
-    await browser.storage.local.set({
-      [TAB_LIFECYCLE_KEY]: lifecycle,
-      [HOST_STATS_KEY]: stats
-    });
-  }
-  await scheduleNextDeep();
-}
-
-async function seedRuntimeState() {
-  const tabs = await browser.tabs.query({});
-  const stored = await browser.storage.local.get(TAB_LIFECYCLE_KEY);
-  const lifecycle = stored[TAB_LIFECYCLE_KEY] ?? {};
-
-  for (const tab of tabs) {
-    if (tab.id == null || tab.windowId < 0) continue;
-    const item = lifecycle[String(tab.id)];
-
-    if (tab.active) {
-      if (!isExtensionUrl(tab.url)) {
-        activeByWindow.set(tab.windowId, tab.id);
-      }
-
-      if (isHttpUrl(tab.url) && (!item || !item.activeSince || item.deadline)) {
-        await markActivated(tab);
-      }
-      continue;
-    }
-
-    if (!isHttpUrl(tab.url)) continue;
-
-    // Preserve an existing inactivity interval/deadline across event-page
-    // suspension/restart. Only initialize or reconcile stale active state.
-    if (!item || item.activeSince || item.url !== tab.url) {
-      await markInactive(tab);
-    }
-  }
-
-  await scheduleNextDeep();
-}
-
 browser.runtime.onInstalled.addListener(() => {
-  seedRuntimeState().catch(console.error);
+  lifecycleManager.lifecycleManager.seedRuntimeState().catch(console.error);
 });
 
 browser.runtime.onStartup.addListener(() => {
-  seedRuntimeState().catch(console.error);
+  lifecycleManager.seedRuntimeState().catch(console.error);
 });
 
 browser.alarms.onAlarm.addListener(alarm => {
-  if (workspaceRestoreDepth > 0) return;
-  if (alarm.name === NEXT_DEEP_ALARM) sweepDueTabs().catch(console.error);
-  if (alarm.name === DEEP_WATCHDOG_ALARM) deepAlwaysWatchdog().catch(console.error);
+  lifecycleManager.handleAlarm(alarm.name);
 });
 
 browser.tabs.onCreated.addListener(tab => {
@@ -2303,56 +1885,26 @@ browser.tabs.onCreated.addListener(tab => {
   }
 });
 
-browser.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
-  const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY]);
-  const lifecycle = stored[TAB_LIFECYCLE_KEY] ?? {};
-  const stats = stored[HOST_STATS_KEY] ?? {};
-  const item = lifecycle[String(tabId)];
-  const now = Date.now();
-
-  if (item?.host) {
-    const hostStat = ensureHostStats(stats, item.host);
-    if (hostStat) {
-      if (item.activeSince) hostStat.totalActiveMs += Math.max(0, now - item.activeSince);
-      if (item.inactiveSince) hostStat.totalInactiveMs = (hostStat.totalInactiveMs || 0) + Math.max(0, now - item.inactiveSince);
-    }
-  }
-
-  delete lifecycle[String(tabId)];
-  await browser.storage.local.set({
-    [TAB_LIFECYCLE_KEY]: lifecycle,
-    [HOST_STATS_KEY]: stats
-  });
-  await scheduleNextDeep();
-  if (!removeInfo.isWindowClosing && !(await workspaceSnapshotLocked())) {
-    snapshotWindow(removeInfo.windowId).catch(console.error);
-  }
+browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
+  lifecycleManager.handleTabRemoved(tabId, removeInfo).catch(console.error);
 });
 
 browser.tabs.onActivated.addListener(activeInfo => {
   if (workspaceRestoreDepth > 0) return;
-  handleActivation(activeInfo).catch(console.error);
+  lifecycleManager.handleActivation(activeInfo).catch(console.error);
   snapshotWindow(activeInfo.windowId).catch(console.error);
 });
 
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (workspaceRestoreDepth > 0) return;
+
   const relevant = ["url", "title", "pinned", "discarded", "autoDiscardable", "audible"];
   if (relevant.some(key => Object.hasOwn(changeInfo, key))) {
-    if (workspaceRestoreDepth === 0) {
-      scheduleWorkspaceWindowReattach(tab.windowId);
-      snapshotWindow(tab.windowId).catch(console.error);
-    }
+    scheduleWorkspaceWindowReattach(tab.windowId);
+    snapshotWindow(tab.windowId).catch(console.error);
   }
 
-  if ("url" in changeInfo || "pinned" in changeInfo || "audible" in changeInfo || "discarded" in changeInfo) {
-    const activeId = activeByWindow.get(tab.windowId);
-    if (activeId === tabId && isHttpUrl(tab.url)) {
-      markActivated(tab).catch(console.error);
-    } else if (!tab.active && isHttpUrl(tab.url)) {
-      markInactive(tab).catch(console.error);
-    }
-  }
+  lifecycleManager.handleTabUpdated(tabId, changeInfo, tab);
 });
 
 browser.storage.onChanged.addListener((changes, area) => {
@@ -2380,18 +1932,12 @@ browser.storage.onChanged.addListener((changes, area) => {
     }).catch(console.error);
   }
 
-  if (workspaceRestoreDepth === 0 && (changes[HOST_POLICIES_KEY] || changes[URL_POLICIES_KEY] || changes[AUTO_SETTINGS_KEY])) {
-    // Recalculate only currently pending inactive lifecycle entries. Preserve
-    // their original inactiveSince so changing the timeout does not restart it.
-    browser.tabs.query({}).then(async tabs => {
-      for (const tab of tabs) {
-        if (!tab.active && isHttpUrl(tab.url)) await recomputeInactivePolicy(tab);
-      }
-      await scheduleNextDeep();
-      await sweepDueTabs();
-    }).catch(console.error);
-  }
-});
+  if (
+    workspaceRestoreDepth === 0 &&
+    (changes[HOST_POLICIES_KEY] || changes[URL_POLICIES_KEY] || changes[AUTO_SETTINGS_KEY])
+  ) {
+    lifecycleManager.handleSettingsChanged().catch(console.error);
+  }});
 
 browser.tabGroups.onCreated.addListener(group => {
   if (workspaceRestoreDepth === 0) {
@@ -2458,7 +2004,7 @@ browser.runtime.onMessage.addListener(message => {
 });
 
 browser.windows.onRemoved.addListener(async windowId => {
-  activeByWindow.delete(windowId);
+  lifecycleManager.forgetWindow(windowId);
   const pendingReattach = workspaceReattachTimers.get(windowId);
   if (pendingReattach) {
     clearTimeout(pendingReattach);
@@ -2476,5 +2022,5 @@ browser.windows.onRemoved.addListener(async windowId => {
 
 reconcileWorkspaceRuntimeState().catch(console.error);
 seedRuntimeState().catch(console.error);
-ensureWatchdogAlarm().catch(console.error);
+lifecycleManager.ensureWatchdogAlarm().catch(console.error);
 pullSettingsFromSync().catch(console.error);
