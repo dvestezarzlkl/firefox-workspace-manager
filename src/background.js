@@ -13,6 +13,7 @@ const SYNC_ENABLED_KEY = "fwm.sync.enabled";
 const SYNC_KEYS = [AUTO_SETTINGS_KEY, HOST_POLICIES_KEY, URL_POLICIES_KEY];
 const WORKSPACE_DEBUG_KEY = "fwm.workspaceDebugLog";
 const WORKSPACE_SNAPSHOT_LOCK_KEY = "fwm.workspaceSnapshotLock";
+const LAST_WORKSPACE_KEY = "fwm.lastWorkspaceId";
 const WORKSPACE_SNAPSHOT_LOCK_TTL_MS = 120000;
 
 const activeByWindow = new Map();
@@ -234,7 +235,8 @@ async function reconcileWorkspaceRuntimeState() {
     await browser.storage.local.set({
       [WORKSPACES_KEY]: workspaces,
       [WINDOW_WORKSPACE_MAP_KEY]: windowMap,
-      "fwm.activeWorkspaceId": activeWorkspaceId
+      "fwm.activeWorkspaceId": activeWorkspaceId,
+      ...(activeWorkspaceId ? { [LAST_WORKSPACE_KEY]: activeWorkspaceId } : {})
     });
   }
 
@@ -450,7 +452,8 @@ async function ensureActiveWorkspace({ allowCreate = false } = {}) {
 
   await browser.storage.local.set({
     [WORKSPACES_KEY]: workspaces,
-    "fwm.activeWorkspaceId": activeWorkspaceId
+    "fwm.activeWorkspaceId": activeWorkspaceId,
+    [LAST_WORKSPACE_KEY]: activeWorkspaceId
   });
   await workspaceDebug("workspace-created", {
     workspaceId: activeWorkspaceId,
@@ -942,7 +945,8 @@ async function tryReattachWorkspaceWindow(windowId) {
   await browser.storage.local.set({
     [WORKSPACES_KEY]: store.workspaces,
     [WINDOW_WORKSPACE_MAP_KEY]: store.windowMap,
-    "fwm.activeWorkspaceId": best.workspaceId
+    "fwm.activeWorkspaceId": best.workspaceId,
+    [LAST_WORKSPACE_KEY]: best.workspaceId
   });
 
   await workspaceDebug("window-reattached", {
@@ -1389,7 +1393,8 @@ async function inferActiveWorkspaceFromRuntime() {
 
   await browser.storage.local.set({
     [WORKSPACES_KEY]: store.workspaces,
-    "fwm.activeWorkspaceId": workspaceId
+    "fwm.activeWorkspaceId": workspaceId,
+    [LAST_WORKSPACE_KEY]: workspaceId
   });
 
   await workspaceDebug("active-workspace-inferred", {
@@ -1429,7 +1434,8 @@ async function restoreWorkspace(workspaceId) {
 
     await browser.storage.local.set({
       [WORKSPACES_KEY]: workspaces,
-      "fwm.activeWorkspaceId": workspaceId
+      "fwm.activeWorkspaceId": workspaceId,
+      [LAST_WORKSPACE_KEY]: workspaceId
     });
 
     await workspaceDebug("restore-reused-live-windows", {
@@ -1504,7 +1510,8 @@ async function restoreWorkspace(workspaceId) {
     await browser.storage.local.set({
       [WORKSPACES_KEY]: workspaces,
       [WINDOW_WORKSPACE_MAP_KEY]: newMap,
-      "fwm.activeWorkspaceId": restored.length ? workspaceId : null
+      "fwm.activeWorkspaceId": restored.length ? workspaceId : null,
+      ...(restored.length ? { [LAST_WORKSPACE_KEY]: workspaceId } : {})
     });
 
     await workspaceDebug("restore-shells-complete", {
@@ -2003,7 +2010,8 @@ async function createWorkspaceFromCurrentState(name) {
   await browser.storage.local.set({
     [WORKSPACES_KEY]: store.workspaces,
     [WINDOW_WORKSPACE_MAP_KEY]: store.windowMap,
-    "fwm.activeWorkspaceId": workspaceId
+    "fwm.activeWorkspaceId": workspaceId,
+    [LAST_WORKSPACE_KEY]: workspaceId
   });
 
   const tabCount = captured.reduce((sum, item) => sum + item.snapshot.tabs.length, 0);
