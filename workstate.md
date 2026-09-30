@@ -9,6 +9,12 @@ branch = dev
 
 ## Done
 
+- 0.5.5: Popup now distinguishes active workspace from the last used inactive workspace.
+- Added persistent fwm.lastWorkspaceId, updated whenever a workspace becomes active/used; clearing activeWorkspaceId does not clear lastWorkspaceId.
+- If no workspace is active, popup shows the last used workspace name with "Naposledy použitý · neaktivní" and a direct Recover session button.
+- Recover session calls the existing restoreWorkspace flow; this provides one-click recovery even when Firefox itself starts with a clean/non-restored session, as long as a workspace snapshot exists.
+- Existing installs without lastWorkspaceId fall back to the most recently restored/updated workspace.
+
 - 0.5.4: Critical workspace data-integrity fix for DEEP/lazy restored tabs.
 - Restore now creates saved DEEP tabs directly with tabs.create({discarded:true,title,url}) instead of creating/loading them and immediately calling tabs.discard().
 - This removes the race where tabs.create resolves before navigation commits and the immediate discard can leave the runtime tab at about:blank.
@@ -287,13 +293,13 @@ branch = dev
 
 ## Next
 
-1. Pull 0.5.4 and reload the extension.
-2. Re-import the last known-good workspace backup because already-corrupted about:blank entries cannot be reconstructed generically.
-3. Recover session from that clean snapshot.
-4. Verify restore-tab-create-before logs createDiscarded=true for saved DEEP tabs and restore-discard-postprocess requests zero or only fallback tabs.
-5. Wait for automatic snapshot events, export again, and verify URLs such as mfdnes.cz remain intact.
-6. Close/reopen Firefox and repeat recovery once more; confirm no additional URLs turn into about:blank.
-7. Only after this data-integrity test passes, reapply the pending Panels 0.5.x visual polish (group colors/link icon) and then proceed to the recorded 0.6.0 structural/type refactor.
+1. Pull 0.5.5 and reload the extension.
+2. With Práce active, open popup and verify subtitle "Aktivní workspace" and no Recover session button.
+3. Close Firefox and restart with a clean/non-restored session.
+4. Open popup: it should show Práce as "Naposledy použitý · neaktivní" with Recover session.
+5. Click Recover session and verify the saved two-window workspace restores and becomes active.
+6. Repeat after another Firefox restart to confirm lastWorkspaceId survives active-state clearing.
+7. Continue monitoring the 0.5.4 DEEP URL integrity fix before proceeding with visual polish/refactor.
 
 ## localCommand
 
