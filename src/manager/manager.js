@@ -701,8 +701,10 @@ function renderPanels() {
       groupChunks.push(`
         <details class="group" data-panel-group-key="${esc(groupKey)}" ${groupOpen ? "open" : ""}>
           <summary class="group-header">
-            <span class="entity-icon group-icon" aria-hidden="true"></span>
-            <span class="disclosure-title">${esc(title)} · ${countText} · ${deepCount} DEEP · ${esc(group.color)}</span>
+            <span class="group-header-main">
+              <span class="entity-icon group-icon" aria-hidden="true"></span>
+              <span class="disclosure-title">${esc(title)} · ${countText} · ${deepCount} DEEP · ${esc(group.color)}</span>
+            </span>
             <button type="button" data-action="deep-group" data-group-id="${group.id}">DEEP skupinu</button>
           </summary>
           ${shownTabs.length ? shownTabs.map(renderTab).join("") : '<div class="empty">Prázdná skupina</div>'}
@@ -729,8 +731,10 @@ function renderPanels() {
         groupChunks.push(`
           <details class="group" data-panel-group-key="${esc(groupKey)}" ${groupOpen ? "open" : ""}>
             <summary class="group-header">
-              <span class="entity-icon group-icon ungrouped-icon" aria-hidden="true"></span>
-              <span class="disclosure-title">Bez skupiny · ${countText} · ${deepCount} DEEP</span>
+              <span class="group-header-main">
+                <span class="entity-icon group-icon ungrouped-icon" aria-hidden="true"></span>
+                <span class="disclosure-title">Bez skupiny · ${countText} · ${deepCount} DEEP</span>
+              </span>
             </summary>
             ${shownTabs.map(renderTab).join("")}
           </details>`);
