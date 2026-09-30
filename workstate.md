@@ -9,6 +9,9 @@ branch = dev
 
 ## Done
 
+- 0.5.3: Panel tree controls top row rebalanced: Always expanded on the left, Expand all / Collapse all on the right.
+- Group headers now use a single left-aligned icon+title cluster so folder/ungrouped icons no longer visually float independently from their labels.
+
 - 0.5.2: Rebalanced Panels toolbar after visual review: filter badges remain on the left; tree controls are on the right in two rows.
 - Right toolbar row 1 contains Expand all / Collapse all / Always expanded; row 2 contains Refresh selector.
 - Tab/bookmark icon now lives directly in the title row instead of a separate grid column, so icon and title align naturally with other content.
