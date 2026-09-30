@@ -416,9 +416,11 @@ function renderTab(tab) {
   const excepted = exactUrlException(tab);
   return `
     <div class="tab" data-tab-id="${tab.id}">
-      <span class="entity-icon tab-icon" aria-hidden="true"></span>
       <div class="tab-main">
-        <div class="tab-title" title="${esc(tab.url)}">${esc(tab.title || tab.url || "(bez názvu)")}</div>
+        <div class="tab-title-row">
+          <span class="entity-icon tab-icon" aria-hidden="true"></span>
+          <div class="tab-title" title="${esc(tab.url)}">${esc(tab.title || tab.url || "(bez názvu)")}</div>
+        </div>
         <div class="tab-url" title="${esc(tab.url)}">${esc(shortTabUrl(tab.url))}</div>
         <div class="meta">
           ${stateBadge(tab)}
