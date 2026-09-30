@@ -591,7 +591,6 @@ function renderPanels() {
   const allTabs = currentWindows.flatMap(win => win.tabs ?? []);
   let visibleTabCount = 0;
   const filtering = panelFilterActive();
-  const searchActive = panelSearchActive();
 
   for (const win of currentWindows) {
     const groups = currentWindowGroups.get(win.id) ?? [];
@@ -610,9 +609,8 @@ function renderPanels() {
       visibleTabCount += visibleTabs.length;
       const groupKey = String(win.id) + ":" + String(group.id);
       const groupOpen =
-        panelExplorerState.alwaysExpanded ||
-        searchActive ||
-        (!filtering && panelExplorerState.groups.has(groupKey));
+        filtering ||
+        panelExplorer.shouldOpenGroup(groupKey);
       const shownTabs = filtering ? visibleTabs : groupTabs;
       const deepCount = shownTabs.filter(tab => tab.discarded).length;
       const countText = filtering
@@ -621,10 +619,14 @@ function renderPanels() {
 
       groupChunks.push(`
         <details class="group" data-panel-group-key="${esc(groupKey)}" ${groupOpen ? "open" : ""}>
-          <summary class="group-header">
+          <summary class="group-header" data-group-color="${esc(group.color)}">
             <span class="group-header-main">
               <span class="entity-icon group-icon" aria-hidden="true"></span>
-              <span class="disclosure-title">${esc(title)} · ${countText} · ${deepCount} DEEP · ${esc(group.color)}</span>
+              <span class="group-color-dot" aria-hidden="true"></span>
+              <span class="disclosure-title">
+                <strong>${esc(title)}</strong>
+                <span class="header-meta"> · ${countText} · ${deepCount} DEEP</span>
+              </span>
             </span>
             <button type="button" data-action="deep-group" data-group-id="${group.id}">DEEP skupinu</button>
           </summary>
@@ -637,9 +639,8 @@ function renderPanels() {
     if (!filtering || visibleUngrouped.length) {
       const groupKey = String(win.id) + ":ungrouped";
       const groupOpen =
-        panelExplorerState.alwaysExpanded ||
-        searchActive ||
-        (!filtering && panelExplorerState.groups.has(groupKey));
+        filtering ||
+        panelExplorer.shouldOpenGroup(groupKey);
       const shownTabs = filtering ? visibleUngrouped : ungrouped;
 
       if (shownTabs.length) {
@@ -651,10 +652,13 @@ function renderPanels() {
 
         groupChunks.push(`
           <details class="group" data-panel-group-key="${esc(groupKey)}" ${groupOpen ? "open" : ""}>
-            <summary class="group-header">
+            <summary class="group-header ungrouped-header">
               <span class="group-header-main">
                 <span class="entity-icon group-icon ungrouped-icon" aria-hidden="true"></span>
-                <span class="disclosure-title">Bez skupiny · ${countText} · ${deepCount} DEEP</span>
+                <span class="disclosure-title">
+                  <strong>Bez skupiny</strong>
+                  <span class="header-meta"> · ${countText} · ${deepCount} DEEP</span>
+                </span>
               </span>
             </summary>
             ${shownTabs.map(renderTab).join("")}
@@ -673,9 +677,8 @@ function renderPanels() {
 
     const windowKey = String(win.id);
     const windowOpen =
-      panelExplorerState.alwaysExpanded ||
       filtering ||
-      panelExplorerState.windows.has(windowKey);
+      panelExplorer.shouldOpenWindow(windowKey);
     const windowDeep = tabs.filter(tab => tab.discarded).length;
     const countText = filtering
       ? visibleInWindow + "/" + tabs.length + " panelů"
@@ -685,7 +688,10 @@ function renderPanels() {
       <details class="window" data-panel-window-key="${esc(windowKey)}" ${windowOpen ? "open" : ""}>
         <summary class="window-header">
           <span class="entity-icon window-icon" aria-hidden="true"></span>
-          <span class="disclosure-title">Okno #${win.id} · ${countText} · ${groups.length} skupin · ${windowDeep} DEEP</span>
+          <span class="disclosure-title">
+            <strong>Okno #${win.id}</strong>
+            <span class="header-meta"> · ${countText} · ${groups.length} skupin · ${windowDeep} DEEP</span>
+          </span>
         </summary>
         <div class="groups">${groupChunks.join("")}</div>
       </details>`);
