@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- 0.5.2: Rebalanced Panels toolbar after visual review: filter badges remain on the left; tree controls are on the right in two rows.
+- Right toolbar row 1 contains Expand all / Collapse all / Always expanded; row 2 contains Refresh selector.
+- Tab/bookmark icon now lives directly in the title row instead of a separate grid column, so icon and title align naturally with other content.
+
 - 0.5.1: Panel hierarchy headers now have lightweight CSS window/folder/bookmark icons and stronger visual separation.
 - Panel toolbar is split into two columns: tree controls on the left and state/policy filter badges on the right.
 - Added Expand all, Collapse all and persistent Always expanded controls.
