@@ -3,28 +3,19 @@
 import {
   ACTIVE_WORKSPACE_KEY,
   AUTO_SETTINGS_KEY,
-  DEEP_WATCHDOG_ALARM,
   HOST_POLICIES_KEY,
-  HOST_STATS_KEY,
-  LAST_ACTIVE_CONTENT_KEY,
   LAST_WORKSPACE_KEY,
-  NEXT_DEEP_ALARM,
   STORAGE_KEY,
   SYNC_ENABLED_KEY,
   SYNC_KEYS,
-  TAB_LIFECYCLE_KEY,
   URL_POLICIES_KEY,
   WINDOW_WORKSPACE_MAP_KEY,
-  WORKSPACES_KEY,
-  defaultAutoSettings
+  WORKSPACES_KEY
 } from "./shared/constants.js";
 import {
   hasWorkspaceContent,
-  hostnameFromUrl,
   isExtensionUrl,
-  isHttpUrl,
   isTransientBlankUrl,
-  restorableUrl,
   restoreUrlOrBlank
 } from "./shared/url.js";
 import {
@@ -1866,7 +1857,7 @@ async function snapshotAllWindows() {
 }
 
 browser.runtime.onInstalled.addListener(() => {
-  lifecycleManager.lifecycleManager.seedRuntimeState().catch(console.error);
+  lifecycleManager.seedRuntimeState().catch(console.error);
 });
 
 browser.runtime.onStartup.addListener(() => {
@@ -1937,7 +1928,8 @@ browser.storage.onChanged.addListener((changes, area) => {
     (changes[HOST_POLICIES_KEY] || changes[URL_POLICIES_KEY] || changes[AUTO_SETTINGS_KEY])
   ) {
     lifecycleManager.handleSettingsChanged().catch(console.error);
-  }});
+  }
+});
 
 browser.tabGroups.onCreated.addListener(group => {
   if (workspaceRestoreDepth === 0) {
@@ -2021,6 +2013,6 @@ browser.windows.onRemoved.addListener(async windowId => {
 });
 
 reconcileWorkspaceRuntimeState().catch(console.error);
-seedRuntimeState().catch(console.error);
+lifecycleManager.seedRuntimeState().catch(console.error);
 lifecycleManager.ensureWatchdogAlarm().catch(console.error);
 pullSettingsFromSync().catch(console.error);
