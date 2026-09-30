@@ -4,12 +4,27 @@ const deepAllButton = document.getElementById("deepAll");
 const openManagerButton = document.getElementById("openManager");
 const versionEl = document.getElementById("version");
 const workspaceTitleEl = document.getElementById("workspaceTitle");
+const workspaceSubtitleEl = document.getElementById("workspaceSubtitle");
+const recoverSessionButton = document.getElementById("recoverSession");
 
 const HOST_POLICIES_KEY = "fwm.hostPolicies";
 const URL_POLICIES_KEY = "fwm.urlPolicies";
 const TAB_LIFECYCLE_KEY = "fwm.tabLifecycle";
 const WORKSPACES_KEY = "fwm.workspaces";
 const ACTIVE_WORKSPACE_KEY = "fwm.activeWorkspaceId";
+const LAST_WORKSPACE_KEY = "fwm.lastWorkspaceId";
+
+let recoveryWorkspaceId = null;
+
+function mostRecentlyUsedWorkspace(workspaces) {
+  return Object.values(workspaces ?? {})
+    .filter(workspace => workspace && Object.keys(workspace.windows ?? {}).length)
+    .sort((a, b) => {
+      const aTime = Number(a.restoredAt ?? a.updatedAt ?? a.closedAt ?? a.createdAt ?? 0);
+      const bTime = Number(b.restoredAt ?? b.updatedAt ?? b.closedAt ?? b.createdAt ?? 0);
+      return bTime - aTime;
+    })[0] ?? null;
+}
 
 function isInternalExtensionTab(tab) {
   return /^(moz|chrome)-extension:\/\//i.test(tab?.url ?? "");
@@ -37,7 +52,7 @@ function effectivePolicy(tab, hostPolicies, urlPolicies) {
 async function load() {
   const [windows, stored] = await Promise.all([
     browser.windows.getAll({ populate: true, windowTypes: ["normal"] }),
-    browser.storage.local.get([HOST_POLICIES_KEY, URL_POLICIES_KEY, TAB_LIFECYCLE_KEY, WORKSPACES_KEY, ACTIVE_WORKSPACE_KEY])
+    browser.storage.local.get([HOST_POLICIES_KEY, URL_POLICIES_KEY, TAB_LIFECYCLE_KEY, WORKSPACES_KEY, ACTIVE_WORKSPACE_KEY, LAST_WORKSPACE_KEY])
   ]);
 
   const hostPolicies = stored[HOST_POLICIES_KEY] ?? {};
@@ -46,7 +61,28 @@ async function load() {
   const workspaces = stored[WORKSPACES_KEY] ?? {};
   const activeWorkspaceId = stored[ACTIVE_WORKSPACE_KEY] ?? null;
   const activeWorkspace = activeWorkspaceId ? workspaces[activeWorkspaceId] : null;
-  workspaceTitleEl.textContent = activeWorkspace?.name || "Žádný aktivní workspace";
+
+  const storedLastWorkspaceId = stored[LAST_WORKSPACE_KEY] ?? null;
+  const explicitLastWorkspace = storedLastWorkspaceId ? workspaces[storedLastWorkspaceId] : null;
+  const fallbackLastWorkspace = explicitLastWorkspace || mostRecentlyUsedWorkspace(workspaces);
+
+  recoveryWorkspaceId = null;
+
+  if (activeWorkspace) {
+    workspaceTitleEl.textContent = activeWorkspace.name || "Workspace";
+    workspaceSubtitleEl.textContent = "Aktivní workspace";
+    recoverSessionButton.hidden = true;
+  } else if (fallbackLastWorkspace) {
+    workspaceTitleEl.textContent = fallbackLastWorkspace.name || "Workspace";
+    workspaceSubtitleEl.textContent = "Naposledy použitý · neaktivní";
+    recoveryWorkspaceId = fallbackLastWorkspace.id;
+    recoverSessionButton.hidden = false;
+  } else {
+    workspaceTitleEl.textContent = "Žádný workspace";
+    workspaceSubtitleEl.textContent = "Workspace Manager";
+    recoverSessionButton.hidden = true;
+  }
+
   const tabs = windows.flatMap(win => win.tabs ?? []);
 
   let loaded = 0;
@@ -117,6 +153,35 @@ deepAllButton.addEventListener("click", async () => {
   } finally {
     deepAllButton.disabled = false;
     await load();
+  }
+});
+
+recoverSessionButton.addEventListener("click", async () => {
+  if (!recoveryWorkspaceId) return;
+
+  recoverSessionButton.disabled = true;
+  const originalText = recoverSessionButton.textContent;
+  recoverSessionButton.textContent = "Obnovuji…";
+
+  try {
+    const result = await browser.runtime.sendMessage({
+      type: "restoreWorkspace",
+      workspaceId: recoveryWorkspaceId
+    });
+
+    if (!result?.windowIds?.length) {
+      throw new Error("Workspace recovery nevytvořilo žádné okno");
+    }
+
+    await load();
+    window.close();
+  } catch (error) {
+    console.error("Popup workspace recovery failed", error);
+    recoverSessionButton.textContent = "Recovery selhalo";
+    setTimeout(() => {
+      recoverSessionButton.textContent = originalText;
+      recoverSessionButton.disabled = false;
+    }, 1600);
   }
 });
 
