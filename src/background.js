@@ -535,6 +535,11 @@ async function saveWorkspaceSnapshot(win, groups) {
 
   workspace.windows ??= {};
   const previousWindow = workspace.windows[mapping.logicalWindowId];
+  const previousTabsByRuntimeId = new Map(
+    (previousWindow?.tabs ?? [])
+      .filter(tab => tab.runtimeTabId != null)
+      .map(tab => [Number(tab.runtimeTabId), tab])
+  );
   const previousTabsByIndex = new Map(
     (previousWindow?.tabs ?? []).map(tab => [Number(tab.index), tab])
   );
@@ -544,7 +549,12 @@ async function saveWorkspaceSnapshot(win, groups) {
     .filter(tab => !isExtensionUrl(tab.url))
     .map(tab => {
       const groupIndex = groups.findIndex(group => group.id === tab.groupId);
-      const previousTab = previousTabsByIndex.get(Number(tab.index));
+      // Prefer the stable runtime tab identity within the current Firefox
+      // session. Index fallback is needed immediately after workspace restore,
+      // because restored tabs necessarily receive new runtime IDs.
+      const previousTab =
+        previousTabsByRuntimeId.get(Number(tab.id)) ??
+        previousTabsByIndex.get(Number(tab.index));
       const preserveCanonical = preserveCanonicalSnapshotTab(previousTab, tab);
       const url = preserveCanonical ? previousTab.url : tab.url;
       const title = preserveCanonical
