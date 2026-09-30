@@ -609,75 +609,169 @@ function workspaceDebugText(workspace) {
 
 function renderWorkspaceTree(workspace) {
   const windows = Object.values(workspace?.windows ?? {});
-  if (!windows.length) return '<div class="workspace-tree-empty">Workspace nemá uložená okna.</div>';
 
-  const treeHtml = Object.entries(workspace?.windows ?? {}).map(([logicalWindowId, win], index) => {
-    const tabs = (win.tabs ?? []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+  if (!windows.length) {
+    return H.el(
+      "div",
+      { className: "workspace-tree-empty" },
+      "Workspace nemá uložená okna."
+    );
+  }
+
+  const tree = H.el("div", { className: "workspace-tree" });
+  tree.appendChild(
+    H.el(
+      "div",
+      { className: "workspace-tree-name" },
+      workspace.name || "Workspace"
+    )
+  );
+
+  for (const [logicalWindowId, win] of Object.entries(workspace?.windows ?? {})) {
+    const windowIndex = Object.keys(workspace?.windows ?? {}).indexOf(logicalWindowId);
+    const tabs = (win.tabs ?? [])
+      .slice()
+      .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
     const groups = win.groups ?? [];
     const groupedRuntimeIds = new Set();
 
-    const groupsHtml = groups.map((group, groupIndex) => {
-      const groupTabs = tabs.filter(tab => tab.runtimeGroupId === group.runtimeGroupId);
+    const windowNode = H.el(
+      "div",
+      { className: "workspace-tree-window" },
+      H.el(
+        "div",
+        { className: "workspace-tree-window-head" },
+        H.el("strong", {}, "window" + windowIndex),
+        H.el(
+          "button",
+          {
+            type: "button",
+            dataset: {
+              workspaceWindowAction: "remove",
+              workspaceId: workspace.id,
+              logicalWindowId
+            }
+          },
+          "Vyřadit"
+        )
+      )
+    );
+
+    for (const [groupIndex, group] of groups.entries()) {
+      const groupTabs = tabs.filter(
+        tab => tab.runtimeGroupId === group.runtimeGroupId
+      );
+
       groupTabs.forEach(tab => groupedRuntimeIds.add(tab.runtimeTabId));
-      if (!groupTabs.length) return "";
+      if (!groupTabs.length) continue;
 
-      return `
-        <div class="workspace-tree-group">
-          <strong>${esc(group.title || ("group" + groupIndex))}</strong>
-          <ul>
-            ${groupTabs.map(tab => `
-              <li><span>${esc(tab.title || "(bez názvu)")}</span> <code>${esc(tab.url || "")}</code></li>
-            `).join("")}
-          </ul>
-        </div>`;
-    }).join("");
+      const list = H.el("ul");
+      for (const tab of groupTabs) {
+        list.appendChild(
+          H.el(
+            "li",
+            {},
+            H.el("span", {}, tab.title || "(bez názvu)"),
+            " ",
+            H.el("code", {}, tab.url || "")
+          )
+        );
+      }
 
-    const ungrouped = tabs.filter(tab => !groupedRuntimeIds.has(tab.runtimeTabId));
-    const ungroupedHtml = ungrouped.length ? `
-      <div class="workspace-tree-group">
-        <strong>Bez skupiny</strong>
-        <ul>
-          ${ungrouped.map(tab => `
-            <li><span>${esc(tab.title || "(bez názvu)")}</span> <code>${esc(tab.url || "")}</code></li>
-          `).join("")}
-        </ul>
-      </div>` : "";
+      windowNode.appendChild(
+        H.el(
+          "div",
+          { className: "workspace-tree-group" },
+          H.el("strong", {}, group.title || ("group" + groupIndex)),
+          list
+        )
+      );
+    }
 
-    return `
-      <div class="workspace-tree-window">
-        <div class="workspace-tree-window-head">
-          <strong>window${index}</strong>
-          <button type="button" data-workspace-window-action="remove" data-workspace-id="${esc(workspace.id)}" data-logical-window-id="${esc(logicalWindowId)}">Vyřadit</button>
-        </div>
-        ${groupsHtml}
-        ${ungroupedHtml}
-      </div>`;
-  }).join("");
+    const ungrouped = tabs.filter(
+      tab => !groupedRuntimeIds.has(tab.runtimeTabId)
+    );
+
+    if (ungrouped.length) {
+      const list = H.el("ul");
+
+      for (const tab of ungrouped) {
+        list.appendChild(
+          H.el(
+            "li",
+            {},
+            H.el("span", {}, tab.title || "(bez názvu)"),
+            " ",
+            H.el("code", {}, tab.url || "")
+          )
+        );
+      }
+
+      windowNode.appendChild(
+        H.el(
+          "div",
+          { className: "workspace-tree-group" },
+          H.el("strong", {}, "Bez skupiny"),
+          list
+        )
+      );
+    }
+
+    tree.appendChild(windowNode);
+  }
 
   const relatedLog = workspaceDebugLog
     .filter(item => item?.data?.workspaceId === workspace.id)
     .slice(-30)
     .reverse();
 
-  return `
-    <div class="workspace-tree">
-      <div class="workspace-tree-name">${esc(workspace.name || "Workspace")}</div>
-      ${treeHtml}
-      <details class="workspace-debug">
-        <summary>
-          <span>Debug log (${relatedLog.length})</span>
-          <button type="button" class="workspace-debug-copy" data-copy-workspace-log="${esc(workspace.id)}">Copy</button>
-        </summary>
-        <div class="workspace-debug-list">
-          ${relatedLog.length ? relatedLog.map(item => `
-            <div class="workspace-debug-row">
-              <code>${esc(formatClock(item.at))}</code>
-              <strong>${esc(item.event)}</strong>
-              <code>${esc(JSON.stringify(item.data ?? {}))}</code>
-            </div>`).join("") : '<div class="empty">Pro tento workspace zatím není debug záznam.</div>'}
-        </div>
-      </details>
-    </div>`;
+  const debugList = H.el("div", { className: "workspace-debug-list" });
+
+  if (relatedLog.length) {
+    for (const item of relatedLog) {
+      debugList.appendChild(
+        H.el(
+          "div",
+          { className: "workspace-debug-row" },
+          H.el("code", {}, formatClock(item.at)),
+          H.el("strong", {}, item.event),
+          H.el("code", {}, JSON.stringify(item.data ?? {}))
+        )
+      );
+    }
+  } else {
+    debugList.appendChild(
+      H.el(
+        "div",
+        { className: "empty" },
+        "Pro tento workspace zatím není debug záznam."
+      )
+    );
+  }
+
+  tree.appendChild(
+    H.el(
+      "details",
+      { className: "workspace-debug" },
+      H.el(
+        "summary",
+        {},
+        H.el("span", {}, "Debug log (" + relatedLog.length + ")"),
+        H.el(
+          "button",
+          {
+            type: "button",
+            className: "workspace-debug-copy",
+            dataset: { copyWorkspaceLog: workspace.id }
+          },
+          "Copy"
+        )
+      ),
+      debugList
+    )
+  );
+
+  return tree;
 }
 
 function renderWorkspaces() {
@@ -688,45 +782,115 @@ function renderWorkspaces() {
   });
 
   if (!entries.length) {
-    workspaceListEl.innerHTML = '<div class="empty">Zatím není uložený žádný workspace.</div>';
+    H.replace(
+      workspaceListEl,
+      H.el(
+        "div",
+        { className: "empty" },
+        "Zatím není uložený žádný workspace."
+      )
+    );
     return;
   }
 
-  workspaceListEl.innerHTML = entries.map(workspace => {
+  const cards = entries.map(workspace => {
     const stat = workspaceStats(workspace);
-    const active = workspace.id === activeWorkspaceId && stat.openWindows > 0;
-    const status = active ? "AKTIVNÍ" : (stat.openWindows > 0 ? "OTEVŘENÝ" : "ZAVŘENÝ");
+    const active =
+      workspace.id === activeWorkspaceId &&
+      stat.openWindows > 0;
+    const status = active
+      ? "AKTIVNÍ"
+      : (stat.openWindows > 0 ? "OTEVŘENÝ" : "ZAVŘENÝ");
+    const statusClass = active
+      ? "active"
+      : (stat.openWindows > 0 ? "open" : "closed");
 
-    return `
-      <section class="workspace-card ${active ? "workspace-active" : ""}">
-        <div class="workspace-card-main">
-          <div>
-            <div class="workspace-name-row">
-              <strong>${esc(workspace.name || "Workspace")}</strong>
-              <span class="workspace-status workspace-status-${active ? "active" : (stat.openWindows > 0 ? "open" : "closed")}">${status}</span>
-            </div>
-            <div class="workspace-meta">
-              ${stat.openWindows} otevřená / ${stat.windows} uložená okna · ${stat.tabs} panelů · ${stat.groups} skupin
-            </div>
-          </div>
-          <div class="workspace-actions">
-            <button type="button" data-workspace-action="details" data-workspace-id="${esc(workspace.id)}">${expandedWorkspaceId === workspace.id ? "Skrýt" : "👁 Detail"}</button>
-            <button type="button" data-workspace-action="export" data-workspace-id="${esc(workspace.id)}">Export JSON</button>
-            <button type="button" data-workspace-action="switch" data-workspace-id="${esc(workspace.id)}" ${active ? "disabled" : ""}>
-              ${activeWorkspaceId ? "Přepnout" : "Recover session"}
-            </button>
-            <button type="button" data-workspace-action="rename" data-workspace-id="${esc(workspace.id)}">Přejmenovat</button>
-            <button type="button" data-workspace-action="delete" data-workspace-id="${esc(workspace.id)}">Smazat</button>
-          </div>
-        </div>
-        ${expandedWorkspaceId === workspace.id ? renderWorkspaceTree(workspace) : ""}
-      </section>`;
-  }).join("");
+    const nameRow = H.el(
+      "div",
+      { className: "workspace-name-row" },
+      H.el("strong", {}, workspace.name || "Workspace"),
+      H.el(
+        "span",
+        {
+          className:
+            "workspace-status workspace-status-" + statusClass
+        },
+        status
+      )
+    );
+
+    const info = H.el(
+      "div",
+      {},
+      nameRow,
+      H.el(
+        "div",
+        { className: "workspace-meta" },
+        stat.openWindows + " otevřená / " +
+          stat.windows + " uložená okna · " +
+          stat.tabs + " panelů · " +
+          stat.groups + " skupin"
+      )
+    );
+
+    const action = (name, label, disabled = false) =>
+      H.el(
+        "button",
+        {
+          type: "button",
+          disabled,
+          dataset: {
+            workspaceAction: name,
+            workspaceId: workspace.id
+          }
+        },
+        label
+      );
+
+    const actions = H.el(
+      "div",
+      { className: "workspace-actions" },
+      action(
+        "details",
+        expandedWorkspaceId === workspace.id
+          ? "Skrýt"
+          : "👁 Detail"
+      ),
+      action("export", "Export JSON"),
+      action(
+        "switch",
+        activeWorkspaceId ? "Přepnout" : "Recover session",
+        active
+      ),
+      action("rename", "Přejmenovat"),
+      action("delete", "Smazat")
+    );
+
+    const card = H.el(
+      "section",
+      {
+        className:
+          "workspace-card" +
+          (active ? " workspace-active" : "")
+      },
+      H.el(
+        "div",
+        { className: "workspace-card-main" },
+        info,
+        actions
+      )
+    );
+
+    if (expandedWorkspaceId === workspace.id) {
+      card.appendChild(renderWorkspaceTree(workspace));
+    }
+
+    return card;
+  });
+
+  H.replace(workspaceListEl, ...cards);
 }
 
-// Panel explorer view ----------------------------------------------------------
-// Filtering controls visibility; disclosure persistence belongs to
-// PanelExplorerController and never enters workspace data.
 function renderPanels() {
   const windowNodes = [];
   const allTabs = currentWindows.flatMap(win => win.tabs ?? []);
