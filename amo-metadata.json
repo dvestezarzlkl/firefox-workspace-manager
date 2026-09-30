@@ -1,0 +1,22 @@
+{
+  "summary": {
+    "en-US": "Persistent workspaces for windows, tab groups and tabs, with automatic tab unloading to reduce resource usage.",
+    "cs": "Trvalé workspaces pro okna, skupiny a panely s automatickým uspáváním neaktivních panelů pro nižší spotřebu prostředků."
+  },
+  "description": {
+    "en-US": "Workspace Manager keeps browser windows, native tab groups and tabs organized into persistent workspaces.\n\nSave, restore and switch between multi-window workspaces, preserve native tab groups, and recover the last used session directly from the toolbar popup.\n\nTab lifecycle management helps reduce resource usage:\n\n• AUTO — discard inactive tabs after a configurable delay.\n• KEEP — protect important tabs from automatic discard.\n• DEEP — keep selected tabs discarded until they are used again.\n• Exact URL and hostname lifecycle rules.\n• Search and combined filters for large tab sets.\n• Workspace import/export and optional Firefox Sync for lightweight settings.\n\nWorkspace snapshots, lifecycle state, statistics and debug history stay local. The extension declares no data collection.",
+    "cs": "Workspace Manager udržuje okna prohlížeče, nativní skupiny panelů a panely uspořádané do trvalých workspaces.\n\nUmožňuje ukládat, obnovovat a přepínat vícěokenné workspaces, zachovat nativní skupiny panelů a obnovit naposledy používanou session přímo z popupu v liště.\n\nSpráva životního cyklu panelů pomáhá snižovat spotřebu prostředků:\n\n• AUTO — po nastavené době zahodí neaktivní panel z paměti.\n• KEEP — chrání důležité panely před automatickým uspáním.\n• DEEP — udržuje vybrané panely zahozené, dokud nejsou znovu použity.\n• Pravidla podle přesné URL nebo hostname.\n• Fulltext a kombinovatelné filtry pro velké množství panelů.\n• Import/export workspace a volitelný Firefox Sync pro lehká nastavení.\n\nSnapshoty workspace, lifecycle stav, statistiky a debug historie zůstávají lokální. Rozšíření nedeklaruje žádný sběr dat."
+  },
+  "categories": [
+    "tabs"
+  ],
+  "requires_payment": false,
+  "homepage": {
+    "en-US": "https://dvestezar.cz/",
+    "cs": "https://dvestezar.cz/"
+  },
+  "version": {
+    "license": "MPL-2.0",
+    "approval_notes": "Plain JavaScript WebExtension using native ES modules. No minified/obfuscated code, no remote code, and no data collection. Workspace snapshots and lifecycle data are stored locally; only lightweight settings can optionally use browser.storage.sync. Main APIs used: tabs, tabGroups, windows, storage, alarms and sessions."
+  }
+}
