@@ -104,8 +104,8 @@ export class PanelExplorerController {
   }
 
   /**
-   * @param {browser.windows.Window[]} windows
-   * @param {Map<number, browser.tabGroups.TabGroup[]>} groupsByWindow
+   * @param {import("../types/domain.js").BrowserWindow[]} windows
+   * @param {Map<number, import("../types/domain.js").BrowserTabGroup[]>} groupsByWindow
    */
   expandAll(windows, groupsByWindow) {
     for (const win of windows) {
