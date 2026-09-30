@@ -728,7 +728,7 @@ function renderWorkspaces() {
 // Filtering controls visibility; disclosure persistence belongs to
 // PanelExplorerController and never enters workspace data.
 function renderPanels() {
-  const chunks = [];
+  const windowNodes = [];
   const allTabs = currentWindows.flatMap(win => win.tabs ?? []);
   let visibleTabCount = 0;
   const filtering = panelFilterActive();
@@ -737,7 +737,7 @@ function renderPanels() {
     const groups = currentWindowGroups.get(win.id) ?? [];
     const tabs = win.tabs ?? [];
     const groupedIds = new Set();
-    const groupChunks = [];
+    const groupNodes = [];
 
     for (const group of groups) {
       const groupTabs = tabs.filter(tab => tab.groupId === group.id);
@@ -749,39 +749,84 @@ function renderPanels() {
 
       visibleTabCount += visibleTabs.length;
       const groupKey = String(win.id) + ":" + String(group.id);
-      const groupOpen =
-        filtering ||
-        panelExplorer.shouldOpenGroup(groupKey);
+      const groupOpen = filtering || panelExplorer.shouldOpenGroup(groupKey);
       const shownTabs = filtering ? visibleTabs : groupTabs;
       const deepCount = shownTabs.filter(tab => tab.discarded).length;
       const countText = filtering
         ? shownTabs.length + "/" + groupTabs.length + " panelů"
         : groupTabs.length + " panelů";
 
-      groupChunks.push(`
-        <details class="group" data-panel-group-key="${esc(groupKey)}" ${groupOpen ? "open" : ""}>
-          <summary class="group-header" data-group-color="${esc(group.color)}">
-            <span class="group-header-main">
-              <span class="entity-icon group-icon" aria-hidden="true"></span>
-              <span class="group-color-dot" aria-hidden="true"></span>
-              <span class="disclosure-title">
-                <strong>${esc(title)}</strong>
-                <span class="header-meta"> · ${countText} · ${deepCount} DEEP</span>
-              </span>
-            </span>
-            <button type="button" data-action="deep-group" data-group-id="${group.id}">DEEP skupinu</button>
-          </summary>
-          ${shownTabs.length ? shownTabs.map(renderTab).join("") : '<div class="empty">Prázdná skupina</div>'}
-        </details>`);
+      const titleNode = H.el(
+        "span",
+        { className: "disclosure-title" },
+        H.el("strong", {}, title),
+        H.el("span", { className: "header-meta" },
+          " · " + countText + " · " + deepCount + " DEEP")
+      );
+
+      const summaryNode = H.el(
+        "summary",
+        {
+          className: "group-header",
+          dataset: { groupColor: group.color }
+        },
+        H.el(
+          "span",
+          { className: "group-header-main" },
+          H.el("span", {
+            className: "entity-icon group-icon",
+            attrs: { "aria-hidden": "true" }
+          }),
+          H.el("span", {
+            className: "group-color-dot",
+            attrs: { "aria-hidden": "true" }
+          }),
+          titleNode
+        ),
+        H.el(
+          "button",
+          {
+            type: "button",
+            dataset: {
+              action: "deep-group",
+              groupId: group.id
+            }
+          },
+          "DEEP skupinu"
+        )
+      );
+
+      const detailsNode = H.el(
+        "details",
+        {
+          className: "group",
+          open: groupOpen,
+          dataset: { panelGroupKey: groupKey }
+        },
+        summaryNode
+      );
+
+      if (shownTabs.length) {
+        for (const tab of shownTabs) {
+          detailsNode.appendChild(renderTab(tab));
+        }
+      } else {
+        detailsNode.appendChild(
+          H.el("div", { className: "empty" }, "Prázdná skupina")
+        );
+      }
+
+      groupNodes.push(detailsNode);
     }
 
     const ungrouped = tabs.filter(tab => !groupedIds.has(tab.id));
-    const visibleUngrouped = ungrouped.filter(tab => tabMatchesPanelFilters(tab, "Bez skupiny"));
+    const visibleUngrouped = ungrouped.filter(tab =>
+      tabMatchesPanelFilters(tab, "Bez skupiny")
+    );
+
     if (!filtering || visibleUngrouped.length) {
       const groupKey = String(win.id) + ":ungrouped";
-      const groupOpen =
-        filtering ||
-        panelExplorer.shouldOpenGroup(groupKey);
+      const groupOpen = filtering || panelExplorer.shouldOpenGroup(groupKey);
       const shownTabs = filtering ? visibleUngrouped : ungrouped;
 
       if (shownTabs.length) {
@@ -791,23 +836,46 @@ function renderPanels() {
           ? shownTabs.length + "/" + ungrouped.length + " panelů"
           : ungrouped.length + " panelů";
 
-        groupChunks.push(`
-          <details class="group" data-panel-group-key="${esc(groupKey)}" ${groupOpen ? "open" : ""}>
-            <summary class="group-header ungrouped-header">
-              <span class="group-header-main">
-                <span class="entity-icon group-icon ungrouped-icon" aria-hidden="true"></span>
-                <span class="disclosure-title">
-                  <strong>Bez skupiny</strong>
-                  <span class="header-meta"> · ${countText} · ${deepCount} DEEP</span>
-                </span>
-              </span>
-            </summary>
-            ${shownTabs.map(renderTab).join("")}
-          </details>`);
+        const detailsNode = H.el(
+          "details",
+          {
+            className: "group",
+            open: groupOpen,
+            dataset: { panelGroupKey: groupKey }
+          },
+          H.el(
+            "summary",
+            { className: "group-header ungrouped-header" },
+            H.el(
+              "span",
+              { className: "group-header-main" },
+              H.el("span", {
+                className: "entity-icon group-icon ungrouped-icon",
+                attrs: { "aria-hidden": "true" }
+              }),
+              H.el(
+                "span",
+                { className: "disclosure-title" },
+                H.el("strong", {}, "Bez skupiny"),
+                H.el(
+                  "span",
+                  { className: "header-meta" },
+                  " · " + countText + " · " + deepCount + " DEEP"
+                )
+              )
+            )
+          )
+        );
+
+        for (const tab of shownTabs) {
+          detailsNode.appendChild(renderTab(tab));
+        }
+
+        groupNodes.push(detailsNode);
       }
     }
 
-    if (filtering && !groupChunks.length) continue;
+    if (filtering && !groupNodes.length) continue;
 
     const visibleInWindow = filtering
       ? tabs.filter(tab => {
@@ -817,35 +885,64 @@ function renderPanels() {
       : tabs.length;
 
     const windowKey = String(win.id);
-    const windowOpen =
-      filtering ||
-      panelExplorer.shouldOpenWindow(windowKey);
+    const windowOpen = filtering || panelExplorer.shouldOpenWindow(windowKey);
     const windowDeep = tabs.filter(tab => tab.discarded).length;
     const countText = filtering
       ? visibleInWindow + "/" + tabs.length + " panelů"
       : tabs.length + " panelů";
 
-    chunks.push(`
-      <details class="window" data-panel-window-key="${esc(windowKey)}" ${windowOpen ? "open" : ""}>
-        <summary class="window-header">
-          <span class="entity-icon window-icon" aria-hidden="true"></span>
-          <span class="disclosure-title">
-            <strong>Okno #${win.id}</strong>
-            <span class="header-meta"> · ${countText} · ${groups.length} skupin · ${windowDeep} DEEP</span>
-          </span>
-        </summary>
-        <div class="groups">${groupChunks.join("")}</div>
-      </details>`);
+    const windowNode = H.el(
+      "details",
+      {
+        className: "window",
+        open: windowOpen,
+        dataset: { panelWindowKey: windowKey }
+      },
+      H.el(
+        "summary",
+        { className: "window-header" },
+        H.el("span", {
+          className: "entity-icon window-icon",
+          attrs: { "aria-hidden": "true" }
+        }),
+        H.el(
+          "span",
+          { className: "disclosure-title" },
+          H.el("strong", {}, "Okno #" + win.id),
+          H.el(
+            "span",
+            { className: "header-meta" },
+            " · " + countText +
+              " · " + groups.length +
+              " skupin · " + windowDeep + " DEEP"
+          )
+        )
+      ),
+      H.el("div", { className: "groups" }, ...groupNodes)
+    );
+
+    windowNodes.push(windowNode);
   }
 
-  app.innerHTML = chunks.length
-    ? chunks.join("")
-    : '<div class="empty panel-empty">Žádné panely neodpovídají aktuálnímu filtru.</div>';
+  H.replace(
+    app,
+    ...(windowNodes.length
+      ? windowNodes
+      : [
+          H.el(
+            "div",
+            { className: "empty panel-empty" },
+            "Žádné panely neodpovídají aktuálnímu filtru."
+          )
+        ])
+  );
 
-  updatePanelFilterUi(allTabs, filtering ? visibleTabCount : allTabs.length);
+  updatePanelFilterUi(
+    allTabs,
+    filtering ? visibleTabCount : allTabs.length
+  );
 }
 
-// Manager refresh --------------------------------------------------------------
 async function load() {
   panelExplorer.captureOpenState();
   app.textContent = "Načítám…";
