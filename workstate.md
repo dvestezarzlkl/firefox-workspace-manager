@@ -9,6 +9,14 @@ branch = dev
 
 ## Done
 
+- 0.5.4: Critical workspace data-integrity fix for DEEP/lazy restored tabs.
+- Restore now creates saved DEEP tabs directly with tabs.create({discarded:true,title,url}) instead of creating/loading them and immediately calling tabs.discard().
+- This removes the race where tabs.create resolves before navigation commits and the immediate discard can leave the runtime tab at about:blank.
+- Workspace snapshot now defensively preserves the previous canonical URL/title when a discarded/lazy runtime tab transiently reports about:blank/newtab/home at the same index.
+- The same preservation protects privileged about:* source pages that must use about:blank as a runtime restore placeholder.
+- New debug event snapshot-preserved-canonical-url records every time the guard prevents destructive URL replacement.
+- restore-tab-create-before now logs createDiscarded; deferred post-restore discard is only a fallback if direct discarded creation fails.
+
 - 0.5.3: Panel tree controls top row rebalanced: Always expanded on the left, Expand all / Collapse all on the right.
 - Group headers now use a single left-aligned icon+title cluster so folder/ungrouped icons no longer visually float independently from their labels.
 
@@ -279,13 +287,13 @@ branch = dev
 
 ## Next
 
-1. Pull 0.5.1 and reload the extension.
-2. Verify manual Expand/Collapse state survives the Refresh button.
-3. Verify Off / 5 / 10 / 30 / 60 s auto refresh, especially that it does not collapse manually opened windows/groups.
-4. Verify Always expanded persists across Refresh and manager reopen.
-5. Verify Collapse all disables Always expanded and collapses the complete tree.
-6. Verify fulltext and state/policy filters still auto-expand only matching content without overwriting the manual open-state memory.
-7. After UI stabilization, start the recorded 0.6.0 documentation/type/module refactor with no functional changes.
+1. Pull 0.5.4 and reload the extension.
+2. Re-import the last known-good workspace backup because already-corrupted about:blank entries cannot be reconstructed generically.
+3. Recover session from that clean snapshot.
+4. Verify restore-tab-create-before logs createDiscarded=true for saved DEEP tabs and restore-discard-postprocess requests zero or only fallback tabs.
+5. Wait for automatic snapshot events, export again, and verify URLs such as mfdnes.cz remain intact.
+6. Close/reopen Firefox and repeat recovery once more; confirm no additional URLs turn into about:blank.
+7. Only after this data-integrity test passes, reapply the pending Panels 0.5.x visual polish (group colors/link icon) and then proceed to the recorded 0.6.0 structural/type refactor.
 
 ## localCommand
 
