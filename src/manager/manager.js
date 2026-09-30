@@ -27,6 +27,10 @@ const panelFilterReset = document.getElementById("panelFilterReset");
 const panelStateFilters = document.getElementById("panelStateFilters");
 const panelPolicyFilters = document.getElementById("panelPolicyFilters");
 const panelFilterInfo = document.getElementById("panelFilterInfo");
+const panelExpandAll = document.getElementById("panelExpandAll");
+const panelCollapseAll = document.getElementById("panelCollapseAll");
+const panelAlwaysExpanded = document.getElementById("panelAlwaysExpanded");
+const panelAutoRefresh = document.getElementById("panelAutoRefresh");
 
 const HOST_POLICIES_KEY = "fwm.hostPolicies";
 const KNOWN_HOSTS_KEY = "fwm.knownHosts";
@@ -67,10 +71,19 @@ function loadPanelExplorerState() {
     const parsed = raw ? JSON.parse(raw) : {};
     return {
       windows: new Set(Array.isArray(parsed.windows) ? parsed.windows : []),
-      groups: new Set(Array.isArray(parsed.groups) ? parsed.groups : [])
+      groups: new Set(Array.isArray(parsed.groups) ? parsed.groups : []),
+      alwaysExpanded: !!parsed.alwaysExpanded,
+      refreshSeconds: [0, 5, 10, 30, 60].includes(Number(parsed.refreshSeconds))
+        ? Number(parsed.refreshSeconds)
+        : 0
     };
   } catch {
-    return { windows: new Set(), groups: new Set() };
+    return {
+      windows: new Set(),
+      groups: new Set(),
+      alwaysExpanded: false,
+      refreshSeconds: 0
+    };
   }
 }
 
@@ -80,10 +93,65 @@ function savePanelExplorerState() {
   try {
     localStorage.setItem(PANEL_EXPLORER_STATE_KEY, JSON.stringify({
       windows: [...panelExplorerState.windows],
-      groups: [...panelExplorerState.groups]
+      groups: [...panelExplorerState.groups],
+      alwaysExpanded: panelExplorerState.alwaysExpanded,
+      refreshSeconds: panelExplorerState.refreshSeconds
     }));
   } catch {}
 }
+
+let panelAutoRefreshTimer = null;
+let panelAutoRefreshBusy = false;
+
+function capturePanelExplorerOpenState() {
+  if (panelFilterActive() || panelExplorerState.alwaysExpanded) return;
+
+  const windowDetails = app.querySelectorAll("details[data-panel-window-key]");
+  const groupDetails = app.querySelectorAll("details[data-panel-group-key]");
+  if (!windowDetails.length && !groupDetails.length) return;
+
+  panelExplorerState.windows.clear();
+  panelExplorerState.groups.clear();
+
+  windowDetails.forEach(details => {
+    if (details.open) panelExplorerState.windows.add(details.dataset.panelWindowKey);
+  });
+
+  groupDetails.forEach(details => {
+    if (details.open) panelExplorerState.groups.add(details.dataset.panelGroupKey);
+  });
+
+  savePanelExplorerState();
+}
+
+function configurePanelAutoRefresh() {
+  if (panelAutoRefreshTimer) {
+    clearInterval(panelAutoRefreshTimer);
+    panelAutoRefreshTimer = null;
+  }
+
+  const seconds = Number(panelExplorerState.refreshSeconds) || 0;
+  if (panelAutoRefresh) panelAutoRefresh.value = String(seconds);
+  if (!seconds) return;
+
+  panelAutoRefreshTimer = setInterval(async () => {
+    if (panelAutoRefreshBusy || document.hidden) return;
+
+    panelAutoRefreshBusy = true;
+    try {
+      await load();
+    } catch (error) {
+      console.error("Panel auto refresh failed", error);
+    } finally {
+      panelAutoRefreshBusy = false;
+    }
+  }, seconds * 1000);
+}
+
+if (panelAlwaysExpanded) {
+  panelAlwaysExpanded.checked = panelExplorerState.alwaysExpanded;
+}
+configurePanelAutoRefresh();
 
 const manifestMeta = browser.runtime.getManifest();
 if (managerVersion) managerVersion.textContent = "v" + manifestMeta.version;
@@ -348,6 +416,7 @@ function renderTab(tab) {
   const excepted = exactUrlException(tab);
   return `
     <div class="tab" data-tab-id="${tab.id}">
+      <span class="entity-icon tab-icon" aria-hidden="true"></span>
       <div class="tab-main">
         <div class="tab-title" title="${esc(tab.url)}">${esc(tab.title || tab.url || "(bez názvu)")}</div>
         <div class="tab-url" title="${esc(tab.url)}">${esc(shortTabUrl(tab.url))}</div>
@@ -617,7 +686,10 @@ function renderPanels() {
 
       visibleTabCount += visibleTabs.length;
       const groupKey = String(win.id) + ":" + String(group.id);
-      const groupOpen = searchActive || (!filtering && panelExplorerState.groups.has(groupKey));
+      const groupOpen =
+        panelExplorerState.alwaysExpanded ||
+        searchActive ||
+        (!filtering && panelExplorerState.groups.has(groupKey));
       const shownTabs = filtering ? visibleTabs : groupTabs;
       const deepCount = shownTabs.filter(tab => tab.discarded).length;
       const countText = filtering
@@ -627,6 +699,7 @@ function renderPanels() {
       groupChunks.push(`
         <details class="group" data-panel-group-key="${esc(groupKey)}" ${groupOpen ? "open" : ""}>
           <summary class="group-header">
+            <span class="entity-icon group-icon" aria-hidden="true"></span>
             <span class="disclosure-title">${esc(title)} · ${countText} · ${deepCount} DEEP · ${esc(group.color)}</span>
             <button type="button" data-action="deep-group" data-group-id="${group.id}">DEEP skupinu</button>
           </summary>
@@ -638,7 +711,10 @@ function renderPanels() {
     const visibleUngrouped = ungrouped.filter(tab => tabMatchesPanelFilters(tab, "Bez skupiny"));
     if (!filtering || visibleUngrouped.length) {
       const groupKey = String(win.id) + ":ungrouped";
-      const groupOpen = searchActive || (!filtering && panelExplorerState.groups.has(groupKey));
+      const groupOpen =
+        panelExplorerState.alwaysExpanded ||
+        searchActive ||
+        (!filtering && panelExplorerState.groups.has(groupKey));
       const shownTabs = filtering ? visibleUngrouped : ungrouped;
 
       if (shownTabs.length) {
@@ -651,6 +727,7 @@ function renderPanels() {
         groupChunks.push(`
           <details class="group" data-panel-group-key="${esc(groupKey)}" ${groupOpen ? "open" : ""}>
             <summary class="group-header">
+              <span class="entity-icon group-icon ungrouped-icon" aria-hidden="true"></span>
               <span class="disclosure-title">Bez skupiny · ${countText} · ${deepCount} DEEP</span>
             </summary>
             ${shownTabs.map(renderTab).join("")}
@@ -668,7 +745,10 @@ function renderPanels() {
       : tabs.length;
 
     const windowKey = String(win.id);
-    const windowOpen = filtering || panelExplorerState.windows.has(windowKey);
+    const windowOpen =
+      panelExplorerState.alwaysExpanded ||
+      filtering ||
+      panelExplorerState.windows.has(windowKey);
     const windowDeep = tabs.filter(tab => tab.discarded).length;
     const countText = filtering
       ? visibleInWindow + "/" + tabs.length + " panelů"
@@ -677,6 +757,7 @@ function renderPanels() {
     chunks.push(`
       <details class="window" data-panel-window-key="${esc(windowKey)}" ${windowOpen ? "open" : ""}>
         <summary class="window-header">
+          <span class="entity-icon window-icon" aria-hidden="true"></span>
           <span class="disclosure-title">Okno #${win.id} · ${countText} · ${groups.length} skupin · ${windowDeep} DEEP</span>
         </summary>
         <div class="groups">${groupChunks.join("")}</div>
@@ -691,6 +772,7 @@ function renderPanels() {
 }
 
 async function load() {
+  capturePanelExplorerOpenState();
   app.textContent = "Načítám…";
 
   const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY, URL_POLICIES_KEY, HOST_POLICIES_KEY, WORKSPACES_KEY, ACTIVE_WORKSPACE_KEY, WORKSPACE_DEBUG_KEY]);
@@ -767,6 +849,46 @@ document.querySelector(".page-tabs").addEventListener("click", event => {
 
 panelSearch.addEventListener("input", () => renderPanels());
 
+panelExpandAll.addEventListener("click", () => {
+  for (const win of currentWindows) {
+    panelExplorerState.windows.add(String(win.id));
+
+    const groups = currentWindowGroups.get(win.id) ?? [];
+    for (const group of groups) {
+      panelExplorerState.groups.add(String(win.id) + ":" + String(group.id));
+    }
+
+    if ((win.tabs ?? []).some(tab => tab.groupId == null || tab.groupId === -1)) {
+      panelExplorerState.groups.add(String(win.id) + ":ungrouped");
+    }
+  }
+
+  savePanelExplorerState();
+  renderPanels();
+});
+
+panelCollapseAll.addEventListener("click", () => {
+  panelExplorerState.alwaysExpanded = false;
+  panelExplorerState.windows.clear();
+  panelExplorerState.groups.clear();
+
+  if (panelAlwaysExpanded) panelAlwaysExpanded.checked = false;
+  savePanelExplorerState();
+  renderPanels();
+});
+
+panelAlwaysExpanded.addEventListener("change", () => {
+  panelExplorerState.alwaysExpanded = panelAlwaysExpanded.checked;
+  savePanelExplorerState();
+  renderPanels();
+});
+
+panelAutoRefresh.addEventListener("change", () => {
+  panelExplorerState.refreshSeconds = Number(panelAutoRefresh.value) || 0;
+  savePanelExplorerState();
+  configurePanelAutoRefresh();
+});
+
 function togglePanelFilter(button) {
   const targetSet = button.dataset.panelFilterCategory === "state"
     ? panelStateFilterSet
@@ -796,7 +918,7 @@ panelFilterReset.addEventListener("click", () => {
 });
 
 app.addEventListener("toggle", event => {
-  if (panelFilterActive()) return;
+  if (panelFilterActive() || panelExplorerState.alwaysExpanded) return;
   const details = event.target;
   const windowKey = details?.dataset?.panelWindowKey;
   const groupKey = details?.dataset?.panelGroupKey;
