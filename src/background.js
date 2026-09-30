@@ -40,42 +40,8 @@ const activeByWindow = new Map();
 const workspaceReattachTimers = new Map();
 let workspaceRestoreDepth = 0;
 
-function defaultAutoSettings() {
-  return {
-    minutes: 60,
-    deepOnLeave: false,
-    protectPinned: true,
-    protectAudible: true
-  };
-}
-
 function emptyState() {
   return { version: 1, windows: {}, updatedAt: Date.now() };
-}
-
-function isHttpUrl(url) {
-  return /^https?:\/\//i.test(url ?? "");
-}
-
-function hostnameFromUrl(url) {
-  try {
-    const parsed = new URL(url);
-    return ["http:", "https:"].includes(parsed.protocol) ? parsed.hostname.toLowerCase() : null;
-  } catch {
-    return null;
-  }
-}
-
-function isExtensionUrl(url) {
-  return /^(moz|chrome)-extension:\/\//i.test(url ?? "");
-}
-
-function hasWorkspaceContent(win) {
-  return (win?.tabs ?? []).some(tab => {
-    const url = tab?.url ?? "";
-    if (isExtensionUrl(url)) return false;
-    return !["about:blank", "about:newtab", "about:home"].includes(url);
-  });
 }
 
 async function workspaceSnapshotLocked() {
