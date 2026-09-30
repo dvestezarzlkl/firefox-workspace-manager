@@ -782,3 +782,39 @@ main {
     justify-content: flex-start;
   }
 }
+
+.panel-tree-row-top {
+  min-width: 360px;
+  justify-content: space-between;
+}
+
+.group-header-main {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+}
+
+.group-header .group-header-main {
+  flex: 1 1 auto;
+}
+
+.group-header .disclosure-title {
+  text-align: left;
+}
+
+.group-header .group-icon {
+  margin-right: 0;
+}
+
+.group-header > button {
+  flex: 0 0 auto;
+  margin-left: 10px;
+}
+
+@media (max-width: 1050px) {
+  .panel-tree-row-top {
+    min-width: 0;
+    width: 100%;
+  }
+}
