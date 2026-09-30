@@ -58,7 +58,7 @@ export class TabLifecycleManager {
   }
 
   /**
-   * @param {browser.tabs.Tab} tab
+   * @param {import("../types/domain.js").BrowserTab} tab
    * @param {{hostPolicies: Record<string,string>, urlPolicies: Array<{url?:string, mode?:string}>, auto: import("../types/domain.js").AutoSettings}} config
    */
   resolvePolicy(tab, config) {
@@ -74,7 +74,7 @@ export class TabLifecycleManager {
   }
 
   /**
-   * @param {browser.tabs.Tab} tab
+   * @param {import("../types/domain.js").BrowserTab} tab
    * @param {import("../types/domain.js").AutoSettings} auto
    */
   protectedByRuntime(tab, auto) {
@@ -124,7 +124,7 @@ export class TabLifecycleManager {
     return stats[host];
   }
 
-  /** @param {browser.tabs.Tab|null|undefined} tab */
+  /** @param {import("../types/domain.js").BrowserTab|null|undefined} tab */
   async rememberActiveContentTab(tab) {
     if (!tab || tab.id == null || !isHttpUrl(tab.url)) return;
 
@@ -135,7 +135,7 @@ export class TabLifecycleManager {
     await browser.storage.local.set({ [LAST_ACTIVE_CONTENT_KEY]: map });
   }
 
-  /** @param {browser.tabs.Tab|null|undefined} tab */
+  /** @param {import("../types/domain.js").BrowserTab|null|undefined} tab */
   async markActivated(tab) {
     if (!tab || tab.id == null || !isHttpUrl(tab.url)) return;
 
@@ -188,7 +188,7 @@ export class TabLifecycleManager {
     await this.rememberActiveContentTab(tab);
   }
 
-  /** @param {browser.tabs.Tab|null|undefined} tab */
+  /** @param {import("../types/domain.js").BrowserTab|null|undefined} tab */
   async markInactive(tab) {
     if (!tab || tab.id == null || !isHttpUrl(tab.url)) return;
 
@@ -236,7 +236,7 @@ export class TabLifecycleManager {
     await this.scheduleNextDeep();
   }
 
-  /** @param {browser.tabs.Tab|null|undefined} tab */
+  /** @param {import("../types/domain.js").BrowserTab|null|undefined} tab */
   async recomputeInactivePolicy(tab) {
     if (this.isRestoreActive()) return;
     if (!tab || tab.id == null || !isHttpUrl(tab.url) || tab.active) return;
@@ -324,7 +324,7 @@ export class TabLifecycleManager {
   }
 
   /**
-   * @param {browser.tabs.Tab|null|undefined} tab
+   * @param {import("../types/domain.js").BrowserTab|null|undefined} tab
    * @param {string} reason
    */
   async discardWithDiagnostics(tab, reason) {
@@ -572,7 +572,7 @@ export class TabLifecycleManager {
    *
    * @param {number} tabId
    * @param {Record<string, unknown>} changeInfo
-   * @param {browser.tabs.Tab} tab
+   * @param {import("../types/domain.js").BrowserTab} tab
    */
   handleTabUpdated(tabId, changeInfo, tab) {
     if (this.isRestoreActive()) return;
