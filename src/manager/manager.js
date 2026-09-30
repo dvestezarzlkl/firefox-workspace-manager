@@ -644,7 +644,7 @@ function renderWorkspaces() {
           <div>
             <div class="workspace-name-row">
               <strong>${esc(workspace.name || "Workspace")}</strong>
-              <span class="workspace-status">${status}</span>
+              <span class="workspace-status workspace-status-${active ? "active" : (stat.openWindows > 0 ? "open" : "closed")}">${status}</span>
             </div>
             <div class="workspace-meta">
               ${stat.openWindows} otevřená / ${stat.windows} uložená okna · ${stat.tabs} panelů · ${stat.groups} skupin
