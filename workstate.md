@@ -9,6 +9,8 @@ branch = dev
 
 ## Done
 
+- Dev tooling: Added VS Code Task Runner action "Git: Pull" for the current workspace.
+
 - 0.5.0: Panels page redesigned as a scalable explorer for large sessions.
 - Added fulltext search across tab title, URL and Firefox tab-group title.
 - Added combinable state filters (Active, Loaded, Deep) and policy filters (AUTO, KEEP always, DEEP always, EXCEPT) with live counts.
