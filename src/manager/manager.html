@@ -32,19 +32,47 @@
         <input id="panelSearch" type="search" placeholder="Hledat v názvu, URL nebo skupině…" autocomplete="off">
         <button id="panelFilterReset" type="button" hidden>Reset filtrů</button>
       </div>
-      <div class="panel-filter-row" id="panelStateFilters">
-        <span class="panel-filter-label">Stav</span>
-        <button type="button" class="panel-filter" data-panel-filter-category="state" data-panel-filter="active" aria-pressed="false">Aktivní <span data-panel-filter-count="active">0</span></button>
-        <button type="button" class="panel-filter" data-panel-filter-category="state" data-panel-filter="loaded" aria-pressed="false">Loaded <span data-panel-filter-count="loaded">0</span></button>
-        <button type="button" class="panel-filter" data-panel-filter-category="state" data-panel-filter="deep" aria-pressed="false">Deep <span data-panel-filter-count="deep">0</span></button>
-      </div>
-      <div class="panel-filter-row" id="panelPolicyFilters">
-        <span class="panel-filter-label">Politika</span>
-        <button type="button" class="panel-filter" data-panel-filter-category="policy" data-panel-filter="auto" aria-pressed="false">AUTO <span data-panel-filter-count="auto">0</span></button>
-        <button type="button" class="panel-filter" data-panel-filter-category="policy" data-panel-filter="keep" aria-pressed="false">KEEP always <span data-panel-filter-count="keep">0</span></button>
-        <button type="button" class="panel-filter" data-panel-filter-category="policy" data-panel-filter="deep-always" aria-pressed="false">DEEP always <span data-panel-filter-count="deep-always">0</span></button>
-        <button type="button" class="panel-filter" data-panel-filter-category="policy" data-panel-filter="except" aria-pressed="false">EXCEPT <span data-panel-filter-count="except">0</span></button>
-        <span id="panelFilterInfo" class="panel-filter-info"></span>
+
+      <div class="panel-toolbar-controls">
+        <div class="panel-tree-controls">
+          <div class="panel-tree-buttons">
+            <button id="panelExpandAll" type="button">Expand all</button>
+            <button id="panelCollapseAll" type="button">Collapse all</button>
+          </div>
+
+          <label class="panel-control-check">
+            <input id="panelAlwaysExpanded" type="checkbox">
+            <span>Always expanded</span>
+          </label>
+
+          <label class="panel-refresh-control">
+            <span>Refresh</span>
+            <select id="panelAutoRefresh">
+              <option value="0">Off</option>
+              <option value="5">5 s</option>
+              <option value="10">10 s</option>
+              <option value="30">30 s</option>
+              <option value="60">60 s</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="panel-filter-stack">
+          <div class="panel-filter-row" id="panelStateFilters">
+            <span class="panel-filter-label">Stav</span>
+            <button type="button" class="panel-filter" data-panel-filter-category="state" data-panel-filter="active" aria-pressed="false">Aktivní <span data-panel-filter-count="active">0</span></button>
+            <button type="button" class="panel-filter" data-panel-filter-category="state" data-panel-filter="loaded" aria-pressed="false">Loaded <span data-panel-filter-count="loaded">0</span></button>
+            <button type="button" class="panel-filter" data-panel-filter-category="state" data-panel-filter="deep" aria-pressed="false">Deep <span data-panel-filter-count="deep">0</span></button>
+          </div>
+          <div class="panel-filter-row" id="panelPolicyFilters">
+            <span class="panel-filter-label">Politika</span>
+            <button type="button" class="panel-filter" data-panel-filter-category="policy" data-panel-filter="auto" aria-pressed="false">AUTO <span data-panel-filter-count="auto">0</span></button>
+            <button type="button" class="panel-filter" data-panel-filter-category="policy" data-panel-filter="keep" aria-pressed="false">KEEP always <span data-panel-filter-count="keep">0</span></button>
+            <button type="button" class="panel-filter" data-panel-filter-category="policy" data-panel-filter="deep-always" aria-pressed="false">DEEP always <span data-panel-filter-count="deep-always">0</span></button>
+            <button type="button" class="panel-filter" data-panel-filter-category="policy" data-panel-filter="except" aria-pressed="false">EXCEPT <span data-panel-filter-count="except">0</span></button>
+            <span id="panelFilterInfo" class="panel-filter-info"></span>
+          </div>
+        </div>
       </div>
     </section>
     <div id="app">Načítám…</div>
@@ -145,6 +173,7 @@
     <section class="settings-card help-card">
       <h2>Panely</h2>
       <p>Okna jsou ve výchozím stavu sbalená. Fulltext hledá současně v názvu panelu, URL a názvu skupiny; při hledání se odpovídající části automaticky rozbalí. Filtry Stav a Politika lze kombinovat.</p>
+      <p><strong>Expand all</strong> a <strong>Collapse all</strong> mění rozbalení stromu. <strong>Always expanded</strong> drží všechna okna a skupiny trvale otevřené. Volitelný auto-refresh může běžet po 5, 10, 30 nebo 60 sekundách a zachovává ruční stav rozbalení.</p>
       <p><strong>DEEP</strong> ručně uvolní obsah konkrétního panelu z paměti, ale panel, jeho pozice a skupina zůstanou zachované.</p>
       <p><strong>DEEP skupinu</strong> provede totéž pro vhodné panely skupiny. <strong>DEEP ALL</strong> provede hromadný discard s respektováním ochran, KEEP a EXCEPT.</p>
       <p><strong>EXCEPT</strong> vedle panelu přidá nebo odebere přesnou aktuální URL z výjimek po potvrzení.</p>

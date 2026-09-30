@@ -9,6 +9,14 @@ branch = dev
 
 ## Done
 
+- 0.5.1: Panel hierarchy headers now have lightweight CSS window/folder/bookmark icons and stronger visual separation.
+- Panel toolbar is split into two columns: tree controls on the left and state/policy filter badges on the right.
+- Added Expand all, Collapse all and persistent Always expanded controls.
+- Added persistent panel auto-refresh selector: Off / 5 / 10 / 30 / 60 seconds.
+- Manual and automatic refresh now capture currently open window/group details before rebuilding the DOM, so expanded/collapsed state survives refresh.
+- Filtering/search expansion stays temporary and is not accidentally written into the user's manual disclosure state.
+- package-lock root version metadata was aligned with extension/package version.
+
 - Dev tooling: Added VS Code Task Runner action "Git: Pull" for the current workspace.
 
 - 0.5.0: Panels page redesigned as a scalable explorer for large sessions.
@@ -264,13 +272,13 @@ branch = dev
 
 ## Next
 
-1. Pull 0.5.0 and reload the extension.
-2. Open Panely with the large Workspace 2 session and verify both windows start collapsed.
-3. Expand/collapse windows and groups, press Refresh, and verify manual expansion is remembered.
-4. Test fulltext against title, URL and group name (e.g. bacula); matching windows/groups should auto-expand.
-5. Test state filters Active / Loaded / Deep and policy filters AUTO / KEEP always / DEEP always / EXCEPT, including combinations.
-6. Confirm EXCEPT / DEEP / DEEP skupinu actions still behave exactly as before.
-7. Tomorrow verify lifecycle deactivation/discard behavior independently; 0.5.0 intentionally changes UI only.
+1. Pull 0.5.1 and reload the extension.
+2. Verify manual Expand/Collapse state survives the Refresh button.
+3. Verify Off / 5 / 10 / 30 / 60 s auto refresh, especially that it does not collapse manually opened windows/groups.
+4. Verify Always expanded persists across Refresh and manager reopen.
+5. Verify Collapse all disables Always expanded and collapses the complete tree.
+6. Verify fulltext and state/policy filters still auto-expand only matching content without overwriting the manual open-state memory.
+7. After UI stabilization, start the recorded 0.6.0 documentation/type/module refactor with no functional changes.
 
 ## localCommand
 

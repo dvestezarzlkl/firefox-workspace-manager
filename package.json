@@ -1,6 +1,6 @@
 {
   "name": "firefox-workspace-manager",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "description": "Development tooling for Workspace Manager",
   "scripts": {
