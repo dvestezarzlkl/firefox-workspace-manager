@@ -440,34 +440,68 @@ async function renderHostPolicies() {
 
   const hosts = baseHosts.slice(0, HOST_RESULT_LIMIT);
 
-  hostPoliciesEl.innerHTML = hosts.length ? `
-    <div class="policy-grid">
-      ${hosts.map(host => {
-        const mode = policies[host] ?? "AUTO";
-        return `
-          <label class="policy-row">
-            <span class="policy-host" title="${esc(host)}">
-              ${esc(host)}
-              ${(() => {
-                const stat = hostStats[host];
-                const usage = liveHostUsage(host);
-                if (!stat?.activations && !usage.total) return '';
-                const activations = stat?.activations || 0;
-                const avg = activations ? formatDuration(usage.activeMs / activations) : '—';
-                const pct = usage.total
-                  ? Math.round(usage.activePct) + '% aktivní / ' + Math.round(usage.inactivePct) + '% pozadí'
-                  : 'bez historie';
-                return '<span class="host-stats">' + activations + '× aktivní · průměr ' + avg + ' · ' + pct + ' · z ' + formatDuration(usage.total) + '</span>';
-              })()}
-            </span>
-            <select data-host-policy="${esc(host)}">
-              <option value="AUTO" ${mode === "AUTO" ? "selected" : ""}>AUTO</option>
-              <option value="KEEP" ${mode === "KEEP" ? "selected" : ""}>KEEP</option>
-              <option value="DEEP" ${mode === "DEEP" ? "selected" : ""}>DEEP</option>
-            </select>
-          </label>`;
-      }).join("")}
-    </div>` : '<div class="empty">Nic nenalezeno.</div>';
+  if (!hosts.length) {
+    H.replace(hostPoliciesEl, H.el("div", { className: "empty" }, "Nic nenalezeno."));
+  } else {
+    const grid = H.el("div", { className: "policy-grid" });
+
+    for (const host of hosts) {
+      const mode = policies[host] ?? "AUTO";
+      const stat = hostStats[host];
+      const usage = liveHostUsage(host);
+
+      const hostLabel = H.el(
+        "span",
+        { className: "policy-host", title: host },
+        host
+      );
+
+      if (stat?.activations || usage.total) {
+        const activations = stat?.activations || 0;
+        const avg = activations
+          ? formatDuration(usage.activeMs / activations)
+          : "—";
+        const pct = usage.total
+          ? Math.round(usage.activePct) + "% aktivní / " +
+            Math.round(usage.inactivePct) + "% pozadí"
+          : "bez historie";
+
+        H.append(
+          hostLabel,
+          H.el(
+            "span",
+            { className: "host-stats" },
+            activations + "× aktivní · průměr " + avg +
+              " · " + pct + " · z " + formatDuration(usage.total)
+          )
+        );
+      }
+
+      const select = H.el("select", {
+        dataset: { hostPolicy: host }
+      });
+
+      for (const optionMode of ["AUTO", "KEEP", "DEEP"]) {
+        select.appendChild(H.el(
+          "option",
+          {
+            value: optionMode,
+            selected: mode === optionMode
+          },
+          optionMode
+        ));
+      }
+
+      grid.appendChild(H.el(
+        "label",
+        { className: "policy-row" },
+        hostLabel,
+        select
+      ));
+    }
+
+    H.replace(hostPoliciesEl, grid);
+  }
 
   const total = baseHosts.length;
   hostResultInfo.textContent = filter
@@ -475,8 +509,6 @@ async function renderHostPolicies() {
     : `Zobrazeny pouze hostname z aktuálně otevřených panelů; max. ${HOST_RESULT_LIMIT}.`;
 }
 
-
-// Workspace view ---------------------------------------------------------------
 function workspaceStats(workspace) {
   const windows = Object.values(workspace?.windows ?? {});
   return {
@@ -789,19 +821,35 @@ async function load() {
 
 
 function renderUrlPolicies() {
-  urlPoliciesEl.innerHTML = urlPolicies.length
-    ? urlPolicies
-        .slice()
-        .filter(rule => rule?.url)
-        .sort((a, b) => b.url.length - a.url.length)
-        .map(rule => `
-          <div class="url-rule">
-            <strong>${esc(rule.mode || "KEEP")}</strong>
-            <code title="${esc(rule.url)}">${esc(rule.url)}</code>
-            <button type="button" data-remove-url-rule="${esc(rule.url)}">Smazat</button>
-          </div>`)
-        .join("")
-    : '<div class="empty">Žádné URL výjimky.</div>';
+  const rules = urlPolicies
+    .slice()
+    .filter(rule => rule?.url)
+    .sort((a, b) => b.url.length - a.url.length);
+
+  if (!rules.length) {
+    H.replace(
+      urlPoliciesEl,
+      H.el("div", { className: "empty" }, "Žádné URL výjimky.")
+    );
+    return;
+  }
+
+  const nodes = rules.map(rule => H.el(
+    "div",
+    { className: "url-rule" },
+    H.el("strong", {}, rule.mode || "KEEP"),
+    H.el("code", { title: rule.url }, rule.url),
+    H.el(
+      "button",
+      {
+        type: "button",
+        dataset: { removeUrlRule: rule.url }
+      },
+      "Smazat"
+    )
+  ));
+
+  H.replace(urlPoliciesEl, ...nodes);
 }
 
 async function saveUrlPolicies() {
