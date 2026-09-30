@@ -43,10 +43,19 @@ Do not use `localCommand` for secrets. Never place passwords, tokens, private ke
 - Prefer local-first, dependency-light implementation.
 - Avoid external services unless they provide a clear technical advantage.
 
-## Initial architecture
+## Architecture and code quality
 
+- Canonical architecture and invariants are documented in `docs/architecture.md`.
 - KEEP: prevent automatic discard where Firefox API permits.
 - AUTO: extension-managed policy/timeout behavior.
 - DEEP: explicit `tabs.discard()`.
 - A true frozen JS-runtime sleep state is outside normal WebExtension control.
-- Firefox runtime window/group IDs are not persistent identities; use extension-owned logical IDs.
+- Firefox runtime window/tab/group IDs are not persistent identities; use extension-owned logical IDs and content fingerprints.
+- Runtime JavaScript uses native ES modules; do not add a bundler/transpiler without a concrete need.
+- Use `// @ts-check` and JSDoc types for runtime JavaScript.
+- Put shared complex shapes in `src/types/domain.js`.
+- Prefer classes/services for stateful domains and plain exported functions for stateless algorithms.
+- Comments should explain invariants, lifecycle boundaries and reasons rather than restating the next line.
+- Never reintroduce load-then-immediate-discard during workspace restore; saved DEEP tabs are created discarded to protect canonical URLs.
+- Never let transient runtime `about:blank` overwrite a previously known canonical workspace URL.
+- Do not hand-edit generated `package-lock.json`; regenerate it through npm.
