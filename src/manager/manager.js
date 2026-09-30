@@ -432,6 +432,7 @@ async function renderHostPolicies() {
 }
 
 
+// Workspace view ---------------------------------------------------------------
 function workspaceStats(workspace) {
   const windows = Object.values(workspace?.windows ?? {});
   return {
@@ -582,6 +583,9 @@ function renderWorkspaces() {
   }).join("");
 }
 
+// Panel explorer view ----------------------------------------------------------
+// Filtering controls visibility; disclosure persistence belongs to
+// PanelExplorerController and never enters workspace data.
 function renderPanels() {
   const chunks = [];
   const allTabs = currentWindows.flatMap(win => win.tabs ?? []);
@@ -694,6 +698,7 @@ function renderPanels() {
   updatePanelFilterUi(allTabs, filtering ? visibleTabCount : allTabs.length);
 }
 
+// Manager refresh --------------------------------------------------------------
 async function load() {
   panelExplorer.captureOpenState();
   app.textContent = "Načítám…";
@@ -770,6 +775,7 @@ document.querySelector(".page-tabs").addEventListener("click", event => {
   if (button) setPage(button.dataset.page).catch(console.error);
 });
 
+// Manager event wiring ---------------------------------------------------------
 panelSearch.addEventListener("input", () => renderPanels());
 
 panelExpandAll.addEventListener("click", () => {
