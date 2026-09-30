@@ -9,6 +9,7 @@ import {
   WORKSPACES_KEY
 } from "../shared/constants.js";
 import { hostnameFromUrl, isExtensionUrl } from "../shared/url.js";
+import { H } from "../shared/H.js";
 
 const stats = document.getElementById("stats");
 const refreshButton = document.getElementById("refresh");
@@ -113,18 +114,28 @@ async function load() {
   );
   const groups = groupLists.reduce((sum, list) => sum + list.length, 0);
 
-  stats.innerHTML = `
-    <div class="stat"><strong>${windows.length}</strong><span>oken</span></div>
-    <div class="stat"><strong>${tabs.length}</strong><span>panelů</span></div>
-    <div class="stat"><strong>${groups}</strong><span>skupin</span></div>
-    <div class="stat"><strong>${active}</strong><span>aktivní</span></div>
-    <div class="stat"><strong>${loaded}</strong><span>loaded</span></div>
-    <div class="stat"><strong>${deep}</strong><span>deep</span></div>
-    <div class="stat"><strong>${autoPending}</strong><span>AUTO čeká</span></div>
-    <div class="stat"><strong>${deepAlways}</strong><span>DEEP always</span></div>
-    <div class="stat"><strong>${keepAlways}</strong><span>KEEP always</span></div>
-    <div class="stat"><strong>${except}</strong><span>URL výjimky</span></div>
-  `;
+  const statItems = [
+    [windows.length, "oken"],
+    [tabs.length, "panelů"],
+    [groups, "skupin"],
+    [active, "aktivní"],
+    [loaded, "loaded"],
+    [deep, "deep"],
+    [autoPending, "AUTO čeká"],
+    [deepAlways, "DEEP always"],
+    [keepAlways, "KEEP always"],
+    [except, "URL výjimky"]
+  ];
+
+  H.replace(
+    stats,
+    ...statItems.map(([value, label]) => H.el(
+      "div",
+      { className: "stat" },
+      H.el("strong", {}, value),
+      H.el("span", {}, label)
+    ))
+  );
 }
 
 deepAllButton.addEventListener("click", async () => {
