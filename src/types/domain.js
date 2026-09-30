@@ -12,6 +12,49 @@
 /** @typedef {"AUTO"|"KEEP"|"DEEP"} LifecyclePolicy */
 
 /**
+ * Minimal Firefox tab shape used by this project.
+ * Runtime IDs are intentionally nullable because WebExtension events can
+ * expose partially initialized objects.
+ *
+ * @typedef {Object} BrowserTab
+ * @property {number|null|undefined} id
+ * @property {number} windowId
+ * @property {number} index
+ * @property {string|undefined} url
+ * @property {string|undefined} title
+ * @property {boolean} active
+ * @property {boolean} discarded
+ * @property {boolean} pinned
+ * @property {boolean|undefined} audible
+ * @property {boolean|undefined} autoDiscardable
+ * @property {string|undefined} cookieStoreId
+ * @property {number|undefined} groupId
+ */
+
+/**
+ * @typedef {Object} BrowserWindow
+ * @property {number} id
+ * @property {string|undefined} type
+ * @property {boolean|undefined} focused
+ * @property {boolean} incognito
+ * @property {string|undefined} state
+ * @property {number|undefined} left
+ * @property {number|undefined} top
+ * @property {number|undefined} width
+ * @property {number|undefined} height
+ * @property {BrowserTab[]|undefined} tabs
+ */
+
+/**
+ * @typedef {Object} BrowserTabGroup
+ * @property {number} id
+ * @property {number} windowId
+ * @property {string|undefined} title
+ * @property {string} color
+ * @property {boolean} collapsed
+ */
+
+/**
  * @typedef {Object} WorkspaceGroup
  * @property {number|null} runtimeGroupId Firefox runtime ID. Ephemeral.
  * @property {string} groupKey Stable key inside one logical window snapshot.
