@@ -153,7 +153,7 @@ async function reconcileWorkspaceRuntimeState() {
     await browser.storage.local.set({
       [WORKSPACES_KEY]: workspaces,
       [WINDOW_WORKSPACE_MAP_KEY]: windowMap,
-      ACTIVE_WORKSPACE_KEY: activeWorkspaceId,
+      [ACTIVE_WORKSPACE_KEY]: activeWorkspaceId,
       ...(activeWorkspaceId ? { [LAST_WORKSPACE_KEY]: activeWorkspaceId } : {})
     });
   }
@@ -239,7 +239,7 @@ async function reconcileWorkspaceRuntimeState() {
     await browser.storage.local.set({
       [WORKSPACES_KEY]: workspaces,
       [WINDOW_WORKSPACE_MAP_KEY]: windowMap,
-      ACTIVE_WORKSPACE_KEY: activeWorkspaceId
+      [ACTIVE_WORKSPACE_KEY]: activeWorkspaceId
     });
   }
 
@@ -428,7 +428,7 @@ async function saveWorkspaceSnapshot(win, groups) {
   await browser.storage.local.set({
     [WORKSPACES_KEY]: workspaces,
     [WINDOW_WORKSPACE_MAP_KEY]: windowMap,
-    ACTIVE_WORKSPACE_KEY: activeWorkspaceId
+    [ACTIVE_WORKSPACE_KEY]: activeWorkspaceId
   });
 
   await workspaceDebug("snapshot-saved", {
@@ -580,7 +580,7 @@ async function tryReattachWorkspaceWindow(windowId) {
   await browser.storage.local.set({
     [WORKSPACES_KEY]: store.workspaces,
     [WINDOW_WORKSPACE_MAP_KEY]: store.windowMap,
-    ACTIVE_WORKSPACE_KEY: best.workspaceId,
+    [ACTIVE_WORKSPACE_KEY]: best.workspaceId,
     [LAST_WORKSPACE_KEY]: best.workspaceId
   });
 
@@ -994,7 +994,7 @@ async function inferActiveWorkspaceFromRuntime() {
     staleWorkspace.open = false;
     await browser.storage.local.set({
       [WORKSPACES_KEY]: store.workspaces,
-      ACTIVE_WORKSPACE_KEY: null
+      [ACTIVE_WORKSPACE_KEY]: null
     });
   }
   const counts = new Map();
@@ -1014,7 +1014,7 @@ async function inferActiveWorkspaceFromRuntime() {
 
   await browser.storage.local.set({
     [WORKSPACES_KEY]: store.workspaces,
-    ACTIVE_WORKSPACE_KEY: workspaceId,
+    [ACTIVE_WORKSPACE_KEY]: workspaceId,
     [LAST_WORKSPACE_KEY]: workspaceId
   });
 
@@ -1055,7 +1055,7 @@ async function restoreWorkspace(workspaceId) {
 
     await browser.storage.local.set({
       [WORKSPACES_KEY]: workspaces,
-      ACTIVE_WORKSPACE_KEY: workspaceId,
+      [ACTIVE_WORKSPACE_KEY]: workspaceId,
       [LAST_WORKSPACE_KEY]: workspaceId
     });
 
@@ -1131,7 +1131,7 @@ async function restoreWorkspace(workspaceId) {
     await browser.storage.local.set({
       [WORKSPACES_KEY]: workspaces,
       [WINDOW_WORKSPACE_MAP_KEY]: newMap,
-      ACTIVE_WORKSPACE_KEY: restored.length ? workspaceId : null,
+      [ACTIVE_WORKSPACE_KEY]: restored.length ? workspaceId : null,
       ...(restored.length ? { [LAST_WORKSPACE_KEY]: workspaceId } : {})
     });
 
@@ -1398,7 +1398,7 @@ async function removeWorkspaceWindow(workspaceId, logicalWindowId) {
   await browser.storage.local.set({
     [WORKSPACES_KEY]: store.workspaces,
     [WINDOW_WORKSPACE_MAP_KEY]: store.windowMap,
-    ACTIVE_WORKSPACE_KEY: store.activeWorkspaceId
+    [ACTIVE_WORKSPACE_KEY]: store.activeWorkspaceId
   });
 
   await workspaceDebug("workspace-window-removed", {
@@ -1632,7 +1632,7 @@ async function createWorkspaceFromCurrentState(name) {
   await browser.storage.local.set({
     [WORKSPACES_KEY]: store.workspaces,
     [WINDOW_WORKSPACE_MAP_KEY]: store.windowMap,
-    ACTIVE_WORKSPACE_KEY: workspaceId,
+    [ACTIVE_WORKSPACE_KEY]: workspaceId,
     [LAST_WORKSPACE_KEY]: workspaceId
   });
 
@@ -1763,7 +1763,7 @@ async function switchWorkspace(targetWorkspaceId) {
   await browser.storage.local.set({
     [WORKSPACES_KEY]: store.workspaces,
     [WINDOW_WORKSPACE_MAP_KEY]: detachedMap,
-    ACTIVE_WORKSPACE_KEY: null
+    [ACTIVE_WORKSPACE_KEY]: null
   });
 
   // Restore first. This guarantees Firefox still has at least one normal window
