@@ -27,7 +27,7 @@ export function isTransientBlankUrl(url) {
   return ["about:blank", "about:newtab", "about:home"].includes(String(url ?? ""));
 }
 
-/** @param {browser.windows.Window} win */
+/** @param {import("../types/domain.js").BrowserWindow} win */
 export function hasWorkspaceContent(win) {
   return (win?.tabs ?? []).some(tab => {
     const url = tab?.url ?? "";
