@@ -9,6 +9,12 @@ branch = dev
 
 ## Done
 
+- Added bilingual CZ/EN AMO listing metadata in amo-metadata.json for the first listed submission.
+- AMO category is Tabs; license MPL-2.0; reviewer notes document plain JS/native modules, no remote code and no data collection.
+- Added npm script sign:listed and VS Code task "FF: Publikovat listed na AMO", reusing local ../.dev/amo-sign.cmd credentials.
+- Build, listed sign and unlisted sign explicitly exclude amo-metadata.json from the packaged extension.
+- UI localization remains deferred to the 1.0-era backlog; only the AMO store listing is localized now.
+
 - 0.6.2: Hardened workspace switching after a Firefox 157 profile-specific failure where switching could close all Firefox windows.
 - Switch no longer marks/detaches the current workspace before target restore. Existing windows remain live and mapped until the target is proven alive.
 - Old switch windows are derived only from current live windowMap ownership, never persisted runtimeWindowId values.
