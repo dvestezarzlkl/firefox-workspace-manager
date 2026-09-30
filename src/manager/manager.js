@@ -654,7 +654,7 @@ function renderWorkspaces() {
             <button type="button" data-workspace-action="details" data-workspace-id="${esc(workspace.id)}">${expandedWorkspaceId === workspace.id ? "Skrýt" : "👁 Detail"}</button>
             <button type="button" data-workspace-action="export" data-workspace-id="${esc(workspace.id)}">Export JSON</button>
             <button type="button" data-workspace-action="switch" data-workspace-id="${esc(workspace.id)}" ${active ? "disabled" : ""}>
-              ${workspace.open ? "Přepnout" : "Recover session"}
+              ${activeWorkspaceId ? "Přepnout" : "Recover session"}
             </button>
             <button type="button" data-workspace-action="rename" data-workspace-id="${esc(workspace.id)}">Přejmenovat</button>
             <button type="button" data-workspace-action="delete" data-workspace-id="${esc(workspace.id)}">Smazat</button>
@@ -1109,13 +1109,28 @@ workspaceListEl.addEventListener("click", async event => {
   }
 
   if (button.dataset.workspaceAction === "switch") {
-    const ok = confirm(
-      "Přepnout na workspace \"" + (workspace.name || "Workspace") +
-      "\"?\n\nAktuální stav se uloží a okna současného workspace se zavřou."
-    );
-    if (!ok) return;
+    const hasActiveWorkspace =
+      !!activeWorkspaceId &&
+      !!workspaces[activeWorkspaceId] &&
+      activeWorkspaceId !== workspaceId;
+
+    const message = hasActiveWorkspace
+      ? (
+          "Přepnout na workspace \"" + (workspace.name || "Workspace") +
+          "\"?\n\nAktuální stav se uloží a okna současného workspace se zavřou."
+        )
+      : (
+          "Obnovit session workspace \"" + (workspace.name || "Workspace") +
+          "\"?\n\nOtevřou se jeho uložená okna, skupiny a panely."
+        );
+
+    if (!confirm(message)) return;
+
     button.disabled = true;
-    await browser.runtime.sendMessage({ type: "switchWorkspace", workspaceId });
+    await browser.runtime.sendMessage({
+      type: hasActiveWorkspace ? "switchWorkspace" : "restoreWorkspace",
+      workspaceId
+    });
     return;
   }
 
