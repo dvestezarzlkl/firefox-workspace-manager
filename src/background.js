@@ -77,6 +77,8 @@ function newLogicalWindowId() {
   return workspaceStore.newLogicalWindowId();
 }
 
+// Runtime reconciliation owns the bridge between persistent logical windows
+// and ephemeral Firefox window IDs. Never promote a runtime ID to identity.
 async function reconcileWorkspaceRuntimeState() {
   const stored = await browser.storage.local.get([
     WORKSPACES_KEY,
@@ -255,6 +257,9 @@ async function loadWorkspaceStore() {
 async function ensureActiveWorkspace(options = {}) {
   return workspaceStore.ensureActive(options);
 }
+
+// Canonical snapshot integrity -------------------------------------------------
+// Workspace URLs are durable data; transient lazy/privileged about:blank is not.
 
 /**
  * A discarded/lazy-restored Firefox tab can temporarily report about:blank
@@ -437,6 +442,8 @@ async function saveWorkspaceSnapshot(win, groups) {
   return activeWorkspaceId;
 }
 
+// Native-session reattach ------------------------------------------------------
+// Exact content fingerprint is primary. Fuzzy matching is only a guarded fallback.
 async function tryReattachWorkspaceWindow(windowId) {
   if (workspaceRestoreDepth > 0 || await workspaceSnapshotLocked()) return false;
 
@@ -647,6 +654,9 @@ async function markWorkspaceClosed(windowId) {
   });
 }
 
+// Workspace restore ------------------------------------------------------------
+// Restore runs under snapshot lock/restore depth so background observers cannot
+// persist half-built windows as canonical workspace state.
 async function createRestoreWindowShell(workspaceId, logicalWindowId, sourceWindow) {
   await workspaceDebug("restore-window-shell-before", {
     workspaceId,
@@ -1199,6 +1209,7 @@ async function restoreWorkspace(workspaceId) {
 }
 
 
+// Workspace import/export ------------------------------------------------------
 async function sanitizeWorkspaceForExport(workspace) {
   const exported = {
     format: "firefox-workspace-manager.workspace",
@@ -1767,6 +1778,8 @@ async function switchWorkspace(targetWorkspaceId) {
   return restored;
 }
 
+// Lightweight settings sync ----------------------------------------------------
+// Workspace snapshots and runtime state deliberately remain local.
 async function pushSettingsToSync() {
   const local = await browser.storage.local.get([SYNC_ENABLED_KEY, ...SYNC_KEYS]);
   if (!local[SYNC_ENABLED_KEY]) return;
@@ -1793,6 +1806,8 @@ async function pullSettingsFromSync() {
   if (Object.keys(update).length) await browser.storage.local.set(update);
 }
 
+// Runtime browser-state cache --------------------------------------------------
+// This cache is separate from the persistent logical workspace model.
 async function loadState() {
   const stored = await browser.storage.local.get(STORAGE_KEY);
   return stored[STORAGE_KEY] ?? emptyState();
@@ -1856,6 +1871,8 @@ async function snapshotAllWindows() {
   for (const win of windows) await snapshotWindow(win.id);
 }
 
+// WebExtension event wiring ----------------------------------------------------
+// Keep handlers thin: stateful lifecycle behavior belongs to TabLifecycleManager.
 browser.runtime.onInstalled.addListener(() => {
   lifecycleManager.seedRuntimeState().catch(console.error);
 });
