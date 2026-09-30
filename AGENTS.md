@@ -59,3 +59,14 @@ Do not use `localCommand` for secrets. Never place passwords, tokens, private ke
 - Never reintroduce load-then-immediate-discard during workspace restore; saved DEEP tabs are created discarded to protect canonical URLs.
 - Never let transient runtime `about:blank` overwrite a previously known canonical workspace URL.
 - Do not hand-edit generated `package-lock.json`; regenerate it through npm.
+
+
+## JavaScript structure and typing
+
+- Runtime JavaScript uses native ES modules; do not introduce a bundler unless the project explicitly decides to.
+- New runtime JS files start with `// @ts-check`.
+- Use JSDoc typedefs for domain structures and typed function parameters/returns.
+- Prefer focused stateful services/classes for persistence/lifecycle/UI state and plain exported functions for stateless algorithms.
+- Architectural comments explain invariants and reasons, not obvious line-by-line behavior.
+- Keep restore/snapshot/fingerprint invariants documented in `docs/architecture.md` synchronized with code changes.
+- Do not hand-edit `package-lock.json`; regenerate it through npm locally when dependencies/package metadata require it.
