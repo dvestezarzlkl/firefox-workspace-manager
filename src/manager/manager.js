@@ -375,28 +375,93 @@ function lifecycleText(tab) {
 function renderTab(tab) {
   const disabled = isProtectedFromDeep(tab);
   const excepted = exactUrlException(tab);
-  return `
-    <div class="tab" data-tab-id="${tab.id}">
-      <div class="tab-main">
-        <div class="tab-title-row">
-          <span class="entity-icon tab-icon" aria-hidden="true"></span>
-          <div class="tab-title" title="${esc(tab.url)}">${esc(tab.title || tab.url || "(bez názvu)")}</div>
-        </div>
-        <div class="tab-url" title="${esc(tab.url)}">${esc(shortTabUrl(tab.url))}</div>
-        <div class="meta">
-          ${stateBadge(tab)}
-          <span>#${tab.id}</span>
-          <span class="flags" title="Další stavové příznaky">${esc(extraFlags(tab).join(" "))}</span>
-          ${policyBadge(tab)}
-          ${lifecycleText(tab)}
-          ${discardDebugText(tab)}
-        </div>
-      </div>
-      <div class="tab-actions">
-        <button type="button" data-action="except" data-tab-id="${tab.id}" class="${excepted ? "except-active" : ""}">${excepted ? "EXCEPT ✓" : "EXCEPT"}</button>
-        <button type="button" data-action="deep" data-tab-id="${tab.id}" ${disabled || excepted ? "disabled" : ""}>DEEP</button>
-      </div>
-    </div>`;
+
+  const meta = H.el(
+    "div",
+    { className: "meta" },
+    stateBadge(tab),
+    H.el("span", {}, "#" + tab.id),
+    H.el(
+      "span",
+      {
+        className: "flags",
+        title: "Další stavové příznaky"
+      },
+      extraFlags(tab).join(" ")
+    ),
+    policyBadge(tab),
+    lifecycleText(tab),
+    discardDebugText(tab)
+  );
+
+  const main = H.el(
+    "div",
+    { className: "tab-main" },
+    H.el(
+      "div",
+      { className: "tab-title-row" },
+      H.el("span", {
+        className: "entity-icon tab-icon",
+        attrs: { "aria-hidden": "true" }
+      }),
+      H.el(
+        "div",
+        {
+          className: "tab-title",
+          title: tab.url ?? ""
+        },
+        tab.title || tab.url || "(bez názvu)"
+      )
+    ),
+    H.el(
+      "div",
+      {
+        className: "tab-url",
+        title: tab.url ?? ""
+      },
+      shortTabUrl(tab.url)
+    ),
+    meta
+  );
+
+  const actions = H.el(
+    "div",
+    { className: "tab-actions" },
+    H.el(
+      "button",
+      {
+        type: "button",
+        className: excepted ? "except-active" : "",
+        dataset: {
+          action: "except",
+          tabId: tab.id
+        }
+      },
+      excepted ? "EXCEPT ✓" : "EXCEPT"
+    ),
+    H.el(
+      "button",
+      {
+        type: "button",
+        disabled: disabled || excepted,
+        dataset: {
+          action: "deep",
+          tabId: tab.id
+        }
+      },
+      "DEEP"
+    )
+  );
+
+  return H.el(
+    "div",
+    {
+      className: "tab",
+      dataset: { tabId: tab.id }
+    },
+    main,
+    actions
+  );
 }
 
 function liveHostUsage(host) {
