@@ -9,6 +9,11 @@ branch = dev
 
 ## Done
 
+- 0.5.6: Workspace action text now follows global active-workspace state instead of the target workspace open/closed flag.
+- When any workspace is active, other workspace cards show "Přepnout".
+- "Recover session" is shown only when no workspace is active.
+- Confirmation text and runtime message now match the operation: switchWorkspace for switching, restoreWorkspace for recovery.
+
 - 0.5.5: Popup now distinguishes active workspace from the last used inactive workspace.
 - Added persistent fwm.lastWorkspaceId, updated whenever a workspace becomes active/used; clearing activeWorkspaceId does not clear lastWorkspaceId.
 - If no workspace is active, popup shows the last used workspace name with "Naposledy použitý · neaktivní" and a direct Recover session button.
