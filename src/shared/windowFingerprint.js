@@ -57,8 +57,8 @@ export function savedWindowFingerprintRows(savedWindow) {
 }
 
 /**
- * @param {browser.windows.Window} liveWindow
- * @param {browser.tabGroups.TabGroup[]} liveGroups
+ * @param {import("../types/domain.js").BrowserWindow} liveWindow
+ * @param {import("../types/domain.js").BrowserTabGroup[]} liveGroups
  */
 export function liveWindowFingerprintRows(liveWindow, liveGroups) {
   const groupTitleByRuntimeId = new Map(
@@ -90,8 +90,8 @@ export function fingerprintSavedWindow(savedWindow) {
 }
 
 /**
- * @param {browser.windows.Window} liveWindow
- * @param {browser.tabGroups.TabGroup[]} liveGroups
+ * @param {import("../types/domain.js").BrowserWindow} liveWindow
+ * @param {import("../types/domain.js").BrowserTabGroup[]} liveGroups
  */
 export function fingerprintLiveWindow(liveWindow, liveGroups) {
   return fingerprintRows(liveWindowFingerprintRows(liveWindow, liveGroups));
@@ -128,8 +128,8 @@ function isGenericSessionUrl(url) {
  * Exact fingerprint matching must always be preferred by callers.
  *
  * @param {WorkspaceWindow} savedWindow
- * @param {browser.windows.Window} liveWindow
- * @param {browser.tabGroups.TabGroup[]} liveGroups
+ * @param {import("../types/domain.js").BrowserWindow} liveWindow
+ * @param {import("../types/domain.js").BrowserTabGroup[]} liveGroups
  */
 export function scoreWorkspaceWindowMatch(savedWindow, liveWindow, liveGroups) {
   const savedTabs = (savedWindow?.tabs ?? []).filter(tab => !isExtensionUrl(tab.url));
