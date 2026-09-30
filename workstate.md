@@ -9,6 +9,11 @@ branch = dev
 
 ## Done
 
+- 0.6.1: Panel filters now temporarily expand every matching window and group; clearing the filter restores the persisted manual disclosure state.
+- Panel visual polish completed after the 0.6.0 structural refactor: stronger window hierarchy, flatter groups, native Firefox group-color indicators, quieter inactive filters and secondary Expand/Collapse controls.
+- Removed textual group color names (purple/cyan/orange/...) from panel headers; color is now shown visually.
+- Tab rows now use a CSS chain-link icon instead of the old bookmark-like outline.
+
 - 0.6.0 structural/documentation refactor prepared without intentional behavior changes.
 - Added shared JSDoc domain/runtime types and project-wide // @ts-check / jsconfig checkJs.
 - Extracted WorkspaceStore for persistence, runtime mapping, snapshot lock, migration and debug log.
