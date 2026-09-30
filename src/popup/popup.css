@@ -74,3 +74,18 @@ button {
   font-size: 10px;
   opacity: .5;
 }
+
+.recover-session {
+  grid-column: 1 / -1;
+  font-weight: 700;
+  border-color: color-mix(in srgb, AccentColor 55%, CanvasText);
+  background: color-mix(in srgb, AccentColor 14%, Canvas);
+}
+
+.recover-session:hover:not(:disabled) {
+  background: color-mix(in srgb, AccentColor 22%, Canvas);
+}
+
+.recover-session:disabled {
+  opacity: .65;
+}
