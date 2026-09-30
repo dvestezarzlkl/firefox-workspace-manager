@@ -26,6 +26,7 @@ with `// @ts-check` + JSDoc types; there is no bundler or transpilation step.
 
 ### Shared
 
+- `src/shared/H.js` — typed DOM construction helper (`H.el`, `H.txt`, `H.append`, `H.clear`, `H.replace`); dynamic values become text/properties rather than parsed HTML.
 - `src/shared/constants.js` — storage keys and shared defaults.
 - `src/shared/url.js` — URL classification and restore-safe URL helpers.
 - `src/shared/windowFingerprint.js` — deterministic content fingerprint and
@@ -122,6 +123,21 @@ Firefox `storage.sync` contains only lightweight configuration:
 
 Workspace snapshots, runtime IDs, lifecycle deadlines, statistics and debug
 history remain local.
+
+## DOM rendering and HTML safety
+
+Dynamic UI must be built as DOM nodes. Do not reintroduce dynamic `innerHTML`
+or string-template HTML rendering for manager/popup data.
+
+Use the small `H` helper for repetitive DOM construction:
+
+- `H.el()` creates an element with typed/common properties and children.
+- `H.txt()` creates an explicit text node.
+- `H.append()` appends optional Node/text children.
+- `H.clear()` / `H.replace()` clear or replace children.
+
+`H` is deliberately limited to HTML/DOM concerns. Hashing, timers, workspace
+logic and other utilities belong in their own modules.
 
 ## JavaScript conventions
 
