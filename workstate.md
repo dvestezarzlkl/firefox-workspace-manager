@@ -9,6 +9,12 @@ branch = dev
 
 ## Done
 
+- 0.6.4: Added typed/JSDoc DOM helper `src/shared/H.js` with `H.el`, `H.txt`, `H.append`, `H.clear` and `H.replace`.
+- Replaced all dynamic `innerHTML` rendering in manager.js and popup.js with real DOM construction through H.
+- Converted host policies, URL exception rules, panel/tab rendering, workspace cards/tree/debug log and popup statistics without changing event delegation or CSS class/data-attribute contracts.
+- AMO 0.6.3 reported five "Unsafe assignment to innerHTML" warnings; 0.6.4 source now contains zero `.innerHTML` assignments in manager/popup/H and should remove those validator warnings.
+- Added architectural invariant: H is DOM-only; unrelated utilities remain in dedicated modules.
+
 - 0.6.3: Version bumped for the first listed AMO submission. Extension code is unchanged from 0.6.2 plus the AMO publication tooling/metadata.
 - Only manifest.json carries the extension release version; package.json/package-lock.json are intentionally not bumped for extension-only releases.
 
