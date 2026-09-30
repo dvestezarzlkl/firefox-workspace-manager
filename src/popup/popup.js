@@ -59,8 +59,16 @@ async function load() {
   const activeWorkspace = activeWorkspaceId ? workspaces[activeWorkspaceId] : null;
 
   const storedLastWorkspaceId = stored[LAST_WORKSPACE_KEY] ?? null;
-  const explicitLastWorkspace = storedLastWorkspaceId ? workspaces[storedLastWorkspaceId] : null;
-  const fallbackLastWorkspace = explicitLastWorkspace || mostRecentlyUsedWorkspace(workspaces);
+  const explicitLastCandidate = storedLastWorkspaceId
+    ? workspaces[storedLastWorkspaceId]
+    : null;
+  const explicitLastWorkspace =
+    explicitLastCandidate &&
+    Object.keys(explicitLastCandidate.windows ?? {}).length
+      ? explicitLastCandidate
+      : null;
+  const fallbackLastWorkspace =
+    explicitLastWorkspace || mostRecentlyUsedWorkspace(workspaces);
 
   recoveryWorkspaceId = null;
 
