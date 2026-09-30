@@ -1028,7 +1028,8 @@ async function inferActiveWorkspaceFromRuntime() {
   return workspaceId;
 }
 
-async function restoreWorkspace(workspaceId) {
+async function restoreWorkspace(workspaceId, options = {}) {
+  const { reuseLive = true } = options;
   await workspaceDebug("restore-begin", {
     workspaceId,
     restoreDepth: workspaceRestoreDepth
@@ -1039,11 +1040,13 @@ async function restoreWorkspace(workspaceId) {
   const workspace = workspaces[workspaceId];
   if (!workspace) throw new Error("Workspace not found");
 
-  const liveMappedWindows = await findLiveWorkspaceWindows(
-    workspaceId,
-    workspaces,
-    store.windowMap
-  );
+  const liveMappedWindows = reuseLive
+    ? await findLiveWorkspaceWindows(
+        workspaceId,
+        workspaces,
+        store.windowMap
+      )
+    : [];
 
   if (liveMappedWindows.length) {
     workspace.active = true;
@@ -1715,69 +1718,170 @@ async function deleteWorkspace(workspaceId) {
 async function switchWorkspace(targetWorkspaceId) {
   const before = await loadWorkspaceStore();
   if (!before.activeWorkspaceId || !before.workspaces[before.activeWorkspaceId]) {
-    return restoreWorkspace(targetWorkspaceId);
+    return restoreWorkspace(targetWorkspaceId, { reuseLive: false });
   }
 
+  // Save the current live state, but do NOT detach or mark it closed yet.
+  // Keeping the old workspace fully alive until the target is verified makes
+  // switching failure-safe and prevents Firefox from ever seeing zero windows
+  // during a normal switch.
   await snapshotAllWindows();
+
   const store = await loadWorkspaceStore();
   const currentId = store.activeWorkspaceId;
 
   if (currentId === targetWorkspaceId) {
-    const current = store.workspaces[currentId];
-    const openIds = Object.values(current?.windows ?? {})
-      .filter(win => win.open && win.runtimeWindowId != null)
-      .map(win => win.runtimeWindowId);
-    if (openIds.length) {
-      try { await browser.windows.update(openIds[0], { focused: true }); } catch {}
+    const currentLive = await findLiveWorkspaceWindows(
+      currentId,
+      store.workspaces,
+      store.windowMap
+    );
+
+    if (currentLive.length) {
+      try {
+        await browser.windows.update(currentLive[0].runtimeWindowId, { focused: true });
+      } catch {}
     }
+
     return { reused: true, workspaceId: currentId };
   }
 
   const target = store.workspaces[targetWorkspaceId];
   if (!target) throw new Error("Target workspace not found");
 
-  const current = currentId ? store.workspaces[currentId] : null;
-  const oldWindowIds = Object.values(current?.windows ?? {})
-    .filter(win => win.open && win.runtimeWindowId != null)
-    .map(win => win.runtimeWindowId);
+  // Old windows are derived from the LIVE mapping, never from persisted
+  // workspace.windows[*].runtimeWindowId. Firefox runtime IDs are ephemeral
+  // and can be reused across browser sessions.
+  const currentLive = await findLiveWorkspaceWindows(
+    currentId,
+    store.workspaces,
+    store.windowMap
+  );
+  const oldWindowIds = currentLive.map(item => item.runtimeWindowId);
 
-  // Detach old runtime windows from the workspace mapping before restoring
-  // the target, so their later onRemoved events cannot mutate the new active workspace.
-  const detachedMap = { ...store.windowMap };
-  for (const runtimeId of oldWindowIds) delete detachedMap[String(runtimeId)];
+  await workspaceDebug("switch-begin", {
+    currentWorkspaceId: currentId,
+    targetWorkspaceId,
+    oldWindowIds
+  });
 
-  if (current) {
-    current.active = false;
-    current.open = false;
-    current.closedAt = Date.now();
-    current.updatedAt = Date.now();
-    for (const logicalWindow of Object.values(current.windows ?? {})) {
-      if (!logicalWindow.open) continue;
-      logicalWindow.open = false;
-      logicalWindow.closedAt = Date.now();
-      logicalWindow.runtimeWindowId = null;
+  let restored;
+  try {
+    // A closed target workspace must be created afresh. Never trust stale
+    // runtime mappings during a switch.
+    restored = await restoreWorkspace(targetWorkspaceId, { reuseLive: false });
+  } catch (error) {
+    await workspaceDebug("switch-target-restore-error", {
+      currentWorkspaceId: currentId,
+      targetWorkspaceId,
+      oldWindowIds,
+      error: String(error?.message ?? error)
+    });
+
+    // restoreWorkspace may have changed active flags before failing. The old
+    // windows are still untouched, so restore their logical active state.
+    const rollback = await loadWorkspaceStore();
+    const current = rollback.workspaces[currentId];
+    if (current) {
+      current.active = true;
+      current.open = oldWindowIds.length > 0;
+      current.closedAt = null;
+    }
+    const failedTarget = rollback.workspaces[targetWorkspaceId];
+    if (failedTarget) failedTarget.active = false;
+
+    await browser.storage.local.set({
+      [WORKSPACES_KEY]: rollback.workspaces,
+      [ACTIVE_WORKSPACE_KEY]: current ? currentId : null,
+      ...(current ? { [LAST_WORKSPACE_KEY]: currentId } : {})
+    });
+
+    throw error;
+  }
+
+  // Verify the target windows actually exist before closing a single old one.
+  const liveAfterRestore = await browser.windows.getAll({ windowTypes: ["normal"] });
+  const liveIds = new Set(liveAfterRestore.map(win => win.id));
+  const restoredWindowIds = (restored.windowIds ?? []).filter(id => liveIds.has(id));
+
+  await workspaceDebug("switch-target-verified", {
+    currentWorkspaceId: currentId,
+    targetWorkspaceId,
+    restoredWindowIds: restored.windowIds ?? [],
+    verifiedTargetWindowIds: restoredWindowIds,
+    liveWindowIds: [...liveIds]
+  });
+
+  if (!restoredWindowIds.length) {
+    const rollback = await loadWorkspaceStore();
+    const current = rollback.workspaces[currentId];
+    if (current) {
+      current.active = true;
+      current.open = oldWindowIds.length > 0;
+      current.closedAt = null;
+    }
+    const failedTarget = rollback.workspaces[targetWorkspaceId];
+    if (failedTarget) {
+      failedTarget.active = false;
+      failedTarget.open = false;
+    }
+
+    await browser.storage.local.set({
+      [WORKSPACES_KEY]: rollback.workspaces,
+      [ACTIVE_WORKSPACE_KEY]: current ? currentId : null,
+      ...(current ? { [LAST_WORKSPACE_KEY]: currentId } : {})
+    });
+
+    await workspaceDebug("switch-aborted-no-live-target", {
+      currentWorkspaceId: currentId,
+      targetWorkspaceId,
+      oldWindowIds
+    });
+
+    throw new Error("Přepnutí zrušeno: cílový workspace nemá žádné živé okno");
+  }
+
+  // Target is now proven alive. Only now may the previous workspace windows
+  // be closed. onRemoved still has their original mapping and therefore marks
+  // the correct (old) workspace closed without touching the active target.
+  for (const windowId of oldWindowIds) {
+    if (restoredWindowIds.includes(windowId)) continue;
+
+    await workspaceDebug("switch-close-old-window-before", {
+      currentWorkspaceId: currentId,
+      targetWorkspaceId,
+      runtimeWindowId: windowId
+    });
+
+    try {
+      await browser.windows.remove(windowId);
+      await workspaceDebug("switch-close-old-window-after", {
+        currentWorkspaceId: currentId,
+        targetWorkspaceId,
+        runtimeWindowId: windowId,
+        result: "closed"
+      });
+    } catch (error) {
+      await workspaceDebug("switch-close-old-window-after", {
+        currentWorkspaceId: currentId,
+        targetWorkspaceId,
+        runtimeWindowId: windowId,
+        result: "error",
+        error: String(error?.message ?? error)
+      });
     }
   }
 
-  target.active = false;
-  target.open = false;
-
-  await browser.storage.local.set({
-    [WORKSPACES_KEY]: store.workspaces,
-    [WINDOW_WORKSPACE_MAP_KEY]: detachedMap,
-    [ACTIVE_WORKSPACE_KEY]: null
+  await workspaceDebug("switch-end", {
+    previousWorkspaceId: currentId,
+    activeWorkspaceId: targetWorkspaceId,
+    targetWindowIds: restoredWindowIds
   });
 
-  // Restore first. This guarantees Firefox still has at least one normal window
-  // before the previous workspace windows are closed.
-  const restored = await restoreWorkspace(targetWorkspaceId);
-
-  for (const windowId of oldWindowIds) {
-    if ((restored.windowIds ?? []).includes(windowId)) continue;
-    try { await browser.windows.remove(windowId); } catch {}
-  }
-
-  return restored;
+  return {
+    ...restored,
+    windowIds: restoredWindowIds
+  };
 }
 
 // Lightweight settings sync ----------------------------------------------------
