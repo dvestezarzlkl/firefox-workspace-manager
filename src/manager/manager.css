@@ -104,7 +104,7 @@ main {
 
 .tab {
   display: grid;
-  grid-template-columns: 15px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 7px 9px;
@@ -642,16 +642,27 @@ main {
 
 .panel-toolbar-controls {
   display: grid;
-  grid-template-columns: minmax(300px, .7fr) minmax(560px, 1.3fr);
-  gap: 18px;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: start;
 }
 
 .panel-tree-controls {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+
+.panel-tree-row {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.panel-tree-row-refresh {
+  min-height: 30px;
 }
 
 .panel-tree-buttons {
@@ -679,7 +690,7 @@ main {
 }
 
 .panel-filter-stack .panel-filter-row {
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .entity-icon {
@@ -734,11 +745,17 @@ main {
   display: none;
 }
 
+.tab-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .tab-icon {
-  align-self: start;
   width: 10px;
   height: 13px;
-  margin-top: 2px;
+  margin-top: 0;
   border: 1px solid currentColor;
   clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 76%, 0 100%);
   box-sizing: border-box;
@@ -757,7 +774,11 @@ main {
     grid-template-columns: 1fr;
   }
 
-  .panel-filter-stack .panel-filter-row {
+  .panel-tree-controls {
+    justify-items: start;
+  }
+
+  .panel-tree-row {
     justify-content: flex-start;
   }
 }
