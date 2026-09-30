@@ -34,29 +34,6 @@
       </div>
 
       <div class="panel-toolbar-controls">
-        <div class="panel-tree-controls">
-          <div class="panel-tree-buttons">
-            <button id="panelExpandAll" type="button">Expand all</button>
-            <button id="panelCollapseAll" type="button">Collapse all</button>
-          </div>
-
-          <label class="panel-control-check">
-            <input id="panelAlwaysExpanded" type="checkbox">
-            <span>Always expanded</span>
-          </label>
-
-          <label class="panel-refresh-control">
-            <span>Refresh</span>
-            <select id="panelAutoRefresh">
-              <option value="0">Off</option>
-              <option value="5">5 s</option>
-              <option value="10">10 s</option>
-              <option value="30">30 s</option>
-              <option value="60">60 s</option>
-            </select>
-          </label>
-        </div>
-
         <div class="panel-filter-stack">
           <div class="panel-filter-row" id="panelStateFilters">
             <span class="panel-filter-label">Stav</span>
@@ -71,6 +48,33 @@
             <button type="button" class="panel-filter" data-panel-filter-category="policy" data-panel-filter="deep-always" aria-pressed="false">DEEP always <span data-panel-filter-count="deep-always">0</span></button>
             <button type="button" class="panel-filter" data-panel-filter-category="policy" data-panel-filter="except" aria-pressed="false">EXCEPT <span data-panel-filter-count="except">0</span></button>
             <span id="panelFilterInfo" class="panel-filter-info"></span>
+          </div>
+        </div>
+
+        <div class="panel-tree-controls">
+          <div class="panel-tree-row">
+            <div class="panel-tree-buttons">
+              <button id="panelExpandAll" type="button">Expand all</button>
+              <button id="panelCollapseAll" type="button">Collapse all</button>
+            </div>
+
+            <label class="panel-control-check">
+              <input id="panelAlwaysExpanded" type="checkbox">
+              <span>Always expanded</span>
+            </label>
+          </div>
+
+          <div class="panel-tree-row panel-tree-row-refresh">
+            <label class="panel-refresh-control">
+              <span>Refresh</span>
+              <select id="panelAutoRefresh">
+                <option value="0">Off</option>
+                <option value="5">5 s</option>
+                <option value="10">10 s</option>
+                <option value="30">30 s</option>
+                <option value="60">60 s</option>
+              </select>
+            </label>
           </div>
         </div>
       </div>
