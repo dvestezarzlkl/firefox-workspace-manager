@@ -3,3 +3,4 @@ web-ext-artifacts/
 node_modules/
 .DS_Store
 /.dev/firefox-profile
+/.amo-upload-uuid
