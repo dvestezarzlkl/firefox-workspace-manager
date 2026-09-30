@@ -104,7 +104,7 @@ main {
 
 .tab {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 15px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 7px 9px;
@@ -637,5 +637,127 @@ main {
 
   .groups {
     grid-template-columns: 1fr;
+  }
+}
+
+.panel-toolbar-controls {
+  display: grid;
+  grid-template-columns: minmax(300px, .7fr) minmax(560px, 1.3fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.panel-tree-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.panel-tree-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.panel-tree-controls button,
+.panel-refresh-control select {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.panel-control-check,
+.panel-refresh-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.panel-filter-stack {
+  min-width: 0;
+}
+
+.panel-filter-stack .panel-filter-row {
+  justify-content: flex-end;
+}
+
+.entity-icon {
+  display: inline-block;
+  position: relative;
+  flex: 0 0 auto;
+  opacity: .72;
+}
+
+.window-icon {
+  width: 15px;
+  height: 11px;
+  margin-right: 8px;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+  box-sizing: border-box;
+}
+
+.window-icon::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  top: 2px;
+  border-top: 1px solid currentColor;
+  opacity: .7;
+}
+
+.group-icon {
+  width: 14px;
+  height: 10px;
+  margin-right: 7px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  box-sizing: border-box;
+}
+
+.group-icon::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: -4px;
+  width: 7px;
+  height: 4px;
+  border: 1px solid currentColor;
+  border-bottom: 0;
+  border-radius: 2px 2px 0 0;
+  box-sizing: border-box;
+}
+
+.ungrouped-icon::before {
+  display: none;
+}
+
+.tab-icon {
+  align-self: start;
+  width: 10px;
+  height: 13px;
+  margin-top: 2px;
+  border: 1px solid currentColor;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 76%, 0 100%);
+  box-sizing: border-box;
+}
+
+.window-header {
+  border-left: 3px solid color-mix(in srgb, CanvasText 30%, transparent);
+}
+
+.group-header {
+  border-left: 2px solid color-mix(in srgb, CanvasText 20%, transparent);
+}
+
+@media (max-width: 1050px) {
+  .panel-toolbar-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-filter-stack .panel-filter-row {
+    justify-content: flex-start;
   }
 }
