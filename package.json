@@ -7,8 +7,9 @@
     "predev": "node -e \"require('fs').mkdirSync('../.dev',{recursive:true})\"",
     "dev": "web-ext run --source-dir=. --firefox-profile=../.dev/firefox-profile --profile-create-if-missing --keep-profile-changes --browser-console --watch-ignored=node_modules/** --watch-ignored=.git/** --watch-ignored=.vscode/** --watch-ignored=docs/** --watch-ignored=workstate.md --watch-ignored=AGENTS.md --watch-ignored=README.md --watch-ignored=package-lock.json",
     "lint": "web-ext lint --source-dir=.",
-    "build": "web-ext build --source-dir=. --overwrite-dest",
-    "sign:unlisted": "web-ext sign --source-dir=. --channel=unlisted"
+    "build": "web-ext build --source-dir=. --overwrite-dest --ignore-files=amo-metadata.json",
+    "sign:unlisted": "web-ext sign --source-dir=. --channel=unlisted --ignore-files=amo-metadata.json",
+    "sign:listed": "web-ext sign --source-dir=. --channel=listed --amo-metadata=amo-metadata.json --ignore-files=amo-metadata.json"
   },
   "devDependencies": {
     "web-ext": "^10.5.0"
