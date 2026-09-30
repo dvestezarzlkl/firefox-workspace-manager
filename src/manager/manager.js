@@ -16,6 +16,7 @@ import {
   WORKSPACE_DEBUG_KEY
 } from "../shared/constants.js";
 import { hostnameFromUrl, isExtensionUrl } from "../shared/url.js";
+import { H } from "../shared/H.js";
 import { PanelExplorerController } from "./PanelExplorerController.js";
 
 const app = document.getElementById("app");
@@ -96,9 +97,24 @@ function esc(value) {
 }
 
 function stateBadge(tab) {
-  if (tab.active) return '<span class="state state-active" title="Aktivní">●</span>';
-  if (tab.discarded) return '<span class="state state-deep" title="DEEP / uvolněno z paměti">○</span>';
-  return '<span class="state state-loaded" title="Načteno v paměti">✓</span>';
+  if (tab.active) {
+    return H.el("span", {
+      className: "state state-active",
+      title: "Aktivní"
+    }, "●");
+  }
+
+  if (tab.discarded) {
+    return H.el("span", {
+      className: "state state-deep",
+      title: "DEEP / uvolněno z paměti"
+    }, "○");
+  }
+
+  return H.el("span", {
+    className: "state state-loaded",
+    title: "Načteno v paměti"
+  }, "✓");
 }
 
 function extraFlags(tab) {
@@ -198,18 +214,30 @@ function exactUrlException(tab) {
 
 function policyBadge(tab) {
   if (exactUrlException(tab)) {
-    return '<span class="policy-badge policy-keep" title="Přesná URL je výjimka KEEP">EXCEPT</span>';
+    return H.el("span", {
+      className: "policy-badge policy-keep",
+      title: "Přesná URL je výjimka KEEP"
+    }, "EXCEPT");
   }
 
   const host = hostnameFromUrl(tab.url);
   const mode = host ? hostPolicies[host] : null;
+
   if (mode === "DEEP") {
-    return '<span class="policy-badge policy-deep" title="Hostname má politiku DEEP">DEEP ALWAYS</span>';
+    return H.el("span", {
+      className: "policy-badge policy-deep",
+      title: "Hostname má politiku DEEP"
+    }, "DEEP ALWAYS");
   }
+
   if (mode === "KEEP") {
-    return '<span class="policy-badge policy-keep" title="Hostname má politiku KEEP">KEEP ALWAYS</span>';
+    return H.el("span", {
+      className: "policy-badge policy-keep",
+      title: "Hostname má politiku KEEP"
+    }, "KEEP ALWAYS");
   }
-  return "";
+
+  return null;
 }
 
 function tabPolicyFilterKey(tab) {
@@ -308,24 +336,40 @@ function formatClock(ts) {
 
 function discardDebugText(tab) {
   const item = lifecycleMap[String(tab.id)];
-  if (!item?.lastDiscardAttemptAt) return "";
+  if (!item?.lastDiscardAttemptAt) return null;
+
   const result = item.lastDiscardResult ?? "—";
   const reason = item.lastDiscardReason ?? "—";
-  const discardedAt = item.discardedAt ? " · discarded " + formatClock(item.discardedAt) : "";
-  return '<span class="discard-debug" title="Poslední pokus o discard">discard ' +
-    formatClock(item.lastDiscardAttemptAt) + ' · ' + esc(reason) + ' · ' + esc(result) + discardedAt + '</span>';
+  const discardedAt = item.discardedAt
+    ? " · discarded " + formatClock(item.discardedAt)
+    : "";
+
+  return H.el("span", {
+    className: "discard-debug",
+    title: "Poslední pokus o discard"
+  },
+  "discard ",
+  formatClock(item.lastDiscardAttemptAt),
+  " · ",
+  reason,
+  " · ",
+  result,
+  discardedAt);
 }
 
 function lifecycleText(tab) {
   const item = lifecycleMap[String(tab.id)];
-  if (!item || tab.active || tab.discarded) return "";
+  if (!item || tab.active || tab.discarded) return null;
 
   const host = hostnameFromUrl(tab.url);
   const mode = host ? hostPolicies[host] : null;
-  if (exactUrlException(tab) || mode === "KEEP" || mode === "DEEP") return "";
+  if (exactUrlException(tab) || mode === "KEEP" || mode === "DEEP") return null;
+  if (!item.deadline) return null;
 
-  if (!item.deadline) return "";
-  return '<span class="countdown" data-deadline="' + item.deadline + '">DEEP za ' + formatRemaining(item.deadline) + '</span>';
+  return H.el("span", {
+    className: "countdown",
+    dataset: { deadline: item.deadline }
+  }, "DEEP za " + formatRemaining(item.deadline));
 }
 
 function renderTab(tab) {
