@@ -1,20 +1,40 @@
-const STORAGE_KEY = "fwm.state";
-const LAST_ACTIVE_CONTENT_KEY = "fwm.lastActiveContentTabs";
-const HOST_POLICIES_KEY = "fwm.hostPolicies";
-const URL_POLICIES_KEY = "fwm.urlPolicies";
-const AUTO_SETTINGS_KEY = "fwm.autoSettings";
-const TAB_LIFECYCLE_KEY = "fwm.tabLifecycle";
-const HOST_STATS_KEY = "fwm.hostStats";
-const NEXT_DEEP_ALARM = "fwm.nextDeep";
-const DEEP_WATCHDOG_ALARM = "fwm.deepWatchdog";
-const WORKSPACES_KEY = "fwm.workspaces";
-const WINDOW_WORKSPACE_MAP_KEY = "fwm.windowWorkspaceMap";
-const SYNC_ENABLED_KEY = "fwm.sync.enabled";
-const SYNC_KEYS = [AUTO_SETTINGS_KEY, HOST_POLICIES_KEY, URL_POLICIES_KEY];
-const WORKSPACE_DEBUG_KEY = "fwm.workspaceDebugLog";
-const WORKSPACE_SNAPSHOT_LOCK_KEY = "fwm.workspaceSnapshotLock";
-const LAST_WORKSPACE_KEY = "fwm.lastWorkspaceId";
-const WORKSPACE_SNAPSHOT_LOCK_TTL_MS = 120000;
+// @ts-check
+
+import {
+  ACTIVE_WORKSPACE_KEY,
+  AUTO_SETTINGS_KEY,
+  DEEP_WATCHDOG_ALARM,
+  HOST_POLICIES_KEY,
+  HOST_STATS_KEY,
+  LAST_ACTIVE_CONTENT_KEY,
+  LAST_WORKSPACE_KEY,
+  NEXT_DEEP_ALARM,
+  STORAGE_KEY,
+  SYNC_ENABLED_KEY,
+  SYNC_KEYS,
+  TAB_LIFECYCLE_KEY,
+  URL_POLICIES_KEY,
+  WINDOW_WORKSPACE_MAP_KEY,
+  WORKSPACES_KEY,
+  defaultAutoSettings
+} from "./shared/constants.js";
+import {
+  hasWorkspaceContent,
+  hostnameFromUrl,
+  isExtensionUrl,
+  isHttpUrl,
+  isTransientBlankUrl,
+  restorableUrl,
+  restoreUrlOrBlank
+} from "./shared/url.js";
+import {
+  fingerprintLiveWindow,
+  fingerprintSavedWindow,
+  scoreWorkspaceWindowMatch
+} from "./shared/windowFingerprint.js";
+import { WorkspaceStore } from "./background/WorkspaceStore.js";
+
+const workspaceStore = new WorkspaceStore();
 
 const activeByWindow = new Map();
 const workspaceReattachTimers = new Map();
@@ -59,37 +79,15 @@ function hasWorkspaceContent(win) {
 }
 
 async function workspaceSnapshotLocked() {
-  if (workspaceRestoreDepth > 0) return true;
-
-  const stored = await browser.storage.local.get(WORKSPACE_SNAPSHOT_LOCK_KEY);
-  const lock = stored[WORKSPACE_SNAPSHOT_LOCK_KEY];
-  if (!lock) return false;
-
-  const acquiredAt = Number(lock.acquiredAt) || 0;
-  if (Date.now() - acquiredAt > WORKSPACE_SNAPSHOT_LOCK_TTL_MS) {
-    await browser.storage.local.remove(WORKSPACE_SNAPSHOT_LOCK_KEY);
-    return false;
-  }
-
-  return true;
+  return workspaceStore.snapshotLocked(workspaceRestoreDepth);
 }
 
 async function acquireWorkspaceSnapshotLock(workspaceId, reason = "restore") {
-  const lock = { workspaceId, reason, acquiredAt: Date.now() };
-  await browser.storage.local.set({ [WORKSPACE_SNAPSHOT_LOCK_KEY]: lock });
-  await workspaceDebug("snapshot-lock-acquired", lock);
+  return workspaceStore.acquireSnapshotLock(workspaceId, reason);
 }
 
 async function releaseWorkspaceSnapshotLock(workspaceId) {
-  const stored = await browser.storage.local.get(WORKSPACE_SNAPSHOT_LOCK_KEY);
-  const lock = stored[WORKSPACE_SNAPSHOT_LOCK_KEY];
-  if (!lock) return;
-  if (workspaceId && lock.workspaceId && lock.workspaceId !== workspaceId) return;
-
-  await browser.storage.local.remove(WORKSPACE_SNAPSHOT_LOCK_KEY);
-  await workspaceDebug("snapshot-lock-released", {
-    workspaceId: workspaceId ?? lock.workspaceId ?? null
-  });
+  return workspaceStore.releaseSnapshotLock(workspaceId);
 }
 
 async function getConfig() {
@@ -140,37 +138,27 @@ async function withTimeout(promise, ms, label) {
 }
 
 async function workspaceDebug(event, data = {}) {
-  const stored = await browser.storage.local.get(WORKSPACE_DEBUG_KEY);
-  const log = Array.isArray(stored[WORKSPACE_DEBUG_KEY]) ? stored[WORKSPACE_DEBUG_KEY] : [];
-  log.push({
-    at: Date.now(),
-    event,
-    data
-  });
-  await browser.storage.local.set({
-    [WORKSPACE_DEBUG_KEY]: log.slice(-200)
-  });
+  return workspaceStore.debug(event, data);
 }
 
 function newWorkspaceId() {
-  return crypto.randomUUID();
+  return workspaceStore.newWorkspaceId();
 }
 
 function newLogicalWindowId() {
-  return crypto.randomUUID();
+  return workspaceStore.newLogicalWindowId();
 }
-
 
 async function reconcileWorkspaceRuntimeState() {
   const stored = await browser.storage.local.get([
     WORKSPACES_KEY,
     WINDOW_WORKSPACE_MAP_KEY,
-    "fwm.activeWorkspaceId"
+    ACTIVE_WORKSPACE_KEY
   ]);
 
   const workspaces = stored[WORKSPACES_KEY] ?? {};
   const windowMap = stored[WINDOW_WORKSPACE_MAP_KEY] ?? {};
-  let activeWorkspaceId = stored["fwm.activeWorkspaceId"] ?? null;
+  let activeWorkspaceId = stored[ACTIVE_WORKSPACE_KEY] ?? null;
   const liveWindows = await browser.windows.getAll({ windowTypes: ["normal"] });
   const liveIds = new Set(liveWindows.map(win => String(win.id)));
 
@@ -235,7 +223,7 @@ async function reconcileWorkspaceRuntimeState() {
     await browser.storage.local.set({
       [WORKSPACES_KEY]: workspaces,
       [WINDOW_WORKSPACE_MAP_KEY]: windowMap,
-      "fwm.activeWorkspaceId": activeWorkspaceId,
+      ACTIVE_WORKSPACE_KEY: activeWorkspaceId,
       ...(activeWorkspaceId ? { [LAST_WORKSPACE_KEY]: activeWorkspaceId } : {})
     });
   }
@@ -321,7 +309,7 @@ async function reconcileWorkspaceRuntimeState() {
     await browser.storage.local.set({
       [WORKSPACES_KEY]: workspaces,
       [WINDOW_WORKSPACE_MAP_KEY]: windowMap,
-      "fwm.activeWorkspaceId": activeWorkspaceId
+      ACTIVE_WORKSPACE_KEY: activeWorkspaceId
     });
   }
 
@@ -329,142 +317,15 @@ async function reconcileWorkspaceRuntimeState() {
 }
 
 function normalizeWorkspaceGroupKeys(workspaces) {
-  let changed = false;
-
-  for (const workspace of Object.values(workspaces ?? {})) {
-    for (const win of Object.values(workspace?.windows ?? {})) {
-      const groups = win.groups ?? [];
-      const tabs = win.tabs ?? [];
-      const keyByRuntimeId = new Map();
-
-      groups.forEach((group, index) => {
-        if (!group.groupKey) {
-          group.groupKey = "g" + index;
-          changed = true;
-        }
-        keyByRuntimeId.set(group.runtimeGroupId, group.groupKey);
-      });
-
-      for (const tab of tabs) {
-        // groupKey:null is an explicit "ungrouped" value and must never be
-        // reinterpreted through legacy runtimeGroupId fallback.
-        if (Object.prototype.hasOwnProperty.call(tab, "groupKey")) continue;
-
-        const key = keyByRuntimeId.get(tab.runtimeGroupId);
-        if (key) {
-          tab.groupKey = key;
-          changed = true;
-        } else {
-          tab.groupKey = null;
-          changed = true;
-        }
-      }
-    }
-  }
-
-  return changed;
+  return workspaceStore.normalizeGroupKeys(workspaces);
 }
 
 async function loadWorkspaceStore() {
-  const stored = await browser.storage.local.get([
-    WORKSPACES_KEY,
-    WINDOW_WORKSPACE_MAP_KEY,
-    "fwm.activeWorkspaceId"
-  ]);
-
-  let workspaces = stored[WORKSPACES_KEY] ?? {};
-  let windowMap = stored[WINDOW_WORKSPACE_MAP_KEY] ?? {};
-  let activeWorkspaceId = stored["fwm.activeWorkspaceId"] ?? null;
-
-  const legacy = Object.values(workspaces).filter(ws => ws && !ws.windows && ws.window);
-  if (legacy.length) {
-    const mergedId = newWorkspaceId();
-    const merged = {
-      id: mergedId,
-      name: legacy[0]?.name || "Workspace 1",
-      persistent: true,
-      createdAt: Math.min(...legacy.map(ws => ws.createdAt || Date.now())),
-      updatedAt: Date.now(),
-      windows: {}
-    };
-
-    const newMap = {};
-    for (const ws of legacy) {
-      const logicalWindowId = newLogicalWindowId();
-      merged.windows[logicalWindowId] = {
-        id: logicalWindowId,
-        open: !!ws.open,
-        runtimeWindowId: ws.runtimeWindowId ?? null,
-        closedAt: ws.closedAt ?? null,
-        window: ws.window ?? {},
-        groups: ws.groups ?? [],
-        tabs: ws.tabs ?? []
-      };
-
-      if (ws.runtimeWindowId != null) {
-        newMap[String(ws.runtimeWindowId)] = {
-          workspaceId: mergedId,
-          logicalWindowId
-        };
-      }
-    }
-
-    workspaces = { [mergedId]: merged };
-    windowMap = newMap;
-    activeWorkspaceId = Object.values(merged.windows).some(win => win.open) ? mergedId : null;
-
-    await browser.storage.local.set({
-      [WORKSPACES_KEY]: workspaces,
-      [WINDOW_WORKSPACE_MAP_KEY]: windowMap,
-      "fwm.activeWorkspaceId": activeWorkspaceId
-    });
-  }
-
-  if (normalizeWorkspaceGroupKeys(workspaces)) {
-    await browser.storage.local.set({ [WORKSPACES_KEY]: workspaces });
-  }
-
-  return { workspaces, windowMap, activeWorkspaceId };
+  return workspaceStore.load();
 }
 
-async function ensureActiveWorkspace({ allowCreate = false } = {}) {
-  const store = await loadWorkspaceStore();
-  let { workspaces, windowMap, activeWorkspaceId } = store;
-
-  if (activeWorkspaceId && workspaces[activeWorkspaceId]) {
-    return { workspaces, windowMap, activeWorkspaceId };
-  }
-
-  const firstEverWorkspace = Object.keys(workspaces).length === 0;
-  if (!allowCreate && !firstEverWorkspace) {
-    return { workspaces, windowMap, activeWorkspaceId: null };
-  }
-
-  activeWorkspaceId = newWorkspaceId();
-  workspaces[activeWorkspaceId] = {
-    id: activeWorkspaceId,
-    name: "Workspace " + (Object.keys(workspaces).length + 1),
-    persistent: true,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    windows: {}
-  };
-
-  await browser.storage.local.set({
-    [WORKSPACES_KEY]: workspaces,
-    "fwm.activeWorkspaceId": activeWorkspaceId,
-    [LAST_WORKSPACE_KEY]: activeWorkspaceId
-  });
-  await workspaceDebug("workspace-created", {
-    workspaceId: activeWorkspaceId,
-    reason: firstEverWorkspace ? "first-ever" : "explicit"
-  });
-
-  return { workspaces, windowMap, activeWorkspaceId };
-}
-
-function isTransientBlankUrl(url) {
-  return ["about:blank", "about:newtab", "about:home"].includes(String(url ?? ""));
+async function ensureActiveWorkspace(options = {}) {
+  return workspaceStore.ensureActive(options);
 }
 
 /**
@@ -634,7 +495,7 @@ async function saveWorkspaceSnapshot(win, groups) {
   await browser.storage.local.set({
     [WORKSPACES_KEY]: workspaces,
     [WINDOW_WORKSPACE_MAP_KEY]: windowMap,
-    "fwm.activeWorkspaceId": activeWorkspaceId
+    ACTIVE_WORKSPACE_KEY: activeWorkspaceId
   });
 
   await workspaceDebug("snapshot-saved", {
@@ -646,167 +507,6 @@ async function saveWorkspaceSnapshot(win, groups) {
   });
 
   return activeWorkspaceId;
-}
-
-function normalizeFingerprintText(value) {
-  return String(value ?? "")
-    .normalize("NFC")
-    .trim()
-    .replace(/\s+/g, " ")
-    .toLowerCase();
-}
-
-function normalizeFingerprintUrl(url) {
-  const raw = String(url ?? "").trim();
-  if (!raw) return "";
-
-  try {
-    const parsed = new URL(raw);
-    return parsed.href;
-  } catch {
-    return raw;
-  }
-}
-
-async function sha256Hex(value) {
-  const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest))
-    .map(byte => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function savedWindowFingerprintRows(savedWindow) {
-  const groupTitleByKey = new Map(
-    (savedWindow?.groups ?? []).map(group => [
-      group.groupKey ?? group.key ?? null,
-      normalizeFingerprintText(group.title || "")
-    ])
-  );
-
-  return (savedWindow?.tabs ?? [])
-    .filter(tab => !isExtensionUrl(tab.url))
-    .map(tab => {
-      const groupTitle = tab.groupKey
-        ? (groupTitleByKey.get(tab.groupKey) ?? "<unknown-group>")
-        : "<ungrouped>";
-      return groupTitle + "|" + normalizeFingerprintUrl(tab.url);
-    })
-    .sort();
-}
-
-function liveWindowFingerprintRows(liveWindow, liveGroups) {
-  const groupTitleByRuntimeId = new Map(
-    (liveGroups ?? []).map(group => [
-      group.id,
-      normalizeFingerprintText(group.title || "")
-    ])
-  );
-
-  return (liveWindow?.tabs ?? [])
-    .filter(tab => !isExtensionUrl(tab.url))
-    .map(tab => {
-      const groupTitle = tab.groupId != null && tab.groupId !== -1
-        ? (groupTitleByRuntimeId.get(tab.groupId) ?? "<unknown-group>")
-        : "<ungrouped>";
-      return groupTitle + "|" + normalizeFingerprintUrl(tab.url);
-    })
-    .sort();
-}
-
-async function fingerprintRows(rows) {
-  return sha256Hex(["fwm-window-fingerprint-v1", ...rows].join("\n"));
-}
-
-async function fingerprintSavedWindow(savedWindow) {
-  return fingerprintRows(savedWindowFingerprintRows(savedWindow));
-}
-
-async function fingerprintLiveWindow(liveWindow, liveGroups) {
-  return fingerprintRows(liveWindowFingerprintRows(liveWindow, liveGroups));
-}
-
-function multisetOverlap(valuesA, valuesB) {
-  const counts = new Map();
-  for (const value of valuesA) {
-    if (!value) continue;
-    counts.set(value, (counts.get(value) ?? 0) + 1);
-  }
-
-  let overlap = 0;
-  for (const value of valuesB) {
-    if (!value) continue;
-    const count = counts.get(value) ?? 0;
-    if (count > 0) {
-      overlap++;
-      if (count === 1) counts.delete(value);
-      else counts.set(value, count - 1);
-    }
-  }
-  return overlap;
-}
-
-function isGenericSessionUrl(url) {
-  return ["about:blank", "about:newtab", "about:home"].includes(url ?? "");
-}
-
-function scoreWorkspaceWindowMatch(savedWindow, liveWindow, liveGroups) {
-  const savedTabs = (savedWindow?.tabs ?? []).filter(tab => !isExtensionUrl(tab.url));
-  const liveTabs = (liveWindow?.tabs ?? []).filter(tab => !isExtensionUrl(tab.url));
-
-  if (!savedTabs.length || !liveTabs.length) return null;
-
-  const savedUrls = savedTabs
-    .map(tab => tab.url)
-    .filter(url => url && !isGenericSessionUrl(url));
-  const liveUrls = liveTabs
-    .map(tab => tab.url)
-    .filter(url => url && !isGenericSessionUrl(url));
-
-  const savedTitles = savedTabs.map(tab => tab.title).filter(Boolean);
-  const liveTitles = liveTabs.map(tab => tab.title).filter(Boolean);
-  const savedGroupTitles = (savedWindow.groups ?? []).map(group => group.title).filter(Boolean);
-  const liveGroupTitles = (liveGroups ?? []).map(group => group.title).filter(Boolean);
-
-  const urlOverlap = multisetOverlap(savedUrls, liveUrls);
-  const titleOverlap = multisetOverlap(savedTitles, liveTitles);
-  const groupOverlap = multisetOverlap(savedGroupTitles, liveGroupTitles);
-
-  const maxTabs = Math.max(savedTabs.length, liveTabs.length);
-  const minTabs = Math.min(savedTabs.length, liveTabs.length);
-  const countSimilarity = maxTabs ? minTabs / maxTabs : 0;
-  const contentOverlap = Math.max(urlOverlap, titleOverlap);
-  const contentCoverage = maxTabs ? contentOverlap / maxTabs : 0;
-
-  const maxGroups = Math.max(savedGroupTitles.length, liveGroupTitles.length);
-  const groupCoverage = maxGroups ? groupOverlap / maxGroups : 1;
-
-  const score =
-    (contentCoverage * 0.72) +
-    (countSimilarity * 0.20) +
-    (groupCoverage * 0.08);
-
-  let accepted = false;
-  if (maxTabs <= 2) {
-    accepted = savedTabs.length === liveTabs.length && contentCoverage === 1;
-  } else if (maxTabs <= 7) {
-    accepted = countSimilarity >= 0.75 && contentCoverage >= 0.70;
-  } else {
-    accepted = countSimilarity >= 0.70 && contentCoverage >= 0.55 && contentOverlap >= 3;
-  }
-
-  return {
-    score,
-    accepted,
-    savedTabCount: savedTabs.length,
-    liveTabCount: liveTabs.length,
-    urlOverlap,
-    titleOverlap,
-    groupOverlap,
-    contentCoverage,
-    countSimilarity,
-    groupCoverage
-  };
 }
 
 async function tryReattachWorkspaceWindow(windowId) {
@@ -945,7 +645,7 @@ async function tryReattachWorkspaceWindow(windowId) {
   await browser.storage.local.set({
     [WORKSPACES_KEY]: store.workspaces,
     [WINDOW_WORKSPACE_MAP_KEY]: store.windowMap,
-    "fwm.activeWorkspaceId": best.workspaceId,
+    ACTIVE_WORKSPACE_KEY: best.workspaceId,
     [LAST_WORKSPACE_KEY]: best.workspaceId
   });
 
@@ -1005,7 +705,7 @@ async function markWorkspaceClosed(windowId) {
   };
 
   if (!anyOpen && activeWorkspaceId === workspace.id) {
-    updates["fwm.activeWorkspaceId"] = null;
+    updates[ACTIVE_WORKSPACE_KEY] = null;
     workspace.active = false;
     workspace.closedAt = Date.now();
   }
@@ -1017,23 +717,6 @@ async function markWorkspaceClosed(windowId) {
     runtimeWindowId: windowId,
     workspaceStillOpen: anyOpen
   });
-}
-
-function restorableUrl(url) {
-  if (!url) return null;
-  if (/^(moz|chrome)-extension:\/\//i.test(url)) return null;
-
-  try {
-    const parsed = new URL(url);
-    if (["http:", "https:", "file:"].includes(parsed.protocol)) return url;
-    if (url === "about:blank") return url;
-  } catch {}
-
-  return null;
-}
-
-function restoreUrlOrBlank(url) {
-  return restorableUrl(url) || "about:blank";
 }
 
 async function createRestoreWindowShell(workspaceId, logicalWindowId, sourceWindow) {
@@ -1373,7 +1056,7 @@ async function inferActiveWorkspaceFromRuntime() {
     staleWorkspace.open = false;
     await browser.storage.local.set({
       [WORKSPACES_KEY]: store.workspaces,
-      "fwm.activeWorkspaceId": null
+      ACTIVE_WORKSPACE_KEY: null
     });
   }
   const counts = new Map();
@@ -1393,7 +1076,7 @@ async function inferActiveWorkspaceFromRuntime() {
 
   await browser.storage.local.set({
     [WORKSPACES_KEY]: store.workspaces,
-    "fwm.activeWorkspaceId": workspaceId,
+    ACTIVE_WORKSPACE_KEY: workspaceId,
     [LAST_WORKSPACE_KEY]: workspaceId
   });
 
@@ -1434,7 +1117,7 @@ async function restoreWorkspace(workspaceId) {
 
     await browser.storage.local.set({
       [WORKSPACES_KEY]: workspaces,
-      "fwm.activeWorkspaceId": workspaceId,
+      ACTIVE_WORKSPACE_KEY: workspaceId,
       [LAST_WORKSPACE_KEY]: workspaceId
     });
 
@@ -1510,7 +1193,7 @@ async function restoreWorkspace(workspaceId) {
     await browser.storage.local.set({
       [WORKSPACES_KEY]: workspaces,
       [WINDOW_WORKSPACE_MAP_KEY]: newMap,
-      "fwm.activeWorkspaceId": restored.length ? workspaceId : null,
+      ACTIVE_WORKSPACE_KEY: restored.length ? workspaceId : null,
       ...(restored.length ? { [LAST_WORKSPACE_KEY]: workspaceId } : {})
     });
 
@@ -1776,7 +1459,7 @@ async function removeWorkspaceWindow(workspaceId, logicalWindowId) {
   await browser.storage.local.set({
     [WORKSPACES_KEY]: store.workspaces,
     [WINDOW_WORKSPACE_MAP_KEY]: store.windowMap,
-    "fwm.activeWorkspaceId": store.activeWorkspaceId
+    ACTIVE_WORKSPACE_KEY: store.activeWorkspaceId
   });
 
   await workspaceDebug("workspace-window-removed", {
@@ -2010,7 +1693,7 @@ async function createWorkspaceFromCurrentState(name) {
   await browser.storage.local.set({
     [WORKSPACES_KEY]: store.workspaces,
     [WINDOW_WORKSPACE_MAP_KEY]: store.windowMap,
-    "fwm.activeWorkspaceId": workspaceId,
+    ACTIVE_WORKSPACE_KEY: workspaceId,
     [LAST_WORKSPACE_KEY]: workspaceId
   });
 
@@ -2029,11 +1712,11 @@ async function createWorkspaceFromCurrentState(name) {
   const verify = await browser.storage.local.get([
     WORKSPACES_KEY,
     WINDOW_WORKSPACE_MAP_KEY,
-    "fwm.activeWorkspaceId"
+    ACTIVE_WORKSPACE_KEY
   ]);
 
   const verifiedWorkspace = verify[WORKSPACES_KEY]?.[workspaceId];
-  const verifiedActiveId = verify["fwm.activeWorkspaceId"];
+  const verifiedActiveId = verify[ACTIVE_WORKSPACE_KEY];
   const verifiedWindows = Object.keys(verifiedWorkspace?.windows ?? {}).length;
   const verifiedTabs = Object.values(verifiedWorkspace?.windows ?? {})
     .reduce((sum, win) => sum + (win.tabs ?? []).length, 0);
@@ -2074,7 +1757,7 @@ async function deleteWorkspace(workspaceId) {
   };
 
   if (activeWorkspaceId === workspaceId) {
-    updates["fwm.activeWorkspaceId"] = null;
+    updates[ACTIVE_WORKSPACE_KEY] = null;
   }
 
   await browser.storage.local.set(updates);
@@ -2141,7 +1824,7 @@ async function switchWorkspace(targetWorkspaceId) {
   await browser.storage.local.set({
     [WORKSPACES_KEY]: store.workspaces,
     [WINDOW_WORKSPACE_MAP_KEY]: detachedMap,
-    "fwm.activeWorkspaceId": null
+    ACTIVE_WORKSPACE_KEY: null
   });
 
   // Restore first. This guarantees Firefox still has at least one normal window
