@@ -818,3 +818,32 @@ main {
     width: 100%;
   }
 }
+
+.workspace-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, CanvasText 4%, Canvas);
+  line-height: 1;
+  opacity: .78;
+}
+
+.workspace-status-active {
+  color: color-mix(in srgb, #35c759 82%, CanvasText);
+  border-color: color-mix(in srgb, #35c759 48%, transparent);
+  background: color-mix(in srgb, #35c759 13%, Canvas);
+  opacity: 1;
+}
+
+.workspace-status-open {
+  color: color-mix(in srgb, #45a1ff 72%, CanvasText);
+  border-color: color-mix(in srgb, #45a1ff 34%, transparent);
+  background: color-mix(in srgb, #45a1ff 8%, Canvas);
+}
+
+.workspace-status-closed {
+  opacity: .58;
+}
