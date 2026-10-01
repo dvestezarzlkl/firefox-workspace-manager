@@ -7,10 +7,18 @@ source for release notes and AMO Version Notes.
 
 ## Unreleased
 
+## 0.7.0 - 2026-10-01
+
 ### Added
-- Workspace collection backup/restore.
-- Workspace import provenance and duplicate-name protection.
-- Timestamped export filenames.
+- Backup and restore all saved workspaces in one versioned JSON bundle.
+- Import provenance metadata: original creation time, import time, source filename and original workspace name.
+- Duplicate-name protection for single and collection imports.
+- Timestamp prefixes on single-workspace and workspace-collection exports.
+
+### Changed
+- Single-workspace export format is now version 2; imports remain backward compatible with version 1.
+- Workspace cards show creation/import provenance.
+- Built-in Help documents LIVE snapshot behavior and workspace backup/restore.
 
 ## 0.6.4 - 2026-10-01
 
