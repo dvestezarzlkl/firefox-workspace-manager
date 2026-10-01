@@ -1426,7 +1426,7 @@ async function buildImportedWorkspace(payload, options = {}) {
     closedAt: now,
     importedAt: now,
     importSource: options.sourceName ?? provenance?.sourceName ?? null,
-    originalName: String(payload.name || provenance?.originalName || importedName),
+    originalName: String(provenance?.originalName || payload.name || importedName),
     windows
   };
 }
