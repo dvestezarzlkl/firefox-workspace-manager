@@ -156,4 +156,32 @@
  * @property {number|null|undefined} [discardedAt]
  */
 
+
+/**
+ * Portable one-workspace export format.
+ *
+ * Version 1 is the legacy shape without provenance metadata.
+ * Version 2 adds createdAt/exportedAt/provenance while keeping window content
+ * backwards compatible.
+ *
+ * @typedef {Object} WorkspaceExport
+ * @property {"firefox-workspace-manager.workspace"} format
+ * @property {1|2} version
+ * @property {number|undefined} [exportedAt]
+ * @property {string} name
+ * @property {number|null|undefined} [createdAt]
+ * @property {{importedAt:number|null,sourceName:string|null,originalName:string|null}|null|undefined} [provenance]
+ * @property {Array<Object>} windows
+ */
+
+/**
+ * Portable bundle containing all saved workspaces.
+ *
+ * @typedef {Object} WorkspaceCollectionExport
+ * @property {"firefox-workspace-manager.workspaces"} format
+ * @property {1} version
+ * @property {number} exportedAt
+ * @property {WorkspaceExport[]} workspaces
+ */
+
 export {};
