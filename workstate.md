@@ -9,6 +9,8 @@ branch = dev
 
 ## Done
 
+- 0.6.4 H DOM refactor regression test passed: popup, Workspaces, workspace detail tree, Panels, Settings and Help render correctly after removal of dynamic innerHTML; workspace recovery also passed.
+
 - 0.6.4: Added typed/JSDoc DOM helper `src/shared/H.js` with `H.el`, `H.txt`, `H.append`, `H.clear` and `H.replace`.
 - Replaced all dynamic `innerHTML` rendering in manager.js and popup.js with real DOM construction through H.
 - Converted host policies, URL exception rules, panel/tab rendering, workspace cards/tree/debug log and popup statistics without changing event delegation or CSS class/data-attribute contracts.
