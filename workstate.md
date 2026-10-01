@@ -364,6 +364,8 @@ summary = DEEP ALL EXCEPT ACTIVE ověřeno v sandbox Firefoxu. Při aktivním ni
 
 ## Backlog
 
+- Workspace persistence modes: split two independent concerns instead of one combined select. Update mode = LIVE (current continuous workspace updates) vs MANUAL/PERMANENT SNAPSHOT (workspace changes only after explicit "Uložit stav"). Startup policy for manual/permanent workspaces = respect/start last Firefox session vs force this workspace active on browser start. In manual/permanent mode add "Uložit stav" to the popup. Update Help wording because current "Uložit stav = aktualizuje snapshot právě aktivního workspace" is misleading while LIVE mode already updates continuously. Implement after the current backlog, not now.
+
 - Workspace collection backup/restore: export/import all saved workspaces in one bundle.
 - Import duplicate-name guard: if a workspace with the same name already exists, require a new name or cancel instead of creating another identical name.
 - Workspace provenance metadata: keep visible createdAt and, for imported workspaces, importedAt plus original/source name so the manager can show when and where the workspace came from.
