@@ -1613,7 +1613,9 @@ workspaceListEl.addEventListener("click", async event => {
 });
 
 
-importWorkspaceButton.addEventListener("click", () => importWorkspaceFile.click());
+importWorkspaceButton.addEventListener("click", () => {
+  importWorkspaceFile.click();
+});
 
 importWorkspaceFile.addEventListener("change", async () => {
   const file = importWorkspaceFile.files?.[0];
@@ -1621,13 +1623,94 @@ importWorkspaceFile.addEventListener("change", async () => {
 
   try {
     const payload = JSON.parse(await file.text());
-    await browser.runtime.sendMessage({ type: "importWorkspace", payload });
+    const names = resolveImportNames([payload]);
+    if (!names) return;
+
+    await browser.runtime.sendMessage({
+      type: "importWorkspace",
+      payload,
+      name: names[0],
+      sourceName: file.name
+    });
+
     await load();
   } catch (error) {
     console.error("Workspace import failed", error);
     alert("Import workspace selhal: " + (error?.message ?? error));
   } finally {
     importWorkspaceFile.value = "";
+  }
+});
+
+backupWorkspacesButton.addEventListener("click", async () => {
+  backupWorkspacesButton.disabled = true;
+
+  try {
+    const payload = await browser.runtime.sendMessage({
+      type: "exportWorkspaceCollection"
+    });
+
+    downloadJson(
+      payload,
+      backupTimestamp() + "_workspaces.json"
+    );
+  } catch (error) {
+    console.error("Workspace collection backup failed", error);
+    alert("Backup workspaces selhal: " + (error?.message ?? error));
+  } finally {
+    backupWorkspacesButton.disabled = false;
+  }
+});
+
+restoreWorkspacesButton.addEventListener("click", () => {
+  restoreWorkspacesFile.click();
+});
+
+restoreWorkspacesFile.addEventListener("change", async () => {
+  const file = restoreWorkspacesFile.files?.[0];
+  if (!file) return;
+
+  try {
+    const payload = JSON.parse(await file.text());
+
+    if (
+      payload?.format !== "firefox-workspace-manager.workspaces" ||
+      Number(payload?.version) !== 1 ||
+      !Array.isArray(payload?.workspaces)
+    ) {
+      throw new Error("Soubor není workspace collection backup");
+    }
+
+    const names = resolveImportNames(payload.workspaces);
+    if (!names) return;
+
+    if (
+      !confirm(
+        "Importovat " + payload.workspaces.length +
+        " workspace z backupu?\n\n" +
+        "Existující workspace zůstanou beze změny."
+      )
+    ) {
+      return;
+    }
+
+    restoreWorkspacesButton.disabled = true;
+
+    const result = await browser.runtime.sendMessage({
+      type: "importWorkspaceCollection",
+      payload,
+      names,
+      sourceName: file.name
+    });
+
+    await load();
+    alert("Importováno workspace: " + (result?.imported ?? 0));
+  } catch (error) {
+    console.error("Workspace collection restore failed", error);
+    alert("Restore workspaces selhal: " + (error?.message ?? error));
+  } finally {
+    restoreWorkspacesButton.disabled = false;
+    restoreWorkspacesFile.value = "";
   }
 });
 
