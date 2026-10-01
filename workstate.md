@@ -9,6 +9,10 @@ branch = dev
 
 ## Done
 
+- 0.7.0 regression test passed: single workspace export created timestamped filename; duplicate-name import guard blocked the same-name import; full workspace collection backup exported correctly.
+- Destructive restore test passed: all saved workspaces were deleted, Firefox Workspace Manager created the expected default workspace, collection restore recreated the backed-up workspaces as inactive, deleting the temporary default left the restored workspaces intact, and Recover session correctly restored the selected workspace state.
+- After recovery, the restored workspace became active and the remaining workspace cards correctly switched to the "Přepnout" action.
+
 - 0.7.0: Added versioned backup/restore of the full workspace collection.
 - Single workspace export format bumped to v2 with exportedAt, createdAt and provenance; v1 imports remain supported.
 - Imports now preserve original createdAt and record importedAt, source filename and original workspace name.
@@ -352,14 +356,10 @@ branch = dev
 
 ## Next
 
-1. Pull 0.7.0 and reload the extension.
-2. Export one workspace and verify the filename starts with yyyyMMddHHmmss and the JSON reports format version 2.
-3. Re-import the same workspace: duplicate-name guard must require a new name or cancel.
-4. Verify the imported workspace card shows createdAt/importedAt/source/original-name provenance correctly.
-5. Run Backup workspaces, inspect the collection JSON, then Restore workspaces.
-6. During collection restore, verify duplicate names are resolved before import and that existing workspaces are not overwritten.
-7. Recover one restored workspace and verify windows/groups/tabs/fingerprints remain correct.
-8. Run web-ext lint and unlisted validation before distributing 0.7.0.
+1. Verify provenance text on at least one imported/restored workspace card: createdAt/importedAt/source filename/original name.
+2. Recover one additional restored workspace and verify windows, tab groups, tab order and discarded state.
+3. Run web-ext lint.
+4. Sign 0.7.0 as unlisted and verify AMO validation remains at 0 errors / 0 warnings before wider testing.
 
 ## localCommand
 
