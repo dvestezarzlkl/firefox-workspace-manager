@@ -425,16 +425,22 @@ function resolveImportNames(payloads) {
       "Importovaný workspace";
     let candidate = original;
 
-    while (reserved.has(normalizeWorkspaceName(candidate))) {
+    while (
+      !candidate ||
+      reserved.has(normalizeWorkspaceName(candidate))
+    ) {
+      const conflict = candidate
+        ? 'Workspace s názvem "' + candidate + '" už existuje.'
+        : "Název workspace nesmí být prázdný.";
+
       const entered = prompt(
-        'Workspace s názvem "' + candidate + '" už existuje.\n\n' +
+        conflict + "\n\n" +
         "Zadej nový název, nebo dej Storno pro zrušení celého importu:",
         original + " import"
       );
 
       if (entered == null) return null;
       candidate = entered.trim();
-      if (!candidate) continue;
     }
 
     reserved.add(normalizeWorkspaceName(candidate));
