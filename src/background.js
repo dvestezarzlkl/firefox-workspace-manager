@@ -2301,8 +2301,20 @@ browser.runtime.onMessage.addListener(message => {
   if (message?.type === "exportWorkspace" && message.workspaceId) {
     return getWorkspaceExport(message.workspaceId);
   }
+  if (message?.type === "exportWorkspaceCollection") {
+    return getWorkspaceCollectionExport();
+  }
   if (message?.type === "importWorkspace" && message.payload) {
-    return importWorkspace(message.payload);
+    return importWorkspace(message.payload, {
+      name: message.name,
+      sourceName: message.sourceName
+    });
+  }
+  if (message?.type === "importWorkspaceCollection" && message.payload) {
+    return importWorkspaceCollection(message.payload, {
+      names: message.names,
+      sourceName: message.sourceName
+    });
   }
   if (message?.type === "pullSyncSettings") {
     return pullSettingsFromSync();
