@@ -1218,8 +1218,17 @@ async function restoreWorkspace(workspaceId, options = {}) {
 async function sanitizeWorkspaceForExport(workspace) {
   const exported = {
     format: "firefox-workspace-manager.workspace",
-    version: 1,
+    version: 2,
+    exportedAt: Date.now(),
     name: workspace?.name || "Workspace",
+    createdAt: Number(workspace?.createdAt) || null,
+    provenance: workspace?.importedAt
+      ? {
+          importedAt: Number(workspace.importedAt) || null,
+          sourceName: workspace.importSource ?? null,
+          originalName: workspace.originalName ?? null
+        }
+      : null,
     windows: []
   };
 
@@ -1276,57 +1285,105 @@ async function sanitizeWorkspaceForExport(workspace) {
   return exported;
 }
 
-async function importWorkspace(payload) {
-  if (!payload || payload.format !== "firefox-workspace-manager.workspace" || payload.version !== 1) {
+/**
+ * Validate one exported workspace payload.
+ *
+ * Version 1 remains accepted for backups created before provenance metadata
+ * was introduced. Version 2 adds createdAt/exportedAt/provenance fields.
+ *
+ * @param {any} payload
+ */
+function validateWorkspaceImportPayload(payload) {
+  if (
+    !payload ||
+    payload.format !== "firefox-workspace-manager.workspace" ||
+    ![1, 2].includes(Number(payload.version))
+  ) {
     throw new Error("Unsupported workspace JSON format");
   }
 
-  const { workspaces } = await loadWorkspaceStore();
+  if (!Array.isArray(payload.windows)) {
+    throw new Error("Workspace JSON neobsahuje seznam oken");
+  }
+}
+
+/** @param {string} value */
+function normalizeWorkspaceName(value) {
+  return String(value ?? "").trim().toLocaleLowerCase("cs-CZ");
+}
+
+/**
+ * Convert exported workspace data into a new local workspace with fresh
+ * logical/runtime placeholder IDs. The returned object is not persisted yet.
+ *
+ * @param {any} payload
+ * @param {{name?: string, sourceName?: string|null, importedAt?: number}} [options]
+ */
+async function buildImportedWorkspace(payload, options = {}) {
+  validateWorkspaceImportPayload(payload);
+
   const workspaceId = newWorkspaceId();
   const windows = {};
+  const now = Number(options.importedAt) || Date.now();
+  const importedName = String(options.name ?? payload.name ?? "Importovaný workspace").trim();
+  if (!importedName) throw new Error("Workspace musí mít název");
 
-  for (const importedWindow of Array.isArray(payload.windows) ? payload.windows : []) {
+  for (const importedWindow of payload.windows) {
     const logicalWindowId = newLogicalWindowId();
     const runtimeGroupByKey = new Map();
-    const groups = (Array.isArray(importedWindow.groups) ? importedWindow.groups : []).map((group, index) => {
-      const runtimeGroupId = -(index + 1);
-      runtimeGroupByKey.set(group.key ?? ("g" + index), runtimeGroupId);
-      return {
-        runtimeGroupId,
-        groupKey: group.key ?? ("g" + index),
-        title: String(group.title ?? ""),
-        color: group.color ?? "grey",
-        collapsed: !!group.collapsed
-      };
-    });
 
-    const tabs = (Array.isArray(importedWindow.tabs) ? importedWindow.tabs : []).map((tab, index) => ({
-      runtimeTabId: -(index + 1),
-      index: Number.isFinite(tab.index) ? tab.index : index,
-      url: String(tab.url ?? "about:blank"),
-      title: String(tab.title ?? ""),
-      pinned: !!tab.pinned,
-      active: !!tab.active,
-      discarded: !!tab.discarded,
-      audible: false,
-      autoDiscardable: tab.autoDiscardable !== false,
-      cookieStoreId: tab.cookieStoreId ?? null,
-      runtimeGroupId: tab.groupKey ? (runtimeGroupByKey.get(tab.groupKey) ?? null) : null,
-      groupKey: tab.groupKey ?? null
-    }));
+    const groups = (Array.isArray(importedWindow.groups) ? importedWindow.groups : [])
+      .map((group, index) => {
+        const runtimeGroupId = -(index + 1);
+        const groupKey = group.key ?? ("g" + index);
+        runtimeGroupByKey.set(groupKey, runtimeGroupId);
+        return {
+          runtimeGroupId,
+          groupKey,
+          title: String(group.title ?? ""),
+          color: group.color ?? "grey",
+          collapsed: !!group.collapsed
+        };
+      });
+
+    const tabs = (Array.isArray(importedWindow.tabs) ? importedWindow.tabs : [])
+      .map((tab, index) => ({
+        runtimeTabId: -(index + 1),
+        index: Number.isFinite(tab.index) ? tab.index : index,
+        url: String(tab.url ?? "about:blank"),
+        title: String(tab.title ?? ""),
+        pinned: !!tab.pinned,
+        active: !!tab.active,
+        discarded: !!tab.discarded,
+        audible: false,
+        autoDiscardable: tab.autoDiscardable !== false,
+        cookieStoreId: tab.cookieStoreId ?? null,
+        runtimeGroupId: tab.groupKey
+          ? (runtimeGroupByKey.get(tab.groupKey) ?? null)
+          : null,
+        groupKey: tab.groupKey ?? null
+      }));
 
     const importedSnapshot = {
       id: logicalWindowId,
       open: false,
       runtimeWindowId: null,
-      closedAt: Date.now(),
-      updatedAt: Date.now(),
+      closedAt: now,
+      updatedAt: now,
       window: {
         state: importedWindow.window?.state ?? "normal",
-        left: Number.isFinite(importedWindow.window?.left) ? importedWindow.window.left : null,
-        top: Number.isFinite(importedWindow.window?.top) ? importedWindow.window.top : null,
-        width: Number.isFinite(importedWindow.window?.width) ? importedWindow.window.width : null,
-        height: Number.isFinite(importedWindow.window?.height) ? importedWindow.window.height : null,
+        left: Number.isFinite(importedWindow.window?.left)
+          ? importedWindow.window.left
+          : null,
+        top: Number.isFinite(importedWindow.window?.top)
+          ? importedWindow.window.top
+          : null,
+        width: Number.isFinite(importedWindow.window?.width)
+          ? importedWindow.window.width
+          : null,
+        height: Number.isFinite(importedWindow.window?.height)
+          ? importedWindow.window.height
+          : null,
         incognito: !!importedWindow.window?.incognito
       },
       groups,
@@ -1351,31 +1408,169 @@ async function importWorkspace(payload) {
     windows[logicalWindowId] = importedSnapshot;
   }
 
-  workspaces[workspaceId] = {
+  const originalCreatedAt = Number(payload.createdAt);
+  const provenance = payload.provenance && typeof payload.provenance === "object"
+    ? payload.provenance
+    : null;
+
+  return {
     id: workspaceId,
-    name: String(payload.name || "Importovaný workspace"),
+    name: importedName,
     persistent: true,
     active: false,
     open: false,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    closedAt: Date.now(),
+    createdAt: Number.isFinite(originalCreatedAt) && originalCreatedAt > 0
+      ? originalCreatedAt
+      : now,
+    updatedAt: now,
+    closedAt: now,
+    importedAt: now,
+    importSource: options.sourceName ?? provenance?.sourceName ?? null,
+    originalName: String(payload.name || provenance?.originalName || importedName),
     windows
   };
+}
 
-  await browser.storage.local.set({ [WORKSPACES_KEY]: workspaces });
-  await workspaceDebug("workspace-imported", {
-    workspaceId,
-    windows: Object.keys(windows).length
+/**
+ * @param {any} payload
+ * @param {{name?: string, sourceName?: string|null}} [options]
+ */
+async function importWorkspace(payload, options = {}) {
+  const { workspaces } = await loadWorkspaceStore();
+  validateWorkspaceImportPayload(payload);
+
+  const requestedName = String(options.name ?? payload.name ?? "Importovaný workspace").trim();
+  const normalizedName = normalizeWorkspaceName(requestedName);
+
+  if (
+    Object.values(workspaces).some(workspace =>
+      normalizeWorkspaceName(workspace?.name) === normalizedName
+    )
+  ) {
+    throw new Error('Workspace s názvem "' + requestedName + '" už existuje');
+  }
+
+  const imported = await buildImportedWorkspace(payload, {
+    name: requestedName,
+    sourceName: options.sourceName ?? null
   });
-  return workspaces[workspaceId];
+
+  workspaces[imported.id] = imported;
+  await browser.storage.local.set({ [WORKSPACES_KEY]: workspaces });
+
+  await workspaceDebug("workspace-imported", {
+    workspaceId: imported.id,
+    sourceName: imported.importSource,
+    originalName: imported.originalName,
+    windows: Object.keys(imported.windows).length
+  });
+
+  return imported;
 }
 
 async function getWorkspaceExport(workspaceId) {
   const { workspaces } = await loadWorkspaceStore();
   const workspace = workspaces[workspaceId];
   if (!workspace) throw new Error("Workspace not found");
-  return await sanitizeWorkspaceForExport(workspace);
+  return sanitizeWorkspaceForExport(workspace);
+}
+
+/**
+ * Export all saved workspaces as one portable bundle.
+ */
+async function getWorkspaceCollectionExport() {
+  const { workspaces } = await loadWorkspaceStore();
+  const exported = [];
+
+  for (const workspace of Object.values(workspaces)) {
+    exported.push(await sanitizeWorkspaceForExport(workspace));
+  }
+
+  return {
+    format: "firefox-workspace-manager.workspaces",
+    version: 1,
+    exportedAt: Date.now(),
+    workspaces: exported
+  };
+}
+
+/**
+ * Import a complete workspace collection after all names have already been
+ * resolved by the UI. Validation happens before persistence, so a bad bundle
+ * never leaves a half-imported collection behind.
+ *
+ * @param {any} payload
+ * @param {{names?: string[], sourceName?: string|null}} [options]
+ */
+async function importWorkspaceCollection(payload, options = {}) {
+  if (
+    !payload ||
+    payload.format !== "firefox-workspace-manager.workspaces" ||
+    Number(payload.version) !== 1 ||
+    !Array.isArray(payload.workspaces)
+  ) {
+    throw new Error("Unsupported workspace collection JSON format");
+  }
+
+  const store = await loadWorkspaceStore();
+  const existingNames = new Set(
+    Object.values(store.workspaces)
+      .map(workspace => normalizeWorkspaceName(workspace?.name))
+      .filter(Boolean)
+  );
+  const requestedNames = Array.isArray(options.names) ? options.names : [];
+  const resolvedNames = [];
+  const seenNames = new Set(existingNames);
+
+  for (let index = 0; index < payload.workspaces.length; index++) {
+    const workspacePayload = payload.workspaces[index];
+    validateWorkspaceImportPayload(workspacePayload);
+
+    const name = String(
+      requestedNames[index] ?? workspacePayload.name ?? "Importovaný workspace"
+    ).trim();
+
+    if (!name) throw new Error("Workspace musí mít název");
+
+    const normalized = normalizeWorkspaceName(name);
+    if (seenNames.has(normalized)) {
+      throw new Error('Workspace s názvem "' + name + '" už existuje');
+    }
+
+    seenNames.add(normalized);
+    resolvedNames.push(name);
+  }
+
+  const importedAt = Date.now();
+  const importedWorkspaces = [];
+
+  for (let index = 0; index < payload.workspaces.length; index++) {
+    importedWorkspaces.push(await buildImportedWorkspace(
+      payload.workspaces[index],
+      {
+        name: resolvedNames[index],
+        sourceName: options.sourceName ?? null,
+        importedAt
+      }
+    ));
+  }
+
+  for (const workspace of importedWorkspaces) {
+    store.workspaces[workspace.id] = workspace;
+  }
+
+  await browser.storage.local.set({ [WORKSPACES_KEY]: store.workspaces });
+
+  await workspaceDebug("workspace-collection-imported", {
+    sourceName: options.sourceName ?? null,
+    count: importedWorkspaces.length,
+    workspaceIds: importedWorkspaces.map(workspace => workspace.id)
+  });
+
+  return {
+    imported: importedWorkspaces.length,
+    workspaceIds: importedWorkspaces.map(workspace => workspace.id)
+  };
 }
 
 async function removeWorkspaceWindow(workspaceId, logicalWindowId) {
