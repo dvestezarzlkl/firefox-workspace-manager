@@ -41,6 +41,9 @@ const snapshotWorkspaceButton = document.getElementById("snapshotWorkspace");
 const cloneWorkspaceButton = document.getElementById("cloneWorkspace");
 const importWorkspaceButton = document.getElementById("importWorkspace");
 const importWorkspaceFile = document.getElementById("importWorkspaceFile");
+const backupWorkspacesButton = document.getElementById("backupWorkspaces");
+const restoreWorkspacesButton = document.getElementById("restoreWorkspaces");
+const restoreWorkspacesFile = document.getElementById("restoreWorkspacesFile");
 const managerVersion = document.getElementById("managerVersion");
 const managerDeveloper = document.getElementById("managerDeveloper");
 const panelSearch = document.getElementById("panelSearch");
@@ -332,6 +335,141 @@ function updatePanelFilterUi(allTabs, visibleTabs) {
 function formatClock(ts) {
   if (!ts) return "—";
   return new Date(ts).toLocaleTimeString("cs-CZ", { hour12: false });
+}
+
+
+/**
+ * Format a persistent timestamp for compact workspace provenance UI.
+ *
+ * @param {number|null|undefined} ts
+ * @returns {string}
+ */
+function formatDateTime(ts) {
+  if (!ts) return "—";
+  return new Date(ts).toLocaleString("cs-CZ", { hour12: false });
+}
+
+/**
+ * Local-time backup prefix required by the backup/export naming convention.
+ *
+ * @param {Date} [date]
+ * @returns {string}
+ */
+function backupTimestamp(date = new Date()) {
+  const part = value => String(value).padStart(2, "0");
+  return String(date.getFullYear()) +
+    part(date.getMonth() + 1) +
+    part(date.getDate()) +
+    part(date.getHours()) +
+    part(date.getMinutes()) +
+    part(date.getSeconds());
+}
+
+/**
+ * Convert a user-visible workspace name to a filesystem-safe filename part.
+ *
+ * @param {string} value
+ * @returns {string}
+ */
+function safeFilenamePart(value) {
+  const safe = String(value || "workspace")
+    .trim()
+    .replace(/[^a-z0-9._-]+/gi, "_")
+    .replace(/^_+|_+$/g, "");
+  return safe || "workspace";
+}
+
+/**
+ * Download one JSON payload without introducing an additional extension API.
+ *
+ * @param {unknown} payload
+ * @param {string} filename
+ */
+function downloadJson(payload, filename) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: "application/json"
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  link.click();
+
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** @param {string} value */
+function normalizeWorkspaceName(value) {
+  return String(value ?? "").trim().toLocaleLowerCase("cs-CZ");
+}
+
+/**
+ * Resolve duplicate imported workspace names before writing anything.
+ *
+ * Returning null means the user cancelled the complete import operation.
+ *
+ * @param {any[]} payloads
+ * @returns {string[]|null}
+ */
+function resolveImportNames(payloads) {
+  const reserved = new Set(
+    Object.values(workspaces ?? {})
+      .map(workspace => normalizeWorkspaceName(workspace?.name))
+      .filter(Boolean)
+  );
+  const resolved = [];
+
+  for (const payload of payloads) {
+    const original = String(payload?.name || "Importovaný workspace").trim() ||
+      "Importovaný workspace";
+    let candidate = original;
+
+    while (reserved.has(normalizeWorkspaceName(candidate))) {
+      const entered = prompt(
+        'Workspace s názvem "' + candidate + '" už existuje.\n\n' +
+        "Zadej nový název, nebo dej Storno pro zrušení celého importu:",
+        original + " import"
+      );
+
+      if (entered == null) return null;
+      candidate = entered.trim();
+      if (!candidate) continue;
+    }
+
+    reserved.add(normalizeWorkspaceName(candidate));
+    resolved.push(candidate);
+  }
+
+  return resolved;
+}
+
+/**
+ * Human-readable provenance shown directly on a workspace card.
+ *
+ * @param {any} workspace
+ * @returns {string}
+ */
+function workspaceProvenanceText(workspace) {
+  const parts = [];
+
+  if (workspace?.createdAt) {
+    parts.push("Vytvořeno " + formatDateTime(workspace.createdAt));
+  }
+
+  if (workspace?.importedAt) {
+    let imported = "Importováno " + formatDateTime(workspace.importedAt);
+    if (workspace.importSource) imported += " z " + workspace.importSource;
+    if (
+      workspace.originalName &&
+      workspace.originalName !== workspace.name
+    ) {
+      imported += ' · původně "' + workspace.originalName + '"';
+    }
+    parts.push(imported);
+  }
+
+  return parts.join(" · ");
 }
 
 function discardDebugText(tab) {
