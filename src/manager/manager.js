@@ -957,6 +957,8 @@ function renderWorkspaces() {
       )
     );
 
+    const provenanceText = workspaceProvenanceText(workspace);
+
     const info = H.el(
       "div",
       {},
@@ -968,7 +970,14 @@ function renderWorkspaces() {
           stat.windows + " uložená okna · " +
           stat.tabs + " panelů · " +
           stat.groups + " skupin"
-      )
+      ),
+      provenanceText
+        ? H.el(
+            "div",
+            { className: "workspace-provenance" },
+            provenanceText
+          )
+        : null
     );
 
     const action = (name, label, disabled = false) =>
