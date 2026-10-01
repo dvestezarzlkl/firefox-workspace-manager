@@ -9,6 +9,15 @@ branch = dev
 
 ## Done
 
+- 0.7.0: Added versioned backup/restore of the full workspace collection.
+- Single workspace export format bumped to v2 with exportedAt, createdAt and provenance; v1 imports remain supported.
+- Imports now preserve original createdAt and record importedAt, source filename and original workspace name.
+- Single and collection imports reject duplicate names; manager requires a new name or allows cancelling the complete import.
+- Collection restore validates all workspace names/formats before a single storage write, preventing half-imported bundles.
+- Single exports now use `yyyyMMddHHmmss_<workspace>.json`; collection backups use `yyyyMMddHHmmss_workspaces.json`. Device suffix is omitted because no trustworthy hostname is available through the current WebExtension API.
+- Workspace cards show creation/import provenance.
+- Added CHANGELOG.md as the canonical source for user-facing release history and AMO Version Notes.
+
 - 0.6.4 H DOM refactor regression test passed: popup, Workspaces, workspace detail tree, Panels, Settings and Help render correctly after removal of dynamic innerHTML; workspace recovery also passed.
 
 - 0.6.4: Added typed/JSDoc DOM helper `src/shared/H.js` with `H.el`, `H.txt`, `H.append`, `H.clear` and `H.replace`.
@@ -343,12 +352,14 @@ branch = dev
 
 ## Next
 
-1. Pull 0.6.2 and test switching first in the isolated development profile.
-2. Regression-test the colleague Firefox 157 profile that previously exited during switching.
-3. Copy the workspace debug log immediately after one successful and one failed/aborted switch if behavior differs between machines.
-4. Verify switch-target-verified contains at least one verifiedTargetWindowId before any switch-close-old-window-before event.
-5. Restart Firefox after switching and verify the target workspace is fingerprint-reattached/marked active correctly.
-6. Continue monitoring for about:blank URL corruption and lifecycle deadline/discard behavior.
+1. Pull 0.7.0 and reload the extension.
+2. Export one workspace and verify the filename starts with yyyyMMddHHmmss and the JSON reports format version 2.
+3. Re-import the same workspace: duplicate-name guard must require a new name or cancel.
+4. Verify the imported workspace card shows createdAt/importedAt/source/original-name provenance correctly.
+5. Run Backup workspaces, inspect the collection JSON, then Restore workspaces.
+6. During collection restore, verify duplicate names are resolved before import and that existing workspaces are not overwritten.
+7. Recover one restored workspace and verify windows/groups/tabs/fingerprints remain correct.
+8. Run web-ext lint and unlisted validation before distributing 0.7.0.
 
 ## localCommand
 
@@ -366,10 +377,5 @@ summary = DEEP ALL EXCEPT ACTIVE ověřeno v sandbox Firefoxu. Při aktivním ni
 
 - Workspace persistence modes: split two independent concerns instead of one combined select. Update mode = LIVE (current continuous workspace updates) vs MANUAL/PERMANENT SNAPSHOT (workspace changes only after explicit "Uložit stav"). Startup policy for manual/permanent workspaces = respect/start last Firefox session vs force this workspace active on browser start. In manual/permanent mode add "Uložit stav" to the popup. Update Help wording because current "Uložit stav = aktualizuje snapshot právě aktivního workspace" is misleading while LIVE mode already updates continuously. Implement after the current backlog, not now.
 
-- Workspace collection backup/restore: export/import all saved workspaces in one bundle.
-- Import duplicate-name guard: if a workspace with the same name already exists, require a new name or cancel instead of creating another identical name.
-- Workspace provenance metadata: keep visible createdAt and, for imported workspaces, importedAt plus original/source name so the manager can show when and where the workspace came from.
 - Complete application backup/restore in Settings: one versioned backup file containing all settings, all workspaces and relevant application metadata for disaster recovery.
-- Timestamped export filenames: prefix every JSON backup/export with `yyyyMMddHHmmss`. Planned names: `yyyyMMddHHmmss_<workspace>.json`, `yyyyMMddHHmmss_workspaces_<device>.json`, `yyyyMMddHHmmss_workspace_manager_<device>.json`. Device/hostname suffix is optional and must be omitted if the WebExtension cannot obtain a trustworthy device identifier.
 - Lifecycle/activity log for Panels: default-collapsed diagnostic log similar to workspace debug log. Record create/open, activate, inactive, deadline scheduled/recomputed, discard/DEEP, reload/reactivate and restore events with timestamp, tab ID/title/URL, workspace/window/group context when known, reason/policy and result. Keep a bounded history (roughly 200–500 events) and provide quick event-type filters.
-- Backup/export filenames must start with timestamp `yyyyMMddHHmmss`: `yyyyMMddHHmmss_<workspace>.json`, `yyyyMMddHHmmss_workspaces_<device>.json`, `yyyyMMddHHmmss_workspace_manager_<device>.json`. Device/hostname suffix is optional if the WebExtension cannot safely identify it.
