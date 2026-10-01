@@ -381,6 +381,12 @@ main {
   opacity: .65;
 }
 
+.workspace-provenance {
+  margin-top: 2px;
+  font-size: 11px;
+  opacity: .52;
+}
+
 .workspace-actions {
   display: flex;
   gap: 6px;
