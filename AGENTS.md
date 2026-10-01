@@ -84,3 +84,10 @@ Do not use `localCommand` for secrets. Never place passwords, tokens, private ke
 - Dynamic manager/popup UI must use DOM nodes, not dynamic `innerHTML`.
 - Use `src/shared/H.js` for concise DOM construction. `H` is intentionally a DOM-only helper and must not become a general utility dumping ground.
 - Keep `H` methods typed and documented with JSDoc; short names are acceptable because the class purpose and method contracts are explicit.
+
+
+## Release changelog
+
+- `CHANGELOG.md` is the canonical source for user-facing release history and AMO Version Notes.
+- Git commits are implementation history and may be used as input when drafting changelog entries, but they are not the public release notes themselves.
+- Every user-visible release block should update CHANGELOG before signing/publishing.
