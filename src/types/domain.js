@@ -119,6 +119,9 @@
  * @property {number} updatedAt
  * @property {number|null} [closedAt]
  * @property {number|undefined} [restoredAt]
+ * @property {number|undefined} [importedAt]
+ * @property {string|null|undefined} [importSource]
+ * @property {string|undefined} [originalName]
  * @property {Record<string, WorkspaceWindow>} windows
  */
 
