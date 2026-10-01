@@ -1554,15 +1554,16 @@ workspaceListEl.addEventListener("click", async event => {
   }
 
   if (button.dataset.workspaceAction === "export") {
-    const payload = await browser.runtime.sendMessage({ type: "exportWorkspace", workspaceId });
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const safeName = (workspace.name || "workspace").replace(/[^a-z0-9._-]+/gi, "_");
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = safeName + ".workspace.json";
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const payload = await browser.runtime.sendMessage({
+      type: "exportWorkspace",
+      workspaceId
+    });
+    downloadJson(
+      payload,
+      backupTimestamp() + "_" +
+        safeFilenamePart(workspace.name || "workspace") +
+        ".json"
+    );
     return;
   }
 
