@@ -190,9 +190,12 @@
       <h2>Workspaces</h2>
       <p>Workspace je uložená sada více Firefox oken. Každé okno obsahuje své pořadí panelů a tab groups.</p>
       <dl>
-        <dt>Uložit stav</dt><dd>Aktualizuje snapshot právě aktivního workspace.</dd>
+        <dt>Uložit stav</dt><dd>Vynutí okamžité uložení aktuálního stavu aktivního workspace. V současném LIVE režimu se workspace průběžně aktualizuje i automaticky.</dd>
         <dt>Uložit akt. stav jako nový</dt><dd>Vytvoří nový workspace přímo z aktuálně otevřených Firefox oken, skupin a panelů a po kontrole ho aktivuje.</dd>
-        <dt>Přepnout / Obnovit</dt><dd>Uloží aktuální stav, zavře okna současného workspace a obnoví všechna okna cílového workspace.</dd>
+        <dt>Import JSON</dt><dd>Importuje jeden workspace. Pokud už stejné jméno existuje, vyžádá nový název nebo lze import zrušit.</dd>
+        <dt>Backup workspaces</dt><dd>Exportuje všechny uložené workspaces do jednoho verzovaného JSON souboru.</dd>
+        <dt>Restore workspaces</dt><dd>Importuje kolekci workspace z backupu. Existující workspaces nepřepisuje a konfliktní názvy se musí přejmenovat.</dd>
+        <dt>Přepnout / Obnovit</dt><dd>Uloží aktuální stav, obnoví cílový workspace a teprve po ověření jeho oken zavře okna současného workspace.</dd>
         <dt>Přejmenovat</dt><dd>Změní jen uživatelský název workspace.</dd>
         <dt>Smazat</dt><dd>Smaže uloženou definici. Při smazání aktivního workspace zůstanou aktuální okna otevřená a převezme je nový workspace.</dd>
       </dl>
