@@ -9,6 +9,9 @@ branch = dev
 
 ## Done
 
+- External regression confirmation: colleague on Firefox 157 reports workspace switching now works correctly; the earlier profile-specific switch bug is considered closed.
+- 0.7.0 unlisted submission reached AMO validation with 0 errors / 0 warnings; approval is still pending, but validation quality is clean.
+
 - 0.7.0 regression test passed: single workspace export created timestamped filename; duplicate-name import guard blocked the same-name import; full workspace collection backup exported correctly.
 - Destructive restore test passed: all saved workspaces were deleted, Firefox Workspace Manager created the expected default workspace, collection restore recreated the backed-up workspaces as inactive, deleting the temporary default left the restored workspaces intact, and Recover session correctly restored the selected workspace state.
 - After recovery, the restored workspace became active and the remaining workspace cards correctly switched to the "Přepnout" action.
@@ -356,10 +359,11 @@ branch = dev
 
 ## Next
 
-1. Verify provenance text on at least one imported/restored workspace card: createdAt/importedAt/source filename/original name.
-2. Recover one additional restored workspace and verify windows, tab groups, tab order and discarded state.
-3. Run web-ext lint.
-4. Sign 0.7.0 as unlisted and verify AMO validation remains at 0 errors / 0 warnings before wider testing.
+1. Verify provenance text on one restored/imported workspace card if not already visually checked.
+2. Keep 0.7.0 under normal use while AMO Self approval is pending.
+3. Continue backlog with complete application backup/restore in Settings.
+4. After that add the bounded lifecycle/activity log for Panels.
+5. Workspace LIVE vs MANUAL/PERMANENT mode and startup policy remain intentionally last.
 
 ## localCommand
 
