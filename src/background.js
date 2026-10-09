@@ -2,6 +2,7 @@
 
 import {
   ACTIVE_WORKSPACE_KEY,
+  APP_RESTORE_PENDING_KEY,
   AUTO_SETTINGS_KEY,
   HOST_POLICIES_KEY,
   LAST_WORKSPACE_KEY,
@@ -26,6 +27,7 @@ import {
 import { WorkspaceStore } from "./background/WorkspaceStore.js";
 import { TabLifecycleManager } from "./background/TabLifecycleManager.js";
 import { AppBackupService } from "./background/AppBackupService.js";
+import { matchCompleteWorkspace } from "./background/WorkspaceRecoveryMatcher.js";
 
 const workspaceStore = new WorkspaceStore();
 const appBackupService = new AppBackupService();
@@ -1647,6 +1649,163 @@ async function rebuildApplicationWorkspaces(collection) {
   }
 
   return { workspaces, workspaceIds };
+}
+
+/**
+ * Strictly reattach a completely matching restored workspace to windows that
+ * are still open in this Firefox session. Never use fuzzy matching here:
+ * a different tab/group means the saved backup and live window are divergent.
+ *
+ * Matching is one-to-one and complete at the workspace level. We do not attach
+ * a partial workspace because normal Recover currently reuses all mapped
+ * windows and would otherwise silently omit the missing ones.
+ *
+ * @param {Record<string,any>} workspaces
+ * @param {string|null} preferredWorkspaceId
+ * @returns {Promise<{reattached:boolean,workspaceId:string|null,windowCount:number}>}
+ */
+async function reattachApplicationBackupWindows(workspaces, preferredWorkspaceId) {
+  const savedWindows = [];
+  for (const [workspaceId, workspace] of Object.entries(workspaces)) {
+    for (const [logicalWindowId, saved] of Object.entries(workspace.windows ?? {})) {
+      if (!(saved.tabs ?? []).some(tab => !isExtensionUrl(tab.url))) continue;
+      savedWindows.push({
+        workspaceId,
+        logicalWindowId,
+        fingerprint: await fingerprintSavedWindow(saved)
+      });
+    }
+  }
+
+  const currentWindows = await browser.windows.getAll({
+    windowTypes: ["normal"],
+    populate: true
+  });
+  const liveWindows = [];
+  for (const win of currentWindows) {
+    if (win.id == null || !hasWorkspaceContent(win)) continue;
+    try {
+      const groups = await browser.tabGroups.query({ windowId: win.id });
+      liveWindows.push({
+        runtimeWindowId: win.id,
+        fingerprint: await fingerprintLiveWindow(win, groups)
+      });
+    } catch (error) {
+      await workspaceDebug("app-restore-fingerprint-read-failed", {
+        runtimeWindowId: win.id,
+        error: String(error?.message ?? error)
+      });
+    }
+  }
+
+  const matched = matchCompleteWorkspace(
+    savedWindows,
+    liveWindows,
+    preferredWorkspaceId
+  );
+  if (!matched) {
+    await workspaceDebug("app-restore-reattach-skipped", {
+      reason: "no-complete-unambiguous-exact-match",
+      savedWindows: savedWindows.length,
+      liveWindows: liveWindows.length
+    });
+    return { reattached: false, workspaceId: null, windowCount: 0 };
+  }
+
+  // Verify that the live fingerprint did not change while resolving hashes.
+  const expectedById = new Map(liveWindows.map(win => [
+    win.runtimeWindowId, win.fingerprint
+  ]));
+  for (const match of matched.matches) {
+    try {
+      const win = await browser.windows.get(match.runtimeWindowId, {
+        populate: true
+      });
+      const groups = await browser.tabGroups.query({
+        windowId: match.runtimeWindowId
+      });
+      if (
+        !hasWorkspaceContent(win) ||
+        await fingerprintLiveWindow(win, groups) !==
+          expectedById.get(match.runtimeWindowId)
+      ) {
+        return { reattached: false, workspaceId: null, windowCount: 0 };
+      }
+    } catch {
+      return { reattached: false, workspaceId: null, windowCount: 0 };
+    }
+  }
+
+  const workspace = workspaces[matched.workspaceId];
+  if (!workspace) {
+    return { reattached: false, workspaceId: null, windowCount: 0 };
+  }
+
+  const now = Date.now();
+  const windowMap = {};
+  for (const match of matched.matches) {
+    const saved = workspace.windows[match.logicalWindowId];
+    if (!saved) {
+      return { reattached: false, workspaceId: null, windowCount: 0 };
+    }
+    saved.open = true;
+    saved.runtimeWindowId = match.runtimeWindowId;
+    saved.closedAt = null;
+    saved.updatedAt = now;
+    windowMap[String(match.runtimeWindowId)] = {
+      workspaceId: matched.workspaceId,
+      logicalWindowId: match.logicalWindowId
+    };
+  }
+
+  for (const [id, item] of Object.entries(workspaces)) {
+    item.active = id === matched.workspaceId;
+    item.open = id === matched.workspaceId;
+  }
+  workspace.closedAt = null;
+  workspace.updatedAt = now;
+
+  await browser.storage.local.set({
+    [WORKSPACES_KEY]: workspaces,
+    [WINDOW_WORKSPACE_MAP_KEY]: windowMap,
+    [ACTIVE_WORKSPACE_KEY]: matched.workspaceId,
+    [LAST_WORKSPACE_KEY]: matched.workspaceId
+  });
+  await browser.storage.local.remove(APP_RESTORE_PENDING_KEY);
+  await workspaceDebug("app-restore-windows-reattached", {
+    workspaceId: matched.workspaceId,
+    runtimeWindowIds: matched.matches.map(item => item.runtimeWindowId),
+    method: "strict-complete-fingerprint"
+  });
+
+  return {
+    reattached: true,
+    workspaceId: matched.workspaceId,
+    windowCount: matched.matches.length
+  };
+}
+
+/**
+ * Preview whether Recover would create additional Firefox windows following
+ * an application restore that was not safe to reattach automatically.
+ *
+ * @param {string} workspaceId
+ */
+async function previewWorkspaceRecovery(workspaceId) {
+  const [{ workspaces }, stored, windows] = await Promise.all([
+    loadWorkspaceStore(),
+    browser.storage.local.get(APP_RESTORE_PENDING_KEY),
+    browser.windows.getAll({ windowTypes: ["normal"], populate: true })
+  ]);
+
+  const workspace = workspaces[workspaceId];
+  if (!workspace) throw new Error("Workspace not found");
+
+  return {
+    pendingApplicationRestore: !!stored[APP_RESTORE_PENDING_KEY],
+    liveContentWindows: windows.filter(win => hasWorkspaceContent(win)).length,
+    restoreWindowCount: Object.keys(workspace.windows ?? {}).length
+  };
 }
 
 /**
