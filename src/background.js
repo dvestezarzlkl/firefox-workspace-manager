@@ -25,8 +25,10 @@ import {
 } from "./shared/windowFingerprint.js";
 import { WorkspaceStore } from "./background/WorkspaceStore.js";
 import { TabLifecycleManager } from "./background/TabLifecycleManager.js";
+import { AppBackupService } from "./background/AppBackupService.js";
 
 const workspaceStore = new WorkspaceStore();
+const appBackupService = new AppBackupService();
 const lifecycleManager = new TabLifecycleManager({
   isRestoreActive: () => workspaceRestoreDepth > 0,
   snapshotWindow: windowId => snapshotWindow(windowId)
@@ -1573,6 +1575,123 @@ async function importWorkspaceCollection(payload, options = {}) {
   };
 }
 
+/**
+ * Export complete durable application state. Runtime Firefox IDs are excluded
+ * by AppBackupService and the portable workspace collection format.
+ *
+ * @param {{alwaysExpanded?:boolean,refreshSeconds?:number}|null|undefined} panelExplorer
+ */
+async function exportApplicationBackup(panelExplorer) {
+  const workspaceCollection = await getWorkspaceCollectionExport();
+  return appBackupService.exportBackup({
+    workspaceCollection,
+    panelExplorer
+  });
+}
+
+/**
+ * Rebuild portable workspace snapshots with fresh local IDs while preserving
+ * their original provenance. Disaster recovery is not treated as a new normal
+ * workspace import.
+ *
+ * @param {any} collection
+ * @returns {Promise<{workspaces:Record<string,any>,workspaceIds:string[]}>}
+ */
+async function rebuildApplicationWorkspaces(collection) {
+  if (
+    !collection ||
+    collection.format !== "firefox-workspace-manager.workspaces" ||
+    Number(collection.version) !== 1 ||
+    !Array.isArray(collection.workspaces)
+  ) {
+    throw new Error("Application backup neobsahuje platné workspaces");
+  }
+
+  const workspaces = {};
+  const workspaceIds = [];
+  const restoredAt = Date.now();
+
+  for (const workspacePayload of collection.workspaces) {
+    validateWorkspaceImportPayload(workspacePayload);
+
+    const restored = await buildImportedWorkspace(workspacePayload, {
+      name: String(workspacePayload.name || "Workspace"),
+      sourceName: null,
+      importedAt: restoredAt
+    });
+
+    const provenance =
+      workspacePayload.provenance &&
+      typeof workspacePayload.provenance === "object"
+        ? workspacePayload.provenance
+        : null;
+
+    if (provenance?.importedAt) {
+      restored.importedAt = Number(provenance.importedAt) || restoredAt;
+      restored.importSource = provenance.sourceName ?? null;
+      restored.originalName =
+        provenance.originalName ?? workspacePayload.name ?? restored.name;
+    } else {
+      delete restored.importedAt;
+      restored.importSource = null;
+      restored.originalName = String(workspacePayload.name || restored.name);
+    }
+
+    restored.active = false;
+    restored.open = false;
+    restored.closedAt = restoredAt;
+    restored.updatedAt = restoredAt;
+
+    workspaces[restored.id] = restored;
+    workspaceIds.push(restored.id);
+  }
+
+  return { workspaces, workspaceIds };
+}
+
+/**
+ * Replace durable application state from a validated disaster-recovery backup.
+ * Existing Firefox windows stay open but are detached from workspace runtime
+ * mappings; restored workspaces remain inactive until Recover session.
+ *
+ * @param {any} payload
+ */
+async function restoreApplicationBackup(payload) {
+  appBackupService.validate(payload);
+  const rebuilt = await rebuildApplicationWorkspaces(
+    payload.data.workspaces
+  );
+
+  workspaceRestoreDepth++;
+  try {
+    const result = await appBackupService.restoreBackup(
+      payload,
+      rebuilt.workspaces,
+      rebuilt.workspaceIds
+    );
+
+    await workspaceDebug("application-backup-restored", {
+      sourceVersion: payload.extensionVersion ?? null,
+      workspaceCount: rebuilt.workspaceIds.length,
+      lastWorkspaceId: result.lastWorkspaceId
+    });
+
+    if (payload.settings?.syncEnabled) {
+      await pushSettingsToSync();
+    }
+
+    return {
+      restored: true,
+      workspaces: rebuilt.workspaceIds.length,
+      ...result
+    };
+  } finally {
+    workspaceRestoreDepth = Math.max(0, workspaceRestoreDepth - 1);
+    await lifecycleManager.seedRuntimeState();
+    await lifecycleManager.ensureWatchdogAlarm();
+  }
+}
+
 async function removeWorkspaceWindow(workspaceId, logicalWindowId) {
   const store = await loadWorkspaceStore();
   const workspace = store.workspaces[workspaceId];
@@ -2315,6 +2434,12 @@ browser.runtime.onMessage.addListener(message => {
       names: message.names,
       sourceName: message.sourceName
     });
+  }
+  if (message?.type === "exportApplicationBackup") {
+    return exportApplicationBackup(message.panelExplorer);
+  }
+  if (message?.type === "restoreApplicationBackup" && message.payload) {
+    return restoreApplicationBackup(message.payload);
   }
   if (message?.type === "pullSyncSettings") {
     return pullSettingsFromSync();
