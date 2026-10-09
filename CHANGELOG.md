@@ -7,6 +7,15 @@ source for release notes and AMO Version Notes.
 
 ## Unreleased
 
+## 0.8.1 - 2026-10-09
+
+### Fixed
+- Complete application restore now reattaches an existing Firefox workspace when every saved window has a unique, exact fingerprint match among currently open windows; it no longer leaves such a workspace incorrectly inactive.
+- Changed, missing, duplicated or ambiguous windows are never attached silently.
+- When full application restore cannot safely reattach live windows, manager and popup explicitly warn that Recover will open additional windows and request confirmation. Background also blocks unconfirmed duplicate recovery.
+- Unresolved application restore blocks automatic fuzzy reattachment, including after a Firefox restart, so a changed live session cannot silently overwrite restored backup snapshots.
+
+
 ## 0.8.0 - 2026-10-09
 
 ### Added
