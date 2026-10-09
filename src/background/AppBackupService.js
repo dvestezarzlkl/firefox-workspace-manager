@@ -2,6 +2,7 @@
 
 import {
   ACTIVE_WORKSPACE_KEY,
+  APP_RESTORE_PENDING_KEY,
   AUTO_SETTINGS_KEY,
   HOST_POLICIES_KEY,
   HOST_STATS_KEY,
@@ -163,6 +164,7 @@ export class AppBackupService {
       [WORKSPACES_KEY]: restoredWorkspaces,
       [LAST_WORKSPACE_KEY]: lastWorkspaceId,
       [ACTIVE_WORKSPACE_KEY]: null,
+      [APP_RESTORE_PENDING_KEY]: { at: now, lastWorkspaceId },
       [WINDOW_WORKSPACE_MAP_KEY]: {},
       [STORAGE_KEY]: {
         version: 1,
