@@ -110,6 +110,22 @@ workspace contained the last browser windows.
 
 Do not infer last-used state from window runtime IDs.
 
+### Application restore reattachment safety
+
+Restore never copies stale Firefox runtime IDs from the backup. Immediately after
+restoring the portable workspace definitions it computes fresh fingerprints of
+*currently open* windows and matches them against all saved workspaces.
+
+Only a complete one-to-one exact fingerprint match can attach a workspace and
+mark it active. Duplicate, missing or changed windows remain detached to avoid
+mapping another workspace or immediately overwriting a backed-up URL.
+
+An unresolved application restore carries a transient-recovery safeguard in
+`fwm.applicationRestorePending`. It disables automatic fuzzy reattachment
+and requires an explicit warning/confirmation before Recover creates extra
+windows. The safeguard survives browser restart and clears only after safe
+full attachment or successful explicit recovery.
+
 ### Application backup never restores runtime identity
 
 Complete application backup is intentionally a durable-data backup, not a raw
