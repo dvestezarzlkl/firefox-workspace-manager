@@ -23,6 +23,10 @@ with `// @ts-check` + JSDoc types; there is no bundler or transpilation step.
   - Inactivity deadlines and alarms.
   - Host usage statistics.
   - Discard diagnostics and DEEP ALWAYS watchdog.
+- `src/background/AppBackupService.js`
+  - Versioned complete application disaster-recovery backup.
+  - Durable settings/data whitelist.
+  - Restore-time invalidation of Firefox runtime IDs, active mappings and snapshot locks.
 
 ### Shared
 
@@ -105,6 +109,25 @@ workspace contained the last browser windows.
   one-click popup session recovery.
 
 Do not infer last-used state from window runtime IDs.
+
+### Application backup never restores runtime identity
+
+Complete application backup is intentionally a durable-data backup, not a raw
+`storage.local` dump. It includes workspaces, AUTO/KEEP/DEEP configuration,
+Sync preference, known hosts, aggregate host statistics, diagnostics and stable
+manager preferences.
+
+Restore must reset or exclude:
+
+- active workspace runtime state;
+- `windowWorkspaceMap`;
+- runtime window/tab/group IDs as attachments;
+- tab lifecycle deadlines keyed by runtime tab IDs;
+- last-active runtime tab IDs;
+- snapshot locks and transient browser-state cache.
+
+Existing Firefox windows stay open during application restore. Restored
+workspaces remain inactive until the user explicitly chooses Recover session.
 
 ### UI state is not workspace data
 
