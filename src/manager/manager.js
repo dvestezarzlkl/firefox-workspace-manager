@@ -1582,23 +1582,48 @@ workspaceListEl.addEventListener("click", async event => {
       !!workspaces[activeWorkspaceId] &&
       activeWorkspaceId !== workspaceId;
 
+    const preview = hasActiveWorkspace
+      ? null
+      : await browser.runtime.sendMessage({
+          type: "previewWorkspaceRecovery",
+          workspaceId
+        });
+    const potentialDuplicates =
+      !!preview?.pendingApplicationRestore && preview.liveContentWindows > 0;
+
     const message = hasActiveWorkspace
       ? (
           "Přepnout na workspace \"" + (workspace.name || "Workspace") +
           "\"?\n\nAktuální stav se uloží a okna současného workspace se zavřou."
         )
-      : (
-          "Obnovit session workspace \"" + (workspace.name || "Workspace") +
-          "\"?\n\nOtevřou se jeho uložená okna, skupiny a panely."
-        );
+      : potentialDuplicates
+        ? (
+            "POZOR: Otevřená Firefox okna nebylo možné bezpečně přiřadit " +
+            "k právě obnovené záloze aplikace. Obsah oken se mohl změnit.\n\n" +
+            "Právě je otevřeno " + preview.liveContentWindows +
+            " obsahových oken. Recover vytvoří DALŠÍCH " +
+            preview.restoreWindowCount +
+            " oken a původní ponechá. Mohou vzniknout duplicity.\n\n" +
+            "Chceš výslovně vytvořit další okna? Storno ponechá současný stav."
+          )
+        : (
+            "Obnovit session workspace \"" + (workspace.name || "Workspace") +
+            "\"?\n\nOtevřou se jeho uložená okna, skupiny a panely."
+          );
 
     if (!confirm(message)) return;
 
     button.disabled = true;
-    await browser.runtime.sendMessage({
-      type: hasActiveWorkspace ? "switchWorkspace" : "restoreWorkspace",
-      workspaceId
-    });
+    try {
+      await browser.runtime.sendMessage({
+        type: hasActiveWorkspace ? "switchWorkspace" : "restoreWorkspace",
+        workspaceId,
+        allowAdditionalWindows: potentialDuplicates
+      });
+      await load();
+    } finally {
+      button.disabled = false;
+    }
     return;
   }
 
