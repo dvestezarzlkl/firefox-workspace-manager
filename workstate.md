@@ -394,6 +394,8 @@ summary = DEEP ALL EXCEPT ACTIVE ověřeno v sandbox Firefoxu. Při aktivním ni
 
 ## Backlog
 
+- Application restore advanced recovery: after a tab/group has changed, support explicit **in-place merge or replacement** of proven live windows from the saved snapshot without opening duplicates; must verify session ownership, preserve rollback until target content is validated, never silently overwrite live tabs. This is not implemented by the conservative 0.8.1 exact-reattach + duplicate-warning fix.
+
 - Workspace persistence modes: split two independent concerns instead of one combined select. Update mode = LIVE (current continuous workspace updates) vs MANUAL/PERMANENT SNAPSHOT (workspace changes only after explicit "Uložit stav"). Startup policy for manual/permanent workspaces = respect/start last Firefox session vs force this workspace active on browser start. In manual/permanent mode add "Uložit stav" to the popup. Update Help wording because current "Uložit stav = aktualizuje snapshot právě aktivního workspace" is misleading while LIVE mode already updates continuously. Implement after the current backlog, not now.
 
 - Lifecycle/activity log for Panels: default-collapsed diagnostic log similar to workspace debug log. Record create/open, activate, inactive, deadline scheduled/recomputed, discard/DEEP, reload/reactivate and restore events with timestamp, tab ID/title/URL, workspace/window/group context when known, reason/policy and result. Keep a bounded history (roughly 200–500 events) and provide quick event-type filters.
