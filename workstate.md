@@ -9,6 +9,8 @@ branch = dev
 
 ## Done
 
+- 0.8.0 full-application backup/restore smoke test (user-confirmed): after changing protectPinned and protectAudible checkboxes, removing a tab/window and restoring the application backup, the saved window/tab state and both checkbox values returned. The exact-URL KEEP exception was also restored. Remaining checks: inactive workspace mapping, additional group/DEEP verification, lint and unlisted AMO validation.
+
 - One-week production soak test passed through 2026-10-09: AUTO/DEEP unloading behaves as intended in normal use; stopped video tabs become eligible and unload correctly; no new panel-loss/about:blank regression was reported.
 - 0.8.0: Added complete application disaster-recovery Backup/Restore in Settings.
 - Full backup contains portable workspace collection plus AUTO settings, hostname policies, exact URL exceptions, Sync flag, known hosts, host statistics, workspace debug history and stable UI preferences.
