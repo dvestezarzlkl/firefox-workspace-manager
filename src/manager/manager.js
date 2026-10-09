@@ -1795,7 +1795,8 @@ restoreApplicationFile.addEventListener("change", async () => {
       "Obnovit kompletní stav Workspace Manageru ze zálohy?\n\n" +
       "Tato akce NAHRADÍ uložené nastavení a workspaces.\n" +
       "Otevřená Firefox okna zůstanou beze změny.\n" +
-      "Obnovené workspaces budou neaktivní a lze je následně obnovit přes Recover session.\n\n" +
+      "Pokud se otevřená okna se zálohou přesně shodují, workspace se znovu připojí automaticky.\n" +
+      "Při rozdílu zůstanou původní okna otevřená a Recover vyžaduje potvrzení dalších oken.\n\n" +
       "Workspace v záloze: " + workspaceCount
     );
 
@@ -1818,10 +1819,24 @@ restoreApplicationFile.addEventListener("change", async () => {
       await setPage(result.page);
     }
 
+    const attachmentMessage = result?.reattached
+      ? (
+          "Existující okna byla jednoznačně rozpoznána a znovu připojena.\n" +
+          "Aktivní workspace: " +
+          (workspaces[result.workspaceId]?.name || "obnovený workspace") +
+          " (" + result.windowCount + " oken)."
+        )
+      : (
+          "Otevřená okna se se zálohou neshodují úplně nebo nelze shodu určit.\n" +
+          "Žádné původní okno nebylo zavřeno ani změněno.\n" +
+          "Recover session může vytvářet další okna; při riziku duplicit " +
+          "se zobrazí výslovné upozornění."
+        );
+
     alert(
       "Restore aplikace dokončen.\n\n" +
-      "Obnoveno workspace: " + (result?.workspaces ?? 0) + "\n" +
-      "Aktuální Firefox okna zůstala otevřená."
+      "Obnoveno workspace: " + (result?.workspaces ?? 0) + "\n\n" +
+      attachmentMessage
     );
   } catch (error) {
     console.error("Application restore failed", error);
