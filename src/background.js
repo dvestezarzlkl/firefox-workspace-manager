@@ -453,6 +453,11 @@ async function saveWorkspaceSnapshot(win, groups) {
 async function tryReattachWorkspaceWindow(windowId) {
   if (workspaceRestoreDepth > 0 || await workspaceSnapshotLocked()) return false;
 
+  // Never let automatic fuzzy reattachment silently overwrite a restored
+  // backup snapshot while the application-restore conflict is unresolved.
+  const pending = await browser.storage.local.get(APP_RESTORE_PENDING_KEY);
+  if (pending[APP_RESTORE_PENDING_KEY]) return false;
+
   const store = await loadWorkspaceStore();
   const runtimeKey = String(windowId);
   if (store.windowMap[runtimeKey]) return false;
@@ -1033,7 +1038,7 @@ async function inferActiveWorkspaceFromRuntime() {
 }
 
 async function restoreWorkspace(workspaceId, options = {}) {
-  const { reuseLive = true } = options;
+  const { reuseLive = true, allowAdditionalWindows = false } = options;
   await workspaceDebug("restore-begin", {
     workspaceId,
     restoreDepth: workspaceRestoreDepth
@@ -1084,6 +1089,23 @@ async function restoreWorkspace(workspaceId, options = {}) {
       windowIds: liveMappedWindows.map(item => item.runtimeWindowId),
       reused: true
     };
+  }
+
+  // An application backup can restore the saved definitions while original
+  // Firefox windows are still open. If their content differs from the backup,
+  // a blind Recover would create duplicate windows. Require an explicit choice.
+  const pendingRestore = (await browser.storage.local.get(
+    APP_RESTORE_PENDING_KEY
+  ))[APP_RESTORE_PENDING_KEY];
+  if (pendingRestore && !allowAdditionalWindows) {
+    const preview = await previewWorkspaceRecovery(workspaceId);
+    if (preview.liveContentWindows) {
+      throw new Error(
+        "Recover by otevřel " + preview.restoreWindowCount +
+        " dalších oken vedle " + preview.liveContentWindows +
+        " již otevřených. Potvrď vytvoření dalších oken v manageru."
+      );
+    }
   }
 
   const entries = Object.entries(workspace.windows ?? {});
@@ -1214,6 +1236,9 @@ async function restoreWorkspace(workspaceId, options = {}) {
   });
 
   await releaseWorkspaceSnapshotLock(workspaceId);
+  if (restored.length) {
+    await browser.storage.local.remove(APP_RESTORE_PENDING_KEY);
+  }
   return { windowIds: restored, reused: false };
 }
 
@@ -2197,7 +2222,10 @@ async function deleteWorkspace(workspaceId) {
 async function switchWorkspace(targetWorkspaceId) {
   const before = await loadWorkspaceStore();
   if (!before.activeWorkspaceId || !before.workspaces[before.activeWorkspaceId]) {
-    return restoreWorkspace(targetWorkspaceId, { reuseLive: false });
+    return restoreWorkspace(targetWorkspaceId, {
+      reuseLive: false,
+      allowAdditionalWindows: false
+    });
   }
 
   // Save the current live state, but do NOT detach or mark it closed yet.
@@ -2562,7 +2590,12 @@ browser.windows.onCreated.addListener(win => {
 
 browser.runtime.onMessage.addListener(message => {
   if (message?.type === "restoreWorkspace" && message.workspaceId) {
-    return restoreWorkspace(message.workspaceId);
+    return restoreWorkspace(message.workspaceId, {
+      allowAdditionalWindows: !!message.allowAdditionalWindows
+    });
+  }
+  if (message?.type === "previewWorkspaceRecovery" && message.workspaceId) {
+    return previewWorkspaceRecovery(message.workspaceId);
   }
   if (message?.type === "switchWorkspace" && message.workspaceId) {
     return switchWorkspace(message.workspaceId);
