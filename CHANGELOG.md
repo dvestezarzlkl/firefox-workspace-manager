@@ -7,6 +7,18 @@ source for release notes and AMO Version Notes.
 
 ## Unreleased
 
+## 0.8.0 - 2026-10-09
+
+### Added
+- Complete versioned application Backup/Restore in Settings.
+- Full backup includes all workspaces, AUTO settings, hostname policies, exact URL exceptions, Firefox Sync preference, known hosts, aggregate host statistics, workspace debug history and stable manager UI preferences.
+- Application backup filename uses `yyyyMMddHHmmss_workspace_manager.json`.
+
+### Safety
+- Application restore never imports ephemeral Firefox runtime IDs, active window mappings, tab lifecycle deadlines or snapshot locks.
+- Current Firefox windows stay open during restore; restored workspaces remain inactive until explicitly recovered.
+- Panel explorer backup preserves only stable preferences (Always expanded and refresh interval), never runtime window/group disclosure IDs.
+
 ## 0.7.0 - 2026-10-01
 
 ### Added
