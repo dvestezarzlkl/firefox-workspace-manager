@@ -1829,6 +1829,11 @@ async function restoreApplicationBackup(payload) {
       rebuilt.workspaceIds
     );
 
+    const attachment = await reattachApplicationBackupWindows(
+      rebuilt.workspaces,
+      result.lastWorkspaceId
+    );
+
     await workspaceDebug("application-backup-restored", {
       sourceVersion: payload.extensionVersion ?? null,
       workspaceCount: rebuilt.workspaceIds.length,
@@ -1842,7 +1847,8 @@ async function restoreApplicationBackup(payload) {
     return {
       restored: true,
       workspaces: rebuilt.workspaceIds.length,
-      ...result
+      ...result,
+      ...attachment
     };
   } finally {
     workspaceRestoreDepth = Math.max(0, workspaceRestoreDepth - 1);
