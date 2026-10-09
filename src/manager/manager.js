@@ -55,6 +55,9 @@ const panelExpandAll = document.getElementById("panelExpandAll");
 const panelCollapseAll = document.getElementById("panelCollapseAll");
 const panelAlwaysExpanded = document.getElementById("panelAlwaysExpanded");
 const panelAutoRefresh = document.getElementById("panelAutoRefresh");
+const backupApplicationButton = document.getElementById("backupApplication");
+const restoreApplicationButton = document.getElementById("restoreApplication");
+const restoreApplicationFile = document.getElementById("restoreApplicationFile");
 
 let managerTabId = null;
 let managerWindowId = null;
@@ -1717,6 +1720,90 @@ restoreWorkspacesFile.addEventListener("change", async () => {
   } finally {
     restoreWorkspacesButton.disabled = false;
     restoreWorkspacesFile.value = "";
+  }
+});
+
+backupApplicationButton.addEventListener("click", async () => {
+  backupApplicationButton.disabled = true;
+
+  try {
+    const payload = await browser.runtime.sendMessage({
+      type: "exportApplicationBackup",
+      panelExplorer: panelExplorer.exportPreferences()
+    });
+
+    downloadJson(
+      payload,
+      backupTimestamp() + "_workspace_manager.json"
+    );
+  } catch (error) {
+    console.error("Application backup failed", error);
+    alert("Backup aplikace selhal: " + (error?.message ?? error));
+  } finally {
+    backupApplicationButton.disabled = false;
+  }
+});
+
+restoreApplicationButton.addEventListener("click", () => {
+  restoreApplicationFile.click();
+});
+
+restoreApplicationFile.addEventListener("change", async () => {
+  const file = restoreApplicationFile.files?.[0];
+  if (!file) return;
+
+  try {
+    const payload = JSON.parse(await file.text());
+
+    if (
+      payload?.format !== "firefox-workspace-manager.application" ||
+      Number(payload?.version) !== 1
+    ) {
+      throw new Error("Soubor není kompletní backup Workspace Manageru");
+    }
+
+    const workspaceCount = Array.isArray(payload?.data?.workspaces?.workspaces)
+      ? payload.data.workspaces.workspaces.length
+      : 0;
+
+    const accepted = confirm(
+      "Obnovit kompletní stav Workspace Manageru ze zálohy?\n\n" +
+      "Tato akce NAHRADÍ uložené nastavení a workspaces.\n" +
+      "Otevřená Firefox okna zůstanou beze změny.\n" +
+      "Obnovené workspaces budou neaktivní a lze je následně obnovit přes Recover session.\n\n" +
+      "Workspace v záloze: " + workspaceCount
+    );
+
+    if (!accepted) return;
+
+    restoreApplicationButton.disabled = true;
+
+    const result = await browser.runtime.sendMessage({
+      type: "restoreApplicationBackup",
+      payload,
+      sourceName: file.name
+    });
+
+    panelExplorer.restorePreferences(result?.panelExplorer);
+    await loadSyncSetting();
+    await loadAutoSettings();
+    await load();
+
+    if (result?.page) {
+      await setPage(result.page);
+    }
+
+    alert(
+      "Restore aplikace dokončen.\n\n" +
+      "Obnoveno workspace: " + (result?.workspaces ?? 0) + "\n" +
+      "Aktuální Firefox okna zůstala otevřená."
+    );
+  } catch (error) {
+    console.error("Application restore failed", error);
+    alert("Restore aplikace selhal: " + (error?.message ?? error));
+  } finally {
+    restoreApplicationButton.disabled = false;
+    restoreApplicationFile.value = "";
   }
 });
 
