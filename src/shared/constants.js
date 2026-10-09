@@ -18,6 +18,7 @@ export const SYNC_ENABLED_KEY = "fwm.sync.enabled";
 export const SYNC_KEYS = [AUTO_SETTINGS_KEY, HOST_POLICIES_KEY, URL_POLICIES_KEY];
 export const WORKSPACE_DEBUG_KEY = "fwm.workspaceDebugLog";
 export const WORKSPACE_SNAPSHOT_LOCK_KEY = "fwm.workspaceSnapshotLock";
+export const APP_RESTORE_PENDING_KEY = "fwm.applicationRestorePending";
 export const UI_PAGE_KEY = "fwm.ui.page";
 export const PANEL_EXPLORER_STATE_KEY = "fwm.panelExplorerState";
 
