@@ -103,6 +103,21 @@
 
   <main id="settingsPage" class="page">
     <section class="settings-card">
+      <div class="settings-title-row">
+        <div>
+          <h2>Záloha aplikace</h2>
+          <p>Kompletní disaster-recovery záloha nastavení, workspace a přenositelných metadat.</p>
+        </div>
+        <div class="actions">
+          <button id="backupApplication" type="button">Backup aplikace</button>
+          <button id="restoreApplication" type="button">Restore aplikace</button>
+          <input id="restoreApplicationFile" type="file" accept=".json,application/json" hidden>
+        </div>
+      </div>
+      <p class="hint">Runtime Firefox ID, aktivní mapování oken, countdowny a snapshot lock se nezálohují. Po restore zůstanou otevřená Firefox okna beze změny a obnovené workspaces budou neaktivní, dokud některý neobnovíš přes Recover session.</p>
+    </section>
+
+    <section class="settings-card">
       <h2>Synchronizace</h2>
       <div class="auto-grid">
         <label>
@@ -203,8 +218,10 @@
     </section>
 
     <section class="settings-card help-card">
-      <h2>Nastavení a Sync</h2>
+      <h2>Nastavení, Backup a Sync</h2>
       <p>Politika hostname platí pro celý přesný hostname/subdoménu. URL výjimka má vyšší prioritu než hostname.</p>
+      <p><strong>Backup aplikace</strong> uloží do jednoho verzovaného JSON souboru všechna workspaces, AUTO nastavení, hostname politiky, URL výjimky, Sync volbu, známé hosty, statistiky a stabilní UI preference. Runtime Firefox ID a aktivní mapování se záměrně neexportují.</p>
+      <p><strong>Restore aplikace</strong> nahradí durable stav aplikace ze zálohy. Aktuálně otevřená Firefox okna nezavírá; obnovené workspaces jsou po importu neaktivní a lze je bezpečně obnovit přes Recover session.</p>
       <p>Firefox Sync je volitelný. Synchronizuje AUTO nastavení, hostname politiky a URL výjimky. Runtime ID, countdowny, statistiky používání a snapshoty workspace zůstávají lokální.</p>
     </section>
 
