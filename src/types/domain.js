@@ -184,4 +184,34 @@
  * @property {WorkspaceExport[]} workspaces
  */
 
+
+/**
+ * Complete portable disaster-recovery backup for Workspace Manager.
+ *
+ * Runtime Firefox identifiers and active mappings are intentionally excluded.
+ *
+ * @typedef {Object} ApplicationBackup
+ * @property {"firefox-workspace-manager.application"} format
+ * @property {1} version
+ * @property {number} exportedAt
+ * @property {string} extensionVersion
+ * @property {{
+ *   auto: AutoSettings,
+ *   hostPolicies: Record<string,string>,
+ *   urlPolicies: Array<{url?:string,mode?:string}>,
+ *   syncEnabled: boolean
+ * }} settings
+ * @property {{
+ *   workspaces: WorkspaceCollectionExport,
+ *   knownHosts: string[],
+ *   hostStats: Record<string,any>
+ * }} data
+ * @property {{
+ *   page: string,
+ *   panelExplorer: {alwaysExpanded:boolean,refreshSeconds:number}
+ * }} ui
+ * @property {{workspaceDebugLog:any[]}} diagnostics
+ * @property {{lastWorkspaceIndex:number|null}} metadata
+ */
+
 export {};
