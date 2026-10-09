@@ -179,9 +179,29 @@ recoverSessionButton.addEventListener("click", async () => {
   recoverSessionButton.textContent = "Obnovuji…";
 
   try {
+    const preview = await browser.runtime.sendMessage({
+      type: "previewWorkspaceRecovery",
+      workspaceId: recoveryWorkspaceId
+    });
+    const duplicateRisk =
+      !!preview?.pendingApplicationRestore && preview.liveContentWindows > 0;
+
+    if (duplicateRisk && !confirm(
+      "POZOR: Obsah otevřených oken se liší od obnovené zálohy.\n\n" +
+      "Recover vytvoří dalších " + preview.restoreWindowCount +
+      " oken vedle " + preview.liveContentWindows +
+      " existujících. Mohou vzniknout duplicity.\n\n" +
+      "Vytvořit nová okna?"
+    )) {
+      recoverSessionButton.textContent = originalText;
+      recoverSessionButton.disabled = false;
+      return;
+    }
+
     const result = await browser.runtime.sendMessage({
       type: "restoreWorkspace",
-      workspaceId: recoveryWorkspaceId
+      workspaceId: recoveryWorkspaceId,
+      allowAdditionalWindows: duplicateRisk
     });
 
     if (!result?.windowIds?.length) {
