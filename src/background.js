@@ -87,7 +87,8 @@ async function reconcileWorkspaceRuntimeState() {
   const stored = await browser.storage.local.get([
     WORKSPACES_KEY,
     WINDOW_WORKSPACE_MAP_KEY,
-    ACTIVE_WORKSPACE_KEY
+    ACTIVE_WORKSPACE_KEY,
+    APP_RESTORE_PENDING_KEY
   ]);
 
   const workspaces = stored[WORKSPACES_KEY] ?? {};
@@ -165,6 +166,13 @@ async function reconcileWorkspaceRuntimeState() {
   const normalizedGroups = normalizeWorkspaceGroupKeys(workspaces);
   if (normalizedGroups) {
     await browser.storage.local.set({ [WORKSPACES_KEY]: workspaces });
+  }
+
+  // The user restored an application backup but the still-open Firefox
+  // windows did not match it completely. Keep this explicit recovery decision
+  // across browser restarts instead of auto-attaching one arbitrary window.
+  if (stored[APP_RESTORE_PENDING_KEY]) {
+    return { workspaces, windowMap, activeWorkspaceId };
   }
 
   // Firefox may restore native windows before the extension background starts.
