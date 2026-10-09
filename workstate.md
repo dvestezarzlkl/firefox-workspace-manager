@@ -9,6 +9,14 @@ branch = dev
 
 ## Done
 
+- One-week production soak test passed through 2026-10-09: AUTO/DEEP unloading behaves as intended in normal use; stopped video tabs become eligible and unload correctly; no new panel-loss/about:blank regression was reported.
+- 0.8.0: Added complete application disaster-recovery Backup/Restore in Settings.
+- Full backup contains portable workspace collection plus AUTO settings, hostname policies, exact URL exceptions, Sync flag, known hosts, host statistics, workspace debug history and stable UI preferences.
+- Restore validates the versioned application bundle before replacement, rebuilds workspaces with fresh local IDs and preserves original workspace provenance.
+- Restore explicitly clears active workspace mapping, runtime browser-state cache, runtime tab lifecycle IDs, last-active runtime tabs and snapshot lock. Existing Firefox windows remain open and restored workspaces stay inactive until Recover session.
+- Panel explorer backup includes only Always expanded + refresh interval; runtime window/group disclosure IDs are intentionally excluded.
+- Application backup filename: `yyyyMMddHHmmss_workspace_manager.json`.
+
 - External regression confirmation: colleague on Firefox 157 reports workspace switching now works correctly; the earlier profile-specific switch bug is considered closed.
 - 0.7.0 unlisted submission reached AMO validation with 0 errors / 0 warnings; approval is still pending, but validation quality is clean.
 
@@ -359,11 +367,14 @@ branch = dev
 
 ## Next
 
-1. Verify provenance text on one restored/imported workspace card if not already visually checked.
-2. Keep 0.7.0 under normal use while AMO Self approval is pending.
-3. Continue backlog with complete application backup/restore in Settings.
-4. After that add the bounded lifecycle/activity log for Panels.
-5. Workspace LIVE vs MANUAL/PERMANENT mode and startup policy remain intentionally last.
+1. Pull 0.8.0 and verify Settings shows Backup aplikace / Restore aplikace.
+2. Create full application backup and inspect format/version plus expected sections: settings, data.workspaces, data.knownHosts, data.hostStats, ui, diagnostics, metadata.
+3. Change at least one AUTO value, hostname policy, URL EXCEPT and panel refresh preference; restore backup and verify all return to backed-up values.
+4. Verify current Firefox windows stay open during full restore and no workspace is marked active immediately after restore.
+5. Recover the backed-up last workspace and verify windows/groups/tabs plus DEEP state.
+6. Run web-ext lint and unlisted signing; AMO validation should remain 0 errors / 0 warnings.
+7. After 0.8.0 passes, continue with bounded lifecycle/activity log for Panels.
+8. Workspace LIVE vs MANUAL/PERMANENT mode remains intentionally last.
 
 ## localCommand
 
@@ -381,5 +392,4 @@ summary = DEEP ALL EXCEPT ACTIVE ověřeno v sandbox Firefoxu. Při aktivním ni
 
 - Workspace persistence modes: split two independent concerns instead of one combined select. Update mode = LIVE (current continuous workspace updates) vs MANUAL/PERMANENT SNAPSHOT (workspace changes only after explicit "Uložit stav"). Startup policy for manual/permanent workspaces = respect/start last Firefox session vs force this workspace active on browser start. In manual/permanent mode add "Uložit stav" to the popup. Update Help wording because current "Uložit stav = aktualizuje snapshot právě aktivního workspace" is misleading while LIVE mode already updates continuously. Implement after the current backlog, not now.
 
-- Complete application backup/restore in Settings: one versioned backup file containing all settings, all workspaces and relevant application metadata for disaster recovery.
 - Lifecycle/activity log for Panels: default-collapsed diagnostic log similar to workspace debug log. Record create/open, activate, inactive, deadline scheduled/recomputed, discard/DEEP, reload/reactivate and restore events with timestamp, tab ID/title/URL, workspace/window/group context when known, reason/policy and result. Keep a bounded history (roughly 200–500 events) and provide quick event-type filters.
