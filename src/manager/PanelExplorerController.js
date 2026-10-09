@@ -68,6 +68,36 @@ export class PanelExplorerController {
     } catch {}
   }
 
+
+  /**
+   * @returns {{alwaysExpanded:boolean,refreshSeconds:number}}
+   */
+  exportPreferences() {
+    return {
+      alwaysExpanded: this.state.alwaysExpanded,
+      refreshSeconds: this.state.refreshSeconds
+    };
+  }
+
+  /**
+   * @param {{alwaysExpanded?:boolean,refreshSeconds?:number}|null|undefined} value
+   */
+  restorePreferences(value) {
+    this.state.windows.clear();
+    this.state.groups.clear();
+    this.state.alwaysExpanded = !!value?.alwaysExpanded;
+
+    const seconds = Number(value?.refreshSeconds);
+    this.state.refreshSeconds = [0, 5, 10, 30, 60].includes(seconds)
+      ? seconds
+      : 0;
+
+    this.alwaysExpandedInput.checked = this.state.alwaysExpanded;
+    this.refreshSelect.value = String(this.state.refreshSeconds);
+    this.save();
+    this.configureAutoRefresh();
+  }
+
   captureOpenState() {
     if (this.isFilterActive() || this.state.alwaysExpanded) return;
 
