@@ -9,7 +9,10 @@ branch = dev
 
 ## Done
 
-- 0.8.0 full-application backup/restore smoke test (user-confirmed): after changing protectPinned and protectAudible checkboxes, removing a tab/window and restoring the application backup, the saved window/tab state and both checkbox values returned. The exact-URL KEEP exception was also restored. Remaining checks: inactive workspace mapping, additional group/DEEP verification, lint and unlisted AMO validation.
+- 0.8.1 restore regression fix: a full-application restore in 0.8.0 left workspaces inactive even when the original Firefox windows were still open; subsequent Recover created additional duplicate windows. 0.8.1 now performs complete, unique, exact fingerprint reattachment and sets the matching workspace active. If live window content has changed, no silent fuzzy mapping is permitted; manager/popup warn and require explicit confirmation before creating more windows. Pending restore safeguard persists across restarts.
+- Matcher logic tested against 7 scenarios (full match, reordered windows, changed/missing window, duplicate live/saved content, no workspace and unrelated extra window); all passed. End-to-end Firefox regression testing and AMO validation remain pending.
+
+- 0.8.0 initial full-backup test confirmed restoration of AUTO checkboxes, exact-URL KEEP and saved workspace definitions; it ALSO exposed the regression that still-open live windows remained detached, making Recover create duplicate windows. Corrected in 0.8.1; re-test required.
 
 - One-week production soak test passed through 2026-10-09: AUTO/DEEP unloading behaves as intended in normal use; stopped video tabs become eligible and unload correctly; no new panel-loss/about:blank regression was reported.
 - 0.8.0: Added complete application disaster-recovery Backup/Restore in Settings.
@@ -369,14 +372,13 @@ branch = dev
 
 ## Next
 
-1. Pull 0.8.0 and verify Settings shows Backup aplikace / Restore aplikace.
-2. Create full application backup and inspect format/version plus expected sections: settings, data.workspaces, data.knownHosts, data.hostStats, ui, diagnostics, metadata.
-3. Change at least one AUTO value, hostname policy, URL EXCEPT and panel refresh preference; restore backup and verify all return to backed-up values.
-4. Verify current Firefox windows stay open during full restore and no workspace is marked active immediately after restore.
-5. Recover the backed-up last workspace and verify windows/groups/tabs plus DEEP state.
-6. Run web-ext lint and unlisted signing; AMO validation should remain 0 errors / 0 warnings.
-7. After 0.8.0 passes, continue with bounded lifecycle/activity log for Panels.
-8. Workspace LIVE vs MANUAL/PERMANENT mode remains intentionally last.
+1. Pull 0.8.1 and reload extension. Make a complete backup of current profile before testing.
+2. Test app restore with UNCHANGED live windows: exact fingerprints should attach every window; previously active workspace should appear active with no Recover and no additional windows.
+3. Test app restore with one tab removed/changed: existing windows stay untouched; incomplete fingerprint match leaves restored snapshot inactive; manager and popup must clearly warn that Recover would create extra windows and must allow cancelling without creating them.
+4. Verify the backup still restores AUTO protect pinned/audio, exact URL KEEP, hostname policies, workspace list and panel explorer preferences.
+5. Restart Firefox with unresolved app restore and verify no fuzzy auto-reattachment overwrites the backed-up workspace.
+6. Run web-ext lint and sign:unlisted; verify AMO 0 errors / 0 warnings.
+7. Continue bounded lifecycle/activity log only after this recovery fix passes.
 
 ## localCommand
 
