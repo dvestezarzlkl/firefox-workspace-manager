@@ -397,12 +397,6 @@ function safeFilenamePart(value) {
 }
 
 /**
- * Download one JSON payload without introducing an additional extension API.
- *
- * @param {unknown} payload
- * @param {string} filename
- */
-/**
  * UI-only export gating; imports/restores must always remain available.
  * Device identity is deliberately kept out of Firefox Sync and backup restore.
  */
@@ -430,6 +424,12 @@ async function loadDeviceName() {
   refreshExportControls();
 }
 
+/**
+ * Download one JSON payload without introducing an additional extension API.
+ *
+ * @param {unknown} payload
+ * @param {string} filename
+ */
 function downloadJson(payload, filename) {
   const blob = new Blob([JSON.stringify(payload, null, 2)], {
     type: "application/json"
