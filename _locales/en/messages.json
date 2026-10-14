@@ -648,12 +648,15 @@
     "message": "Automatic (Firefox)"
   },
   "languageCzech": {
-    "message": "Czech"
+    "message": "Čeština"
   },
   "languageEnglish": {
     "message": "English"
   },
   "languageHint": {
     "message": "The preference is stored locally, not with Firefox Sync. Changing it reloads only the manager and popup interface; Firefox and open tabs stay unchanged."
+  },
+  "helpLanguage": {
+    "message": "Interface language can follow Firefox or be explicitly set to Czech or English. The choice is local and included in the full application backup."
   }
 }

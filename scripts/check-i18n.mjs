@@ -1,10 +1,11 @@
 // @ts-check
 // Dependency-free localization check. Kept outside packaged WebExtension sources.
 import { readFileSync, readdirSync } from "node:fs";
-import { resolve, join, relative } from "node:path";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
-const root = resolve(import.meta.dirname, "..");
+const root = fileURLToPath(new URL("..", import.meta.url));
 const failures = [];
 const read = file => readFileSync(join(root, file), "utf8");
 const cs = JSON.parse(read("_locales/cs/messages.json"));
@@ -71,7 +72,7 @@ function jsFiles(dir) {
     return item.isDirectory() ? jsFiles(child) : item.name.endsWith(".js") ? [child] : [];
   });
 }
-for (const path of [...jsFiles("src"), "scripts/check-i18n.mjs"]) {
+for (const path of [...jsFiles("src"), "scripts/check-i18n.mjs", "scripts/test-i18n.mjs"]) {
   try {
     execFileSync(process.execPath, ["--input-type=module", "--check"], {
       input: read(path),

@@ -655,5 +655,8 @@
   },
   "languageHint": {
     "message": "Výběr se ukládá lokálně, nikoli přes Firefox Sync. Změna načte znovu jen rozhraní správce a popupu; otevřené panely a Firefox zůstanou beze změny."
+  },
+  "helpLanguage": {
+    "message": "Jazyk rozhraní lze ponechat podle Firefoxu nebo ručně zvolit češtinu či angličtinu. Volba je lokální a ukládá se do úplné zálohy aplikace."
   }
 }

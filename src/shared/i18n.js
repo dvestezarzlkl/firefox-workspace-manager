@@ -5,7 +5,6 @@ import { UI_LANGUAGE_KEY } from "./constants.js";
 const browserLocale = (browser.i18n.getUILanguage() ||
   browser.i18n.getMessage("@@ui_locale") || "en").replaceAll("_", "-");
 const automaticLocale = browserLocale.toLowerCase().startsWith("cs") ? "cs" : "en";
-const supportedLanguages = new Set(["auto", "cs", "en"]);
 
 /** @param {unknown} value @returns {"auto"|"cs"|"en"} */
 export function normalizeLanguage(value) {
@@ -21,6 +20,7 @@ export let uiLocale = browserLocale;
 
 /** @type {Record<string,{message:string}>|null} */
 let manualCatalog = null;
+let pluralRules = new Intl.PluralRules(automaticLocale);
 
 /**
  * Read a local UI preference. In automatic mode, preserve native WebExtension
@@ -41,6 +41,7 @@ export async function initializeLocale() {
   translationLocale = automaticLocale;
   uiLocale = browserLocale;
   manualCatalog = null;
+  pluralRules = new Intl.PluralRules(automaticLocale);
 
   if (requested === "auto") return;
 
@@ -56,6 +57,7 @@ export async function initializeLocale() {
     manualCatalog = catalog;
     translationLocale = requested;
     uiLocale = requested;
+    pluralRules = new Intl.PluralRules(requested);
   } catch (error) {
     console.error("Unable to activate selected UI language; using Firefox locale:", error);
     languagePreference = "auto";
@@ -92,7 +94,7 @@ export function t(key, ...values) {
  * @returns {string}
  */
 export function pluralLabel(count, stem) {
-  const category = new Intl.PluralRules(translationLocale).select(count);
+  const category = pluralRules.select(count);
   return t(stem + category.charAt(0).toUpperCase() + category.slice(1));
 }
 

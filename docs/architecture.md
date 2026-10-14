@@ -152,6 +152,21 @@ auto-refresh are UI preferences stored in `localStorage`.
 
 They must never be written into workspace snapshots or affect fingerprints.
 
+### UI language override (1.0.0)
+
+`fwm.ui.language` is a local-only setting with allowed values `auto`, `cs`, `en`.
+`auto` uses the browser's native `browser.i18n.getMessage()` and Firefox
+locale fallback; explicit choices load only the bundled `_locales/<lang>/messages.json`
+from the extension's own URL. No remote service, injected HTML, Firefox restart
+or modification of the workspace/lifecycle model is required. Manager and popup
+reload their own extension page on changes and preserve manager page selection.
+The chosen locale drives plural forms and date/time formatting.
+
+Application backup version 1 optionally includes `ui.language`; older backups
+without that field restore `auto`. Runtime storage keys, workspace structure
+and Sync scope are unchanged. The extension's manifest name/description remain
+localized by Firefox, independently of the manual in-page preference.
+
 ### Sync scope is intentionally small
 
 Firefox `storage.sync` contains only lightweight configuration:
