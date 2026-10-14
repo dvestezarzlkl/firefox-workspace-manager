@@ -902,7 +902,7 @@ function renderWorkspaceTree(workspace) {
       H.el(
         "summary",
         {},
-        H.el("span", {}, t("debugLogCount", relatedLog.length))"),
+        H.el("span", {}, t("debugLogCount", relatedLog.length)),
         H.el(
           "button",
           {
