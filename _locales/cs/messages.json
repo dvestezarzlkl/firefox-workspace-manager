@@ -637,5 +637,23 @@
   },
   "savedGroupLabel": {
     "message": "Skupina $1"
+  },
+  "languageHeading": {
+    "message": "Jazyk rozhraní"
+  },
+  "languageLabel": {
+    "message": "Jazyk"
+  },
+  "languageAutomatic": {
+    "message": "Automaticky (podle Firefoxu)"
+  },
+  "languageCzech": {
+    "message": "Čeština"
+  },
+  "languageEnglish": {
+    "message": "English"
+  },
+  "languageHint": {
+    "message": "Výběr se ukládá lokálně, nikoli přes Firefox Sync. Změna načte znovu jen rozhraní správce a popupu; otevřené panely a Firefox zůstanou beze změny."
   }
 }

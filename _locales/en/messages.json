@@ -637,5 +637,23 @@
   },
   "savedGroupLabel": {
     "message": "Group $1"
+  },
+  "languageHeading": {
+    "message": "Interface language"
+  },
+  "languageLabel": {
+    "message": "Language"
+  },
+  "languageAutomatic": {
+    "message": "Automatic (Firefox)"
+  },
+  "languageCzech": {
+    "message": "Czech"
+  },
+  "languageEnglish": {
+    "message": "English"
+  },
+  "languageHint": {
+    "message": "The preference is stored locally, not with Firefox Sync. Changing it reloads only the manager and popup interface; Firefox and open tabs stay unchanged."
   }
 }

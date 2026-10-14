@@ -103,6 +103,21 @@
 
   <main id="settingsPage" class="page">
     <section class="settings-card">
+      <h2 data-i18n="languageHeading">Jazyk rozhraní</h2>
+      <div class="auto-grid">
+        <label>
+          <span data-i18n="languageLabel">Jazyk</span>
+          <select id="uiLanguage">
+            <option value="auto" data-i18n="languageAutomatic">Automaticky (podle Firefoxu)</option>
+            <option value="cs" data-i18n="languageCzech">Čeština</option>
+            <option value="en" data-i18n="languageEnglish">English</option>
+          </select>
+        </label>
+      </div>
+      <p class="hint" data-i18n="languageHint">Výběr se ukládá lokálně. Přepnutí znovu načte pouze rozhraní správce a popupu, nikoli Firefox.</p>
+    </section>
+
+    <section class="settings-card">
       <div class="settings-title-row">
         <div>
           <h2 data-i18n="appBackupHeading">Záloha aplikace</h2>

@@ -11,14 +11,14 @@ import {
   SYNC_ENABLED_KEY,
   TAB_LIFECYCLE_KEY,
   UI_PAGE_KEY,
+  UI_LANGUAGE_KEY,
   URL_POLICIES_KEY,
   WORKSPACES_KEY,
   WORKSPACE_DEBUG_KEY
 } from "../shared/constants.js";
 import { hostnameFromUrl, isExtensionUrl } from "../shared/url.js";
 import { H } from "../shared/H.js";
-import { t, uiLocale, localizeDocument, formatCount } from "../shared/i18n.js";
-localizeDocument();
+import { t, uiLocale, localizeDocument, formatCount, initializeLocale, languagePreference, normalizeLanguage } from "../shared/i18n.js";
 import { PanelExplorerController } from "./PanelExplorerController.js";
 
 const app = document.getElementById("app");
@@ -60,6 +60,7 @@ const panelAutoRefresh = document.getElementById("panelAutoRefresh");
 const backupApplicationButton = document.getElementById("backupApplication");
 const restoreApplicationButton = document.getElementById("restoreApplication");
 const restoreApplicationFile = document.getElementById("restoreApplicationFile");
+const languageSelect = document.getElementById("uiLanguage");
 
 let managerTabId = null;
 let managerWindowId = null;
@@ -78,6 +79,9 @@ let expandedWorkspaceId = null;
 let workspaceDebugLog = [];
 let panelStateFilterSet = new Set();
 let panelPolicyFilterSet = new Set();
+let languageWritePending = false;
+let applicationRestoreInProgress = false;
+let pendingLanguageReload = false;
 
 const panelExplorer = new PanelExplorerController({
   root: app,
@@ -1354,6 +1358,24 @@ document.querySelector(".page-tabs").addEventListener("click", event => {
   if (button) setPage(button.dataset.page).catch(console.error);
 });
 
+// Changing the language reloads only this extension page. The current manager
+// section is persisted in UI_PAGE_KEY and is restored after a page reload.
+languageSelect.addEventListener("change", async () => {
+  const selected = normalizeLanguage(languageSelect.value);
+  languageWritePending = true;
+  languageSelect.disabled = true;
+  try {
+    await browser.storage.local.set({ [UI_LANGUAGE_KEY]: selected });
+    window.location.reload();
+  } catch (error) {
+    console.error("Unable to store UI language preference:", error);
+    languageSelect.value = languagePreference;
+    languageSelect.disabled = false;
+  } finally {
+    languageWritePending = false;
+  }
+});
+
 // Manager event wiring ---------------------------------------------------------
 panelSearch.addEventListener("input", () => renderPanels());
 
@@ -1779,6 +1801,7 @@ restoreApplicationFile.addEventListener("change", async () => {
     if (!accepted) return;
 
     restoreApplicationButton.disabled = true;
+    applicationRestoreInProgress = true;
 
     const result = await browser.runtime.sendMessage({
       type: "restoreApplicationBackup",
@@ -1806,8 +1829,10 @@ restoreApplicationFile.addEventListener("change", async () => {
     console.error("Application restore failed", error);
     alert(t("restoreApplicationError") + (error?.message ?? error));
   } finally {
+    applicationRestoreInProgress = false;
     restoreApplicationButton.disabled = false;
     restoreApplicationFile.value = "";
+    if (pendingLanguageReload) window.location.reload();
   }
 });
 
@@ -1897,6 +1922,10 @@ browser.tabGroups.onRemoved.addListener(() => load().catch(console.error));
 
 browser.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
+  if (changes[UI_LANGUAGE_KEY]) {
+    if (applicationRestoreInProgress) pendingLanguageReload = true;
+    else if (!languageWritePending) window.location.reload();
+  }
   if (changes[TAB_LIFECYCLE_KEY] || changes[HOST_STATS_KEY] || changes[URL_POLICIES_KEY] || changes[HOST_POLICIES_KEY] || changes[WORKSPACES_KEY] || changes[ACTIVE_WORKSPACE_KEY] || changes[WORKSPACE_DEBUG_KEY]) {
     load().catch(console.error);
   }
@@ -1912,6 +1941,10 @@ setInterval(() => {
 }, 1000);
 
 (async () => {
+  await initializeLocale();
+  localizeDocument();
+  languageSelect.value = languagePreference;
+
   const current = await browser.tabs.getCurrent();
   managerTabId = current?.id ?? null;
   managerWindowId = current?.windowId ?? null;

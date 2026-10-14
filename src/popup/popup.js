@@ -4,14 +4,14 @@ import {
   ACTIVE_WORKSPACE_KEY,
   HOST_POLICIES_KEY,
   LAST_WORKSPACE_KEY,
+  UI_LANGUAGE_KEY,
   TAB_LIFECYCLE_KEY,
   URL_POLICIES_KEY,
   WORKSPACES_KEY
 } from "../shared/constants.js";
 import { hostnameFromUrl, isExtensionUrl } from "../shared/url.js";
 import { H } from "../shared/H.js";
-import { t, localizeDocument, pluralLabel } from "../shared/i18n.js";
-localizeDocument();
+import { t, localizeDocument, pluralLabel, initializeLocale } from "../shared/i18n.js";
 
 const stats = document.getElementById("stats");
 const refreshButton = document.getElementById("refresh");
@@ -231,7 +231,14 @@ openManagerButton.addEventListener("click", async () => {
 });
 
 refreshButton.addEventListener("click", () => load().catch(console.error));
-load().catch(error => {
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && changes[UI_LANGUAGE_KEY]) window.location.reload();
+});
+(async () => {
+  await initializeLocale();
+  localizeDocument();
+  await load();
+})().catch(error => {
   console.error(error);
   stats.textContent = t("loadingError");
 });
