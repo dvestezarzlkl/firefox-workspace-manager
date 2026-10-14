@@ -676,5 +676,38 @@
   },
   "dialogOkButton": {
     "message": "OK"
+  },
+  "deviceNameHeading": {
+    "message": "Označení počítače"
+  },
+  "deviceNameLabel": {
+    "message": "Název PC"
+  },
+  "deviceNameExplanation": {
+    "message": "Název tohoto PC se uloží jen lokálně a bude součástí názvů exportovaných JSON souborů, hned za časovým razítkem. Není přenášen přes Sync ani obnovován ze zálohy."
+  },
+  "deviceNameSave": {
+    "message": "Uložit"
+  },
+  "deviceNameMissing": {
+    "message": "Název není zadaný. Exporty jsou zakázané."
+  },
+  "deviceNameSaved": {
+    "message": "Zařízení: $1. Exporty jsou povolené."
+  },
+  "deviceNameInvalid": {
+    "message": "Zadej 1–40 znaků: A–Z, 0–9, pomlčka, podtržítko nebo tečka. První znak musí být písmeno nebo číslice."
+  },
+  "deviceNameSaveError": {
+    "message": "Název počítače se nepodařilo uložit: "
+  },
+  "deviceNameExportNotice": {
+    "message": "Pro povolení exportu nejprve nastav název počítače v Nastavení."
+  },
+  "helpDeviceName": {
+    "message": "Exporty vyžadují lokální název počítače. Název se přidá za časové razítko souboru; při importu ani obnově se místní nastavení názvu nemění."
+  },
+  "exportJson": {
+    "message": "Export JSON"
   }
 }

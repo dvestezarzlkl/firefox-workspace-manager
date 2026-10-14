@@ -88,12 +88,13 @@
       <div>
         <h2 data-i18n="workspaces">Workspaces</h2>
         <p data-i18n="workspacesDescription">Workspace obsahuje všechna jeho okna, skupiny a panely.</p>
+        <p id="exportDeviceHint" class="hint" data-i18n="deviceNameExportNotice">Pro povolení exportu nejprve nastav název počítače v Nastavení.</p>
       </div>
       <div class="actions">
         <button id="snapshotWorkspace" type="button" data-i18n="saveState">Uložit stav</button>
         <button id="cloneWorkspace" type="button" data-i18n="saveCurrentAsNew">Uložit akt. stav jako nový</button>
         <button id="importWorkspace" type="button" data-i18n="importJson">Import JSON</button>
-        <button id="backupWorkspaces" type="button" data-i18n="backupWorkspaces">Backup workspaces</button>
+        <button id="backupWorkspaces" type="button" disabled data-i18n="backupWorkspaces">Backup workspaces</button>
         <button id="restoreWorkspaces" type="button" data-i18n="restoreWorkspaces">Restore workspaces</button>
         <input id="importWorkspaceFile" type="file" accept=".json,application/json" hidden>
         <input id="restoreWorkspacesFile" type="file" accept=".json,application/json" hidden>
@@ -103,6 +104,17 @@
   </main>
 
   <main id="settingsPage" class="page">
+    <section class="settings-card">
+      <h2 data-i18n="deviceNameHeading">Označení počítače</h2>
+      <p data-i18n="deviceNameExplanation">Název tohoto PC se uloží jen lokálně a bude součástí názvů exportovaných JSON souborů, hned za časovým razítkem. Není přenášen přes Sync ani obnovován ze zálohy.</p>
+      <div class="device-name-controls">
+        <label for="deviceName" data-i18n="deviceNameLabel">Název PC</label>
+        <input id="deviceName" type="text" maxlength="40" autocomplete="off" spellcheck="false" placeholder="PC-ZEDNIK">
+        <button id="saveDeviceName" type="button" data-i18n="deviceNameSave">Uložit</button>
+      </div>
+      <p id="deviceNameStatus" class="hint" role="status"></p>
+    </section>
+
     <section class="settings-card">
       <h2 data-i18n="languageHeading">Jazyk rozhraní</h2>
       <div class="auto-grid">
@@ -125,7 +137,7 @@
           <p data-i18n="appBackupDescription">Kompletní disaster-recovery záloha nastavení, workspace a přenositelných metadat.</p>
         </div>
         <div class="actions">
-          <button id="backupApplication" type="button" data-i18n="backupApplication">Backup aplikace</button>
+          <button id="backupApplication" type="button" disabled data-i18n="backupApplication">Backup aplikace</button>
           <button id="restoreApplication" type="button" data-i18n="restoreApplication">Restore aplikace</button>
           <input id="restoreApplicationFile" type="file" accept=".json,application/json" hidden>
         </div>
@@ -240,6 +252,7 @@
       <p data-i18n="helpAppRestore">Obnova aplikace nahradí trvalý stav ze zálohy, ale nezavírá otevřená Firefox okna. Jednoznačná přesná shoda automaticky připojí existující okna; nejednoznačné nebo změněné relace se nepřipojí a Recover před možnými duplicitami vyžádá potvrzení.</p>
       <p data-i18n="helpSync">Firefox Sync je volitelný. Synchronizuje AUTO nastavení, hostname politiky a URL výjimky. Runtime ID, countdowny, statistiky používání a snapshoty workspace zůstávají lokální.</p>
       <p data-i18n="helpLanguage">Jazyk rozhraní lze ponechat podle Firefoxu nebo ručně zvolit češtinu či angličtinu. Volba je lokální a ukládá se do úplné zálohy aplikace.</p>
+      <p data-i18n="helpDeviceName">Exporty vyžadují lokální název počítače. Název se přidá za časové razítko souboru; při importu ani obnově se místní nastavení názvu nemění.</p>
     </section>
 
     <section class="settings-card help-card">

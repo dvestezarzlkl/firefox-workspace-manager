@@ -676,5 +676,38 @@
   },
   "dialogOkButton": {
     "message": "OK"
+  },
+  "deviceNameHeading": {
+    "message": "Device name"
+  },
+  "deviceNameLabel": {
+    "message": "Device label"
+  },
+  "deviceNameExplanation": {
+    "message": "This PC label is saved locally and appended immediately after the timestamp in exported JSON filenames. It is neither synchronized nor overwritten by a backup restore."
+  },
+  "deviceNameSave": {
+    "message": "Save"
+  },
+  "deviceNameMissing": {
+    "message": "No device name set. Exports are disabled."
+  },
+  "deviceNameSaved": {
+    "message": "Device: $1. Exports are enabled."
+  },
+  "deviceNameInvalid": {
+    "message": "Use 1–40 characters: A–Z, 0–9, hyphen, underscore or dot. The first character must be a letter or digit."
+  },
+  "deviceNameSaveError": {
+    "message": "Failed to save device name: "
+  },
+  "deviceNameExportNotice": {
+    "message": "Set a device name in Settings before exporting."
+  },
+  "helpDeviceName": {
+    "message": "Exports require a local device name. It is inserted after the file timestamp; importing or restoring a backup does not change this device's label."
+  },
+  "exportJson": {
+    "message": "Export JSON"
   }
 }
