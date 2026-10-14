@@ -280,5 +280,227 @@
   },
   "helpDevWatcher": {
     "message": "When running through web-ext, changes to runtime files reload the extension. An open manager tab at moz-extension:// may close. The installed release does not run this development watcher."
+  },
+  "activeWorkspace": {
+    "message": "Active workspace"
+  },
+  "lastWorkspaceInactive": {
+    "message": "Last used · inactive"
+  },
+  "noWorkspace": {
+    "message": "No workspace"
+  },
+  "noTitle": {
+    "message": "(untitled)"
+  },
+  "loadingError": {
+    "message": "Failed to load."
+  },
+  "recovering": {
+    "message": "Recovering…"
+  },
+  "recoveryFailed": {
+    "message": "Recovery failed"
+  },
+  "statWindows": {
+    "message": "windows"
+  },
+  "statTabs": {
+    "message": "tabs"
+  },
+  "statGroups": {
+    "message": "groups"
+  },
+  "statActive": {
+    "message": "active"
+  },
+  "statLoaded": {
+    "message": "loaded"
+  },
+  "statDeep": {
+    "message": "discarded"
+  },
+  "statAutoPending": {
+    "message": "AUTO pending"
+  },
+  "statDeepAlways": {
+    "message": "DEEP always"
+  },
+  "statKeepAlways": {
+    "message": "KEEP always"
+  },
+  "statUrlExceptions": {
+    "message": "URL exceptions"
+  },
+  "tooltipActive": {
+    "message": "Active"
+  },
+  "tooltipDiscarded": {
+    "message": "DEEP / discarded from memory"
+  },
+  "tooltipLoaded": {
+    "message": "Loaded in memory"
+  },
+  "tooltipExactKeep": {
+    "message": "Exact URL has a KEEP exception"
+  },
+  "tooltipHostnameDeep": {
+    "message": "Hostname policy is DEEP"
+  },
+  "tooltipHostnameKeep": {
+    "message": "Hostname policy is KEEP"
+  },
+  "tooltipOtherFlags": {
+    "message": "Additional tab flags"
+  },
+  "tooltipDiscardAttempt": {
+    "message": "Last discard attempt"
+  },
+  "deepIn": {
+    "message": "DEEP in "
+  },
+  "groupDeep": {
+    "message": "DEEP group"
+  },
+  "groupNone": {
+    "message": "Ungrouped"
+  },
+  "groupUntitled": {
+    "message": "(untitled group)"
+  },
+  "groupEmpty": {
+    "message": "Empty group"
+  },
+  "panelsNoMatch": {
+    "message": "No tabs match the current filter."
+  },
+  "emptyHostList": {
+    "message": "No matches."
+  },
+  "emptyUrlExceptions": {
+    "message": "No URL exceptions."
+  },
+  "emptyWorkspace": {
+    "message": "No saved workspaces yet."
+  },
+  "workspaceNoWindows": {
+    "message": "Workspace has no saved windows."
+  },
+  "workspaceNoLog": {
+    "message": "No debug records for this workspace yet."
+  },
+  "statusActive": {
+    "message": "ACTIVE"
+  },
+  "statusOpen": {
+    "message": "OPEN"
+  },
+  "statusClosed": {
+    "message": "CLOSED"
+  },
+  "detail": {
+    "message": "Details"
+  },
+  "hide": {
+    "message": "Hide"
+  },
+  "switch": {
+    "message": "Switch"
+  },
+  "copy": {
+    "message": "Copy"
+  },
+  "copied": {
+    "message": "Copied"
+  },
+  "remove": {
+    "message": "Remove"
+  },
+  "noHistory": {
+    "message": "no history"
+  },
+  "importedAt": {
+    "message": "Imported "
+  },
+  "createdAt": {
+    "message": "Created "
+  },
+  "from": {
+    "message": " from "
+  },
+  "originally": {
+    "message": " · originally "
+  },
+  "countTabs": {
+    "message": " tabs"
+  },
+  "countGroups": {
+    "message": " groups"
+  },
+  "windowPrefix": {
+    "message": "Window #"
+  },
+  "workspaceNamePrompt": {
+    "message": "Workspace name:"
+  },
+  "workspaceNewNamePrompt": {
+    "message": "New workspace name from current Firefox state:"
+  },
+  "deletedWorkspaceName": {
+    "message": "Imported workspace"
+  },
+  "filterActiveRatio": {
+    "message": "% active / "
+  },
+  "filterBackgroundRatio": {
+    "message": "% background"
+  },
+  "usageAverage": {
+    "message": "× active · average "
+  },
+  "keepExceptionAdd": {
+    "message": "Add this exact URL to KEEP exceptions?\n\n"
+  },
+  "keepExceptionRemove": {
+    "message": "Remove this exact URL from KEEP exceptions?\n\n"
+  },
+  "removeWorkspaceWindow": {
+    "message": "Remove this saved window from the workspace?\n\nThe currently open Firefox window will remain open."
+  },
+  "copiedLogError": {
+    "message": "Failed to copy log: "
+  },
+  "importWorkspaceError": {
+    "message": "Workspace import failed: "
+  },
+  "backupWorkspacesError": {
+    "message": "Workspace backup failed: "
+  },
+  "restoreWorkspacesError": {
+    "message": "Workspace restore failed: "
+  },
+  "backupApplicationError": {
+    "message": "Application backup failed: "
+  },
+  "restoreApplicationError": {
+    "message": "Application restore failed: "
+  },
+  "createWorkspaceError": {
+    "message": "Could not save current state as a new workspace: "
+  },
+  "fileNotCollection": {
+    "message": "File is not a workspace collection backup"
+  },
+  "fileNotApplication": {
+    "message": "File is not a full Workspace Manager backup"
+  },
+  "createWorkspaceUnverified": {
+    "message": "Could not verify newly created workspace"
+  },
+  "noRecoveredWindow": {
+    "message": "Workspace recovery did not create any window"
+  },
+  "recoverDuplicatePopup": {
+    "message": "WARNING: Open windows differ from the restored backup.\n\nRecovery will open $1 additional windows alongside $2 existing windows. Duplicates may result.\n\nCreate new windows?"
   }
 }

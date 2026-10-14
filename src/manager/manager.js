@@ -17,6 +17,8 @@ import {
 } from "../shared/constants.js";
 import { hostnameFromUrl, isExtensionUrl } from "../shared/url.js";
 import { H } from "../shared/H.js";
+import { t, uiLocale, localizeDocument } from "../shared/i18n.js";
+localizeDocument();
 import { PanelExplorerController } from "./PanelExplorerController.js";
 
 const app = document.getElementById("app");
@@ -113,13 +115,13 @@ function stateBadge(tab) {
   if (tab.discarded) {
     return H.el("span", {
       className: "state state-deep",
-      title: "DEEP / uvolněno z paměti"
+      title: t("tooltipDiscarded")
     }, "○");
   }
 
   return H.el("span", {
     className: "state state-loaded",
-    title: "Načteno v paměti"
+    title: t("tooltipLoaded")
   }, "✓");
 }
 
@@ -222,7 +224,7 @@ function policyBadge(tab) {
   if (exactUrlException(tab)) {
     return H.el("span", {
       className: "policy-badge policy-keep",
-      title: "Přesná URL je výjimka KEEP"
+      title: t("tooltipExactKeep")
     }, "EXCEPT");
   }
 
@@ -232,14 +234,14 @@ function policyBadge(tab) {
   if (mode === "DEEP") {
     return H.el("span", {
       className: "policy-badge policy-deep",
-      title: "Hostname má politiku DEEP"
+      title: t("tooltipHostnameDeep")
     }, "DEEP ALWAYS");
   }
 
   if (mode === "KEEP") {
     return H.el("span", {
       className: "policy-badge policy-keep",
-      title: "Hostname má politiku KEEP"
+      title: t("tooltipHostnameKeep")
     }, "KEEP ALWAYS");
   }
 
@@ -337,7 +339,7 @@ function updatePanelFilterUi(allTabs, visibleTabs) {
 
 function formatClock(ts) {
   if (!ts) return "—";
-  return new Date(ts).toLocaleTimeString("cs-CZ", { hour12: false });
+  return new Date(ts).toLocaleTimeString(uiLocale, { hour12: false });
 }
 
 
@@ -349,7 +351,7 @@ function formatClock(ts) {
  */
 function formatDateTime(ts) {
   if (!ts) return "—";
-  return new Date(ts).toLocaleString("cs-CZ", { hour12: false });
+  return new Date(ts).toLocaleString(uiLocale, { hour12: false });
 }
 
 /**
@@ -463,11 +465,11 @@ function workspaceProvenanceText(workspace) {
   const parts = [];
 
   if (workspace?.createdAt) {
-    parts.push("Vytvořeno " + formatDateTime(workspace.createdAt));
+    parts.push(t("createdAt") + formatDateTime(workspace.createdAt));
   }
 
   if (workspace?.importedAt) {
-    let imported = "Importováno " + formatDateTime(workspace.importedAt);
+    let imported = t("importedAt") + formatDateTime(workspace.importedAt);
     if (workspace.importSource) imported += " z " + workspace.importSource;
     if (
       workspace.originalName &&
@@ -493,7 +495,7 @@ function discardDebugText(tab) {
 
   return H.el("span", {
     className: "discard-debug",
-    title: "Poslední pokus o discard"
+    title: t("tooltipDiscardAttempt")
   },
   "discard ",
   formatClock(item.lastDiscardAttemptAt),
@@ -516,7 +518,7 @@ function lifecycleText(tab) {
   return H.el("span", {
     className: "countdown",
     dataset: { deadline: item.deadline }
-  }, "DEEP za " + formatRemaining(item.deadline));
+  }, t("deepIn") + formatRemaining(item.deadline));
 }
 
 function renderTab(tab) {
@@ -532,7 +534,7 @@ function renderTab(tab) {
       "span",
       {
         className: "flags",
-        title: "Další stavové příznaky"
+        title: t("tooltipOtherFlags")
       },
       extraFlags(tab).join(" ")
     ),
@@ -557,7 +559,7 @@ function renderTab(tab) {
           className: "tab-title",
           title: tab.url ?? ""
         },
-        tab.title || tab.url || "(bez názvu)"
+        tab.title || tab.url || t("noTitle")
       )
     ),
     H.el(
@@ -653,7 +655,7 @@ async function renderHostPolicies() {
   const hosts = baseHosts.slice(0, HOST_RESULT_LIMIT);
 
   if (!hosts.length) {
-    H.replace(hostPoliciesEl, H.el("div", { className: "empty" }, "Nic nenalezeno."));
+    H.replace(hostPoliciesEl, H.el("div", { className: "empty" }, t("emptyHostList")));
   } else {
     const grid = H.el("div", { className: "policy-grid" });
 
@@ -676,7 +678,7 @@ async function renderHostPolicies() {
         const pct = usage.total
           ? Math.round(usage.activePct) + "% aktivní / " +
             Math.round(usage.inactivePct) + "% pozadí"
-          : "bez historie";
+          : t("noHistory");
 
         H.append(
           hostLabel,
@@ -747,7 +749,7 @@ function workspaceDebugText(workspace) {
   ];
 
   for (const item of relatedLog) {
-    const ts = item?.at ? new Date(item.at).toLocaleTimeString("cs-CZ", { hour12: false }) : "--:--:--";
+    const ts = item?.at ? new Date(item.at).toLocaleTimeString(uiLocale, { hour12: false }) : "--:--:--";
     lines.push(ts + " | " + (item?.event || "event") + " | " + JSON.stringify(item?.data ?? {}));
   }
 
@@ -761,7 +763,7 @@ function renderWorkspaceTree(workspace) {
     return H.el(
       "div",
       { className: "workspace-tree-empty" },
-      "Workspace nemá uložená okna."
+      t("workspaceNoWindows")
     );
   }
 
@@ -799,7 +801,7 @@ function renderWorkspaceTree(workspace) {
               logicalWindowId
             }
           },
-          "Vyřadit"
+          t("remove")
         )
       )
     );
@@ -818,7 +820,7 @@ function renderWorkspaceTree(workspace) {
           H.el(
             "li",
             {},
-            H.el("span", {}, tab.title || "(bez názvu)"),
+            H.el("span", {}, tab.title || t("noTitle")),
             " ",
             H.el("code", {}, tab.url || "")
           )
@@ -847,7 +849,7 @@ function renderWorkspaceTree(workspace) {
           H.el(
             "li",
             {},
-            H.el("span", {}, tab.title || "(bez názvu)"),
+            H.el("span", {}, tab.title || t("noTitle")),
             " ",
             H.el("code", {}, tab.url || "")
           )
@@ -858,7 +860,7 @@ function renderWorkspaceTree(workspace) {
         H.el(
           "div",
           { className: "workspace-tree-group" },
-          H.el("strong", {}, "Bez skupiny"),
+          H.el("strong", {}, t("groupNone")),
           list
         )
       );
@@ -891,7 +893,7 @@ function renderWorkspaceTree(workspace) {
       H.el(
         "div",
         { className: "empty" },
-        "Pro tento workspace zatím není debug záznam."
+        t("workspaceNoLog")
       )
     );
   }
@@ -934,7 +936,7 @@ function renderWorkspaces() {
       H.el(
         "div",
         { className: "empty" },
-        "Zatím není uložený žádný workspace."
+        t("emptyWorkspace")
       )
     );
     return;
@@ -946,8 +948,8 @@ function renderWorkspaces() {
       workspace.id === activeWorkspaceId &&
       stat.openWindows > 0;
     const status = active
-      ? "AKTIVNÍ"
-      : (stat.openWindows > 0 ? "OTEVŘENÝ" : "ZAVŘENÝ");
+      ? t("statusActive")
+      : (stat.openWindows > 0 ? t("statusOpen") : t("statusClosed"));
     const statusClass = active
       ? "active"
       : (stat.openWindows > 0 ? "open" : "closed");
@@ -1009,17 +1011,17 @@ function renderWorkspaces() {
       action(
         "details",
         expandedWorkspaceId === workspace.id
-          ? "Skrýt"
-          : "👁 Detail"
+          ? t("hide")
+          : t("detail")
       ),
       action("export", "Export JSON"),
       action(
         "switch",
-        activeWorkspaceId ? "Přepnout" : "Recover session",
+        activeWorkspaceId ? t("switch") : "Recover session",
         active
       ),
-      action("rename", "Přejmenovat"),
-      action("delete", "Smazat")
+      action("rename", t("rename")),
+      action("delete", t("delete"))
     );
 
     const card = H.el(
@@ -1063,7 +1065,7 @@ function renderPanels() {
       const groupTabs = tabs.filter(tab => tab.groupId === group.id);
       groupTabs.forEach(tab => groupedIds.add(tab.id));
 
-      const title = group.title || "(skupina bez názvu)";
+      const title = group.title || t("groupUntitled");
       const visibleTabs = groupTabs.filter(tab => tabMatchesPanelFilters(tab, title));
       if (filtering && !visibleTabs.length) continue;
 
@@ -1112,7 +1114,7 @@ function renderPanels() {
               groupId: group.id
             }
           },
-          "DEEP skupinu"
+          t("groupDeep")
         )
       );
 
@@ -1132,7 +1134,7 @@ function renderPanels() {
         }
       } else {
         detailsNode.appendChild(
-          H.el("div", { className: "empty" }, "Prázdná skupina")
+          H.el("div", { className: "empty" }, t("groupEmpty"))
         );
       }
 
@@ -1141,7 +1143,7 @@ function renderPanels() {
 
     const ungrouped = tabs.filter(tab => !groupedIds.has(tab.id));
     const visibleUngrouped = ungrouped.filter(tab =>
-      tabMatchesPanelFilters(tab, "Bez skupiny")
+      tabMatchesPanelFilters(tab, t("groupNone"))
     );
 
     if (!filtering || visibleUngrouped.length) {
@@ -1176,7 +1178,7 @@ function renderPanels() {
               H.el(
                 "span",
                 { className: "disclosure-title" },
-                H.el("strong", {}, "Bez skupiny"),
+                H.el("strong", {}, t("groupNone")),
                 H.el(
                   "span",
                   { className: "header-meta" },
@@ -1200,7 +1202,7 @@ function renderPanels() {
     const visibleInWindow = filtering
       ? tabs.filter(tab => {
           const group = groups.find(item => item.id === tab.groupId);
-          return tabMatchesPanelFilters(tab, group?.title || "Bez skupiny");
+          return tabMatchesPanelFilters(tab, group?.title || t("groupNone"));
         }).length
       : tabs.length;
 
@@ -1228,7 +1230,7 @@ function renderPanels() {
         H.el(
           "span",
           { className: "disclosure-title" },
-          H.el("strong", {}, "Okno #" + win.id),
+          H.el("strong", {}, t("windowPrefix") + win.id),
           H.el(
             "span",
             { className: "header-meta" },
@@ -1252,7 +1254,7 @@ function renderPanels() {
           H.el(
             "div",
             { className: "empty panel-empty" },
-            "Žádné panely neodpovídají aktuálnímu filtru."
+            t("panelsNoMatch")
           )
         ])
   );
@@ -1311,7 +1313,7 @@ function renderUrlPolicies() {
   if (!rules.length) {
     H.replace(
       urlPoliciesEl,
-      H.el("div", { className: "empty" }, "Žádné URL výjimky.")
+      H.el("div", { className: "empty" }, t("emptyUrlExceptions"))
     );
     return;
   }
@@ -1327,7 +1329,7 @@ function renderUrlPolicies() {
         type: "button",
         dataset: { removeUrlRule: rule.url }
       },
-      "Smazat"
+      t("delete")
     )
   ));
 
@@ -1522,13 +1524,13 @@ workspaceListEl.addEventListener("click", async event => {
     try {
       await navigator.clipboard.writeText(text);
       const oldText = copyButton.textContent;
-      copyButton.textContent = "Copied";
+      copyButton.textContent = t("copied");
       setTimeout(() => {
         copyButton.textContent = oldText;
       }, 1200);
     } catch (error) {
       console.error("Copy debug log failed", error);
-      alert("Kopírování logu selhalo: " + (error?.message ?? error));
+      alert(t("copiedLogError") + (error?.message ?? error));
     }
     return;
   }
@@ -1628,7 +1630,7 @@ workspaceListEl.addEventListener("click", async event => {
   }
 
   if (button.dataset.workspaceAction === "rename") {
-    const name = prompt("Název workspace:", workspace.name || "Workspace");
+    const name = prompt(t("workspaceNamePrompt"), workspace.name || "Workspace");
     if (name == null || !name.trim()) return;
     await browser.runtime.sendMessage({ type: "renameWorkspace", workspaceId, name: name.trim() });
     await load();
@@ -1670,7 +1672,7 @@ importWorkspaceFile.addEventListener("change", async () => {
     await load();
   } catch (error) {
     console.error("Workspace import failed", error);
-    alert("Import workspace selhal: " + (error?.message ?? error));
+    alert(t("importWorkspaceError") + (error?.message ?? error));
   } finally {
     importWorkspaceFile.value = "";
   }
@@ -1690,7 +1692,7 @@ backupWorkspacesButton.addEventListener("click", async () => {
     );
   } catch (error) {
     console.error("Workspace collection backup failed", error);
-    alert("Backup workspaces selhal: " + (error?.message ?? error));
+    alert(t("backupWorkspacesError") + (error?.message ?? error));
   } finally {
     backupWorkspacesButton.disabled = false;
   }
@@ -1712,7 +1714,7 @@ restoreWorkspacesFile.addEventListener("change", async () => {
       Number(payload?.version) !== 1 ||
       !Array.isArray(payload?.workspaces)
     ) {
-      throw new Error("Soubor není workspace collection backup");
+      throw new Error(t("fileNotCollection"));
     }
 
     const names = resolveImportNames(payload.workspaces);
@@ -1741,7 +1743,7 @@ restoreWorkspacesFile.addEventListener("change", async () => {
     alert("Importováno workspace: " + (result?.imported ?? 0));
   } catch (error) {
     console.error("Workspace collection restore failed", error);
-    alert("Restore workspaces selhal: " + (error?.message ?? error));
+    alert(t("restoreWorkspacesError") + (error?.message ?? error));
   } finally {
     restoreWorkspacesButton.disabled = false;
     restoreWorkspacesFile.value = "";
@@ -1763,7 +1765,7 @@ backupApplicationButton.addEventListener("click", async () => {
     );
   } catch (error) {
     console.error("Application backup failed", error);
-    alert("Backup aplikace selhal: " + (error?.message ?? error));
+    alert(t("backupApplicationError") + (error?.message ?? error));
   } finally {
     backupApplicationButton.disabled = false;
   }
@@ -1784,7 +1786,7 @@ restoreApplicationFile.addEventListener("change", async () => {
       payload?.format !== "firefox-workspace-manager.application" ||
       Number(payload?.version) !== 1
     ) {
-      throw new Error("Soubor není kompletní backup Workspace Manageru");
+      throw new Error(t("fileNotApplication"));
     }
 
     const workspaceCount = Array.isArray(payload?.data?.workspaces?.workspaces)
@@ -1840,7 +1842,7 @@ restoreApplicationFile.addEventListener("change", async () => {
     );
   } catch (error) {
     console.error("Application restore failed", error);
-    alert("Restore aplikace selhal: " + (error?.message ?? error));
+    alert(t("restoreApplicationError") + (error?.message ?? error));
   } finally {
     restoreApplicationButton.disabled = false;
     restoreApplicationFile.value = "";
@@ -1859,7 +1861,7 @@ snapshotWorkspaceButton.addEventListener("click", async () => {
 
 cloneWorkspaceButton.addEventListener("click", async () => {
   const defaultName = "Workspace " + (Object.keys(workspaces ?? {}).length + 1);
-  const name = prompt("Název nového workspace z aktuálního stavu Firefoxu:", defaultName);
+  const name = prompt(t("workspaceNewNamePrompt"), defaultName);
   if (name == null || !name.trim()) return;
 
   cloneWorkspaceButton.disabled = true;
@@ -1870,14 +1872,14 @@ cloneWorkspaceButton.addEventListener("click", async () => {
     });
 
     if (!result?.workspaceId || !result?.active || result.windows < 1 || result.tabs < 1) {
-      throw new Error("Nový workspace se nepodařilo ověřit");
+      throw new Error(t("createWorkspaceUnverified"));
     }
 
     expandedWorkspaceId = result.workspaceId;
     await load();
   } catch (error) {
     console.error("Create workspace from current state failed", error);
-    alert("Uložení aktuálního stavu jako nového workspace selhalo: " + (error?.message ?? error));
+    alert(t("createWorkspaceError") + (error?.message ?? error));
   } finally {
     cloneWorkspaceButton.disabled = false;
   }
@@ -1942,7 +1944,7 @@ setInterval(() => {
   document.querySelectorAll(".countdown[data-deadline]").forEach(el => {
     const deadline = Number(el.dataset.deadline);
     el.textContent = deadline > Date.now()
-      ? "DEEP za " + formatRemaining(deadline)
+      ? t("deepIn") + formatRemaining(deadline)
       : "DEEP…";
   });
 }, 1000);

@@ -280,5 +280,227 @@
   },
   "helpDevWatcher": {
     "message": "Při spuštění přes web-ext se rozšíření při změně souborů automaticky znovu načte. Otevřený panel správce na moz-extension:// se může zavřít. Nainstalovaná verze tyto vývojové hlídače nepoužívá."
+  },
+  "activeWorkspace": {
+    "message": "Aktivní workspace"
+  },
+  "lastWorkspaceInactive": {
+    "message": "Naposledy použitý · neaktivní"
+  },
+  "noWorkspace": {
+    "message": "Žádný workspace"
+  },
+  "noTitle": {
+    "message": "(bez názvu)"
+  },
+  "loadingError": {
+    "message": "Chyba při načítání."
+  },
+  "recovering": {
+    "message": "Obnovuji…"
+  },
+  "recoveryFailed": {
+    "message": "Recovery selhalo"
+  },
+  "statWindows": {
+    "message": "oken"
+  },
+  "statTabs": {
+    "message": "panelů"
+  },
+  "statGroups": {
+    "message": "skupin"
+  },
+  "statActive": {
+    "message": "aktivní"
+  },
+  "statLoaded": {
+    "message": "loaded"
+  },
+  "statDeep": {
+    "message": "deep"
+  },
+  "statAutoPending": {
+    "message": "AUTO čeká"
+  },
+  "statDeepAlways": {
+    "message": "DEEP always"
+  },
+  "statKeepAlways": {
+    "message": "KEEP always"
+  },
+  "statUrlExceptions": {
+    "message": "URL výjimky"
+  },
+  "tooltipActive": {
+    "message": "Aktivní"
+  },
+  "tooltipDiscarded": {
+    "message": "DEEP / uvolněno z paměti"
+  },
+  "tooltipLoaded": {
+    "message": "Načteno v paměti"
+  },
+  "tooltipExactKeep": {
+    "message": "Přesná URL je výjimka KEEP"
+  },
+  "tooltipHostnameDeep": {
+    "message": "Hostname má politiku DEEP"
+  },
+  "tooltipHostnameKeep": {
+    "message": "Hostname má politiku KEEP"
+  },
+  "tooltipOtherFlags": {
+    "message": "Další stavové příznaky"
+  },
+  "tooltipDiscardAttempt": {
+    "message": "Poslední pokus o discard"
+  },
+  "deepIn": {
+    "message": "DEEP za "
+  },
+  "groupDeep": {
+    "message": "DEEP skupinu"
+  },
+  "groupNone": {
+    "message": "Bez skupiny"
+  },
+  "groupUntitled": {
+    "message": "(skupina bez názvu)"
+  },
+  "groupEmpty": {
+    "message": "Prázdná skupina"
+  },
+  "panelsNoMatch": {
+    "message": "Žádné panely neodpovídají aktuálnímu filtru."
+  },
+  "emptyHostList": {
+    "message": "Nic nenalezeno."
+  },
+  "emptyUrlExceptions": {
+    "message": "Žádné URL výjimky."
+  },
+  "emptyWorkspace": {
+    "message": "Zatím není uložený žádný workspace."
+  },
+  "workspaceNoWindows": {
+    "message": "Workspace nemá uložená okna."
+  },
+  "workspaceNoLog": {
+    "message": "Pro tento workspace zatím není debug záznam."
+  },
+  "statusActive": {
+    "message": "AKTIVNÍ"
+  },
+  "statusOpen": {
+    "message": "OTEVŘENÝ"
+  },
+  "statusClosed": {
+    "message": "ZAVŘENÝ"
+  },
+  "detail": {
+    "message": "👁 Detail"
+  },
+  "hide": {
+    "message": "Skrýt"
+  },
+  "switch": {
+    "message": "Přepnout"
+  },
+  "copy": {
+    "message": "Copy"
+  },
+  "copied": {
+    "message": "Copied"
+  },
+  "remove": {
+    "message": "Vyřadit"
+  },
+  "noHistory": {
+    "message": "bez historie"
+  },
+  "importedAt": {
+    "message": "Importováno "
+  },
+  "createdAt": {
+    "message": "Vytvořeno "
+  },
+  "from": {
+    "message": " z "
+  },
+  "originally": {
+    "message": " · původně "
+  },
+  "countTabs": {
+    "message": " panelů"
+  },
+  "countGroups": {
+    "message": " skupin"
+  },
+  "windowPrefix": {
+    "message": "Okno #"
+  },
+  "workspaceNamePrompt": {
+    "message": "Název workspace:"
+  },
+  "workspaceNewNamePrompt": {
+    "message": "Název nového workspace z aktuálního stavu Firefoxu:"
+  },
+  "deletedWorkspaceName": {
+    "message": "Importovaný workspace"
+  },
+  "filterActiveRatio": {
+    "message": "% aktivní / "
+  },
+  "filterBackgroundRatio": {
+    "message": "% pozadí"
+  },
+  "usageAverage": {
+    "message": "× aktivní · průměr "
+  },
+  "keepExceptionAdd": {
+    "message": "Opravdu vložit tuto přesnou URL do výjimek?\n\n"
+  },
+  "keepExceptionRemove": {
+    "message": "Opravdu vyjmout tuto přesnou URL z výjimek?\n\n"
+  },
+  "removeWorkspaceWindow": {
+    "message": "Vyřadit toto uložené okno z workspace?\n\nAktuálně otevřené Firefox okno se nezavře."
+  },
+  "copiedLogError": {
+    "message": "Kopírování logu selhalo: "
+  },
+  "importWorkspaceError": {
+    "message": "Import workspace selhal: "
+  },
+  "backupWorkspacesError": {
+    "message": "Backup workspaces selhal: "
+  },
+  "restoreWorkspacesError": {
+    "message": "Restore workspaces selhal: "
+  },
+  "backupApplicationError": {
+    "message": "Backup aplikace selhal: "
+  },
+  "restoreApplicationError": {
+    "message": "Restore aplikace selhal: "
+  },
+  "createWorkspaceError": {
+    "message": "Uložení aktuálního stavu jako nového workspace selhalo: "
+  },
+  "fileNotCollection": {
+    "message": "Soubor není workspace collection backup"
+  },
+  "fileNotApplication": {
+    "message": "Soubor není kompletní backup Workspace Manageru"
+  },
+  "createWorkspaceUnverified": {
+    "message": "Nový workspace se nepodařilo ověřit"
+  },
+  "noRecoveredWindow": {
+    "message": "Workspace recovery nevytvořilo žádné okno"
+  },
+  "recoverDuplicatePopup": {
+    "message": "POZOR: Obsah otevřených oken se liší od obnovené zálohy.\n\nRecover vytvoří dalších $1 oken vedle $2 existujících. Mohou vzniknout duplicity.\n\nVytvořit nová okna?"
   }
 }
