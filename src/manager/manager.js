@@ -12,6 +12,7 @@ import {
   TAB_LIFECYCLE_KEY,
   UI_PAGE_KEY,
   UI_LANGUAGE_KEY,
+  UI_DEVICE_NAME_KEY,
   URL_POLICIES_KEY,
   WORKSPACES_KEY,
   WORKSPACE_DEBUG_KEY
@@ -21,6 +22,7 @@ import { H } from "../shared/H.js";
 import { t, uiLocale, localizeDocument, formatCount, initializeLocale, languagePreference, normalizeLanguage } from "../shared/i18n.js";
 import { PanelExplorerController } from "./PanelExplorerController.js";
 import { confirmDialog, promptDialog, messageDialog } from "../shared/dialogs.js";
+import { normalizeDeviceName, backupFilename } from "../shared/backupFilename.js";
 
 const app = document.getElementById("app");
 const summary = document.getElementById("summary");
@@ -62,6 +64,10 @@ const backupApplicationButton = document.getElementById("backupApplication");
 const restoreApplicationButton = document.getElementById("restoreApplication");
 const restoreApplicationFile = document.getElementById("restoreApplicationFile");
 const languageSelect = document.getElementById("uiLanguage");
+const deviceNameInput = document.getElementById("deviceName");
+const deviceNameStatus = document.getElementById("deviceNameStatus");
+const deviceNameSave = document.getElementById("saveDeviceName");
+const exportDeviceHint = document.getElementById("exportDeviceHint");
 
 let managerTabId = null;
 let managerWindowId = null;
@@ -83,6 +89,7 @@ let panelPolicyFilterSet = new Set();
 let languageWritePending = false;
 let applicationRestoreInProgress = false;
 let pendingLanguageReload = false;
+let deviceName = "";
 
 const panelExplorer = new PanelExplorerController({
   root: app,
@@ -395,6 +402,34 @@ function safeFilenamePart(value) {
  * @param {unknown} payload
  * @param {string} filename
  */
+/**
+ * UI-only export gating; imports/restores must always remain available.
+ * Device identity is deliberately kept out of Firefox Sync and backup restore.
+ */
+function refreshExportControls() {
+  const available = !!deviceName;
+  backupWorkspacesButton.disabled = !available;
+  backupApplicationButton.disabled = !available;
+  exportDeviceHint.hidden = available;
+  workspaceListEl.querySelectorAll('button[data-workspace-action="export"]')
+    .forEach(button => {
+      button.disabled = !available;
+      button.title = available ? "" : t("deviceNameExportNotice");
+    });
+  deviceNameStatus.textContent = available
+    ? t("deviceNameSaved", deviceName)
+    : t("deviceNameMissing");
+  deviceNameStatus.dataset.error = "false";
+}
+
+/** Read a local device label without ever generating a fingerprint. */
+async function loadDeviceName() {
+  const stored = await browser.storage.local.get(UI_DEVICE_NAME_KEY);
+  deviceName = normalizeDeviceName(stored[UI_DEVICE_NAME_KEY]);
+  deviceNameInput.value = deviceName;
+  refreshExportControls();
+}
+
 function downloadJson(payload, filename) {
   const blob = new Blob([JSON.stringify(payload, null, 2)], {
     type: "application/json"
@@ -1016,7 +1051,7 @@ function renderWorkspaces() {
           ? t("hide")
           : t("detail")
       ),
-      action("export", "Export JSON"),
+      action("export", t("exportJson"), !deviceName),
       action(
         "switch",
         activeWorkspaceId ? t("switch") : t("recoverSession"),
@@ -1049,6 +1084,7 @@ function renderWorkspaces() {
   });
 
   H.replace(workspaceListEl, ...cards);
+  refreshExportControls();
 }
 
 function renderPanels() {
@@ -1359,6 +1395,31 @@ document.querySelector(".page-tabs").addEventListener("click", event => {
   if (button) setPage(button.dataset.page).catch(console.error);
 });
 
+// A device label is mandatory for export; never disable import/recovery.
+deviceNameSave.addEventListener("click", async () => {
+  const typed = deviceNameInput.value.trim();
+  const parsed = normalizeDeviceName(typed);
+  if (typed && !parsed) {
+    deviceNameStatus.textContent = t("deviceNameInvalid");
+    deviceNameStatus.dataset.error = "true";
+    deviceNameInput.focus();
+    return;
+  }
+
+  deviceNameSave.disabled = true;
+  try {
+    if (parsed) await browser.storage.local.set({ [UI_DEVICE_NAME_KEY]: parsed });
+    else await browser.storage.local.remove(UI_DEVICE_NAME_KEY);
+    deviceName = parsed;
+    deviceNameInput.value = parsed;
+    refreshExportControls();
+  } catch (error) {
+    await messageDialog(t("deviceNameSaveError") + (error?.message ?? error));
+  } finally {
+    deviceNameSave.disabled = false;
+  }
+});
+
 // Changing the language reloads only this extension page. The current manager
 // section is persisted in UI_PAGE_KEY and is restored after a page reload.
 languageSelect.addEventListener("change", async () => {
@@ -1585,15 +1646,15 @@ workspaceListEl.addEventListener("click", async event => {
   }
 
   if (button.dataset.workspaceAction === "export") {
+    if (!deviceName) return;
     const payload = await browser.runtime.sendMessage({
       type: "exportWorkspace",
       workspaceId
     });
     downloadJson(
       payload,
-      backupTimestamp() + "_" +
-        safeFilenamePart(workspace.name || "workspace") +
-        ".json"
+      backupFilename(backupTimestamp(), deviceName,
+        safeFilenamePart(workspace.name || "workspace"))
     );
     return;
   }
@@ -1685,6 +1746,7 @@ importWorkspaceFile.addEventListener("change", async () => {
 });
 
 backupWorkspacesButton.addEventListener("click", async () => {
+  if (!deviceName) return;
   backupWorkspacesButton.disabled = true;
 
   try {
@@ -1694,13 +1756,13 @@ backupWorkspacesButton.addEventListener("click", async () => {
 
     downloadJson(
       payload,
-      backupTimestamp() + "_workspaces.json"
+      backupFilename(backupTimestamp(), deviceName, "workspaces")
     );
   } catch (error) {
     console.error("Workspace collection backup failed", error);
     await messageDialog(t("backupWorkspacesError") + (error?.message ?? error));
   } finally {
-    backupWorkspacesButton.disabled = false;
+    backupWorkspacesButton.disabled = !deviceName;
   }
 });
 
@@ -1755,6 +1817,7 @@ restoreWorkspacesFile.addEventListener("change", async () => {
 });
 
 backupApplicationButton.addEventListener("click", async () => {
+  if (!deviceName) return;
   backupApplicationButton.disabled = true;
 
   try {
@@ -1765,13 +1828,13 @@ backupApplicationButton.addEventListener("click", async () => {
 
     downloadJson(
       payload,
-      backupTimestamp() + "_workspace_manager.json"
+      backupFilename(backupTimestamp(), deviceName, "workspace_manager")
     );
   } catch (error) {
     console.error("Application backup failed", error);
     await messageDialog(t("backupApplicationError") + (error?.message ?? error));
   } finally {
-    backupApplicationButton.disabled = false;
+    backupApplicationButton.disabled = !deviceName;
   }
 });
 
@@ -1923,6 +1986,11 @@ browser.tabGroups.onRemoved.addListener(() => load().catch(console.error));
 
 browser.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
+  if (changes[UI_DEVICE_NAME_KEY]) {
+    deviceName = normalizeDeviceName(changes[UI_DEVICE_NAME_KEY].newValue);
+    deviceNameInput.value = deviceName;
+    refreshExportControls();
+  }
   if (changes[UI_LANGUAGE_KEY]) {
     if (applicationRestoreInProgress) pendingLanguageReload = true;
     else if (!languageWritePending) window.location.reload();
@@ -1945,6 +2013,7 @@ setInterval(() => {
   await initializeLocale();
   localizeDocument();
   languageSelect.value = languagePreference;
+  await loadDeviceName();
 
   const current = await browser.tabs.getCurrent();
   managerTabId = current?.id ?? null;
