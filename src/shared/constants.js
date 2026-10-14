@@ -21,6 +21,7 @@ export const WORKSPACE_SNAPSHOT_LOCK_KEY = "fwm.workspaceSnapshotLock";
 export const APP_RESTORE_PENDING_KEY = "fwm.applicationRestorePending";
 export const UI_PAGE_KEY = "fwm.ui.page";
 export const UI_LANGUAGE_KEY = "fwm.ui.language";
+export const UI_DEVICE_NAME_KEY = "fwm.ui.deviceName";
 export const PANEL_EXPLORER_STATE_KEY = "fwm.panelExplorerState";
 
 export const WORKSPACE_SNAPSHOT_LOCK_TTL_MS = 120_000;
