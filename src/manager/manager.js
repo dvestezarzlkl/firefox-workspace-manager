@@ -64,9 +64,9 @@ const backupApplicationButton = document.getElementById("backupApplication");
 const restoreApplicationButton = document.getElementById("restoreApplication");
 const restoreApplicationFile = document.getElementById("restoreApplicationFile");
 const languageSelect = document.getElementById("uiLanguage");
-const deviceNameInput = document.getElementById("deviceName");
+const deviceNameInput = /** @type {HTMLInputElement} */ (document.getElementById("deviceName"));
 const deviceNameStatus = document.getElementById("deviceNameStatus");
-const deviceNameSave = document.getElementById("saveDeviceName");
+const deviceNameSave = /** @type {HTMLButtonElement} */ (document.getElementById("saveDeviceName"));
 const exportDeviceHint = document.getElementById("exportDeviceHint");
 
 let managerTabId = null;
@@ -406,7 +406,8 @@ function refreshExportControls() {
   backupApplicationButton.disabled = !available;
   exportDeviceHint.hidden = available;
   workspaceListEl.querySelectorAll('button[data-workspace-action="export"]')
-    .forEach(button => {
+    .forEach(element => {
+      const button = /** @type {HTMLButtonElement} */ (element);
       button.disabled = !available;
       button.title = available ? "" : t("deviceNameExportNotice");
     });
