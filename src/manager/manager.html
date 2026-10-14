@@ -88,7 +88,7 @@
       <div>
         <h2 data-i18n="workspaces">Workspaces</h2>
         <p data-i18n="workspacesDescription">Workspace obsahuje všechna jeho okna, skupiny a panely.</p>
-        <p id="exportDeviceHint" class="hint" data-i18n="deviceNameExportNotice">Pro povolení exportu nejprve nastav název počítače v Nastavení.</p>
+        <p id="exportDeviceHint" class="hint" data-i18n="deviceNameExportNotice">Probíhá načtení označení zařízení; při potížích zkontroluj Nastavení.</p>
       </div>
       <div class="actions">
         <button id="snapshotWorkspace" type="button" data-i18n="saveState">Uložit stav</button>
@@ -106,7 +106,7 @@
   <main id="settingsPage" class="page">
     <section class="settings-card">
       <h2 data-i18n="deviceNameHeading">Označení počítače</h2>
-      <p data-i18n="deviceNameExplanation">Název tohoto PC se uloží jen lokálně a bude součástí názvů exportovaných JSON souborů, hned za časovým razítkem. Není přenášen přes Sync ani obnovován ze zálohy.</p>
+      <p data-i18n="deviceNameExplanation">Při prvním spuštění se bezpečně vygeneruje označení FFWM-XXXXXXXX. Můžeš ho přejmenovat podle PC. Označení se ukládá lokálně, vkládá se za timestamp exportu a je součástí kompletní JSON zálohy. Při obnově lze převzít název ze zálohy.</p>
       <div class="device-name-controls">
         <label for="deviceName" data-i18n="deviceNameLabel">Název PC</label>
         <input id="deviceName" type="text" maxlength="40" autocomplete="off" spellcheck="false" placeholder="PC-ZEDNIK">
@@ -252,7 +252,7 @@
       <p data-i18n="helpAppRestore">Obnova aplikace nahradí trvalý stav ze zálohy, ale nezavírá otevřená Firefox okna. Jednoznačná přesná shoda automaticky připojí existující okna; nejednoznačné nebo změněné relace se nepřipojí a Recover před možnými duplicitami vyžádá potvrzení.</p>
       <p data-i18n="helpSync">Firefox Sync je volitelný. Synchronizuje AUTO nastavení, hostname politiky a URL výjimky. Runtime ID, countdowny, statistiky používání a snapshoty workspace zůstávají lokální.</p>
       <p data-i18n="helpLanguage">Jazyk rozhraní lze ponechat podle Firefoxu nebo ručně zvolit češtinu či angličtinu. Volba je lokální a ukládá se do úplné zálohy aplikace.</p>
-      <p data-i18n="helpDeviceName">Exporty vyžadují lokální název počítače. Název se přidá za časové razítko souboru; při importu ani obnově se místní nastavení názvu nemění.</p>
+      <p data-i18n="helpDeviceName">Při prvním spuštění dostane rozšíření náhodné lokální označení FFWM-XXXXXXXX, které lze přejmenovat. Smazání hodnoty a Uložit vytvoří nové ID. Exporty používají označení v názvu souboru i v kompletní záloze. Při obnově se automatické ID může převzít ze zálohy; uživatelsky změněný název se přepíše jen po potvrzení. Starší zálohy bez názvu ho nemění.</p>
     </section>
 
     <section class="settings-card help-card">

@@ -684,13 +684,13 @@
     "message": "Device label"
   },
   "deviceNameExplanation": {
-    "message": "This PC label is saved locally and appended immediately after the timestamp in exported JSON filenames. It is neither synchronized nor overwritten by a backup restore."
+    "message": "A random FFWM-XXXXXXXX label is generated on first use. You can rename it to identify this PC. The local label follows the export timestamp and is included in the full JSON backup. Restoring the backup can also restore its label."
   },
   "deviceNameSave": {
     "message": "Save"
   },
   "deviceNameMissing": {
-    "message": "No device name set. Exports are disabled."
+    "message": "Could not initialize the device label. Exports are temporarily disabled."
   },
   "deviceNameSaved": {
     "message": "Device: $1. Exports are enabled."
@@ -702,12 +702,27 @@
     "message": "Failed to save device name: "
   },
   "deviceNameExportNotice": {
-    "message": "Set a device name in Settings before exporting."
+    "message": "Loading device label; check Settings if this does not complete."
   },
   "helpDeviceName": {
-    "message": "Exports require a local device name. It is inserted after the file timestamp; importing or restoring a backup does not change this device's label."
+    "message": "A random local FFWM-XXXXXXXX device label is generated on first use and can be customized. Clear and Save to generate a fresh ID. The label is included in export filenames and the full application backup. Auto-generated labels can be replaced from a backup; customized names require confirmation. Older backups without a name leave the current name unchanged."
   },
   "exportJson": {
     "message": "Export JSON"
+  },
+  "deviceNameGenerated": {
+    "message": "Automatic label: $1. You can rename it."
+  },
+  "deviceNameRestoreAsk": {
+    "message": "This computer has already been named \"$1\" by the user. The backup contains \"$2\".\n\nRestore the PC name as well? Choosing No keeps the current name but still restores all other backup data."
+  },
+  "deviceNameRestoreYes": {
+    "message": "Yes, change name"
+  },
+  "deviceNameRestoreNo": {
+    "message": "No, keep current"
+  },
+  "deviceNameRestoreError": {
+    "message": "The data was restored, but the device name could not be changed: "
   }
 }

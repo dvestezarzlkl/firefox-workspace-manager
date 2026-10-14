@@ -684,13 +684,13 @@
     "message": "Název PC"
   },
   "deviceNameExplanation": {
-    "message": "Název tohoto PC se uloží jen lokálně a bude součástí názvů exportovaných JSON souborů, hned za časovým razítkem. Není přenášen přes Sync ani obnovován ze zálohy."
+    "message": "Při prvním spuštění se bezpečně vygeneruje označení FFWM-XXXXXXXX. Můžeš ho přejmenovat podle PC. Označení se ukládá lokálně, vkládá se za timestamp exportu a je součástí kompletní JSON zálohy. Při obnově lze převzít název ze zálohy."
   },
   "deviceNameSave": {
     "message": "Uložit"
   },
   "deviceNameMissing": {
-    "message": "Název není zadaný. Exporty jsou zakázané."
+    "message": "Označení PC se nepodařilo inicializovat. Exporty jsou dočasně nedostupné."
   },
   "deviceNameSaved": {
     "message": "Zařízení: $1. Exporty jsou povolené."
@@ -702,12 +702,27 @@
     "message": "Název počítače se nepodařilo uložit: "
   },
   "deviceNameExportNotice": {
-    "message": "Pro povolení exportu nejprve nastav název počítače v Nastavení."
+    "message": "Probíhá načtení označení zařízení; při potížích zkontroluj Nastavení."
   },
   "helpDeviceName": {
-    "message": "Exporty vyžadují lokální název počítače. Název se přidá za časové razítko souboru; při importu ani obnově se místní nastavení názvu nemění."
+    "message": "Při prvním spuštění dostane rozšíření náhodné lokální označení FFWM-XXXXXXXX, které lze přejmenovat. Smazání hodnoty a Uložit vytvoří nové ID. Exporty používají označení v názvu souboru i v kompletní záloze. Při obnově se automatické ID může převzít ze zálohy; uživatelsky změněný název se přepíše jen po potvrzení. Starší zálohy bez názvu ho nemění."
   },
   "exportJson": {
     "message": "Export JSON"
+  },
+  "deviceNameGenerated": {
+    "message": "Automatické označení: $1. Můžeš ho přejmenovat."
+  },
+  "deviceNameRestoreAsk": {
+    "message": "Tento počítač už byl uživatelsky pojmenován „$1“. Záloha obsahuje název „$2“.\n\nChceš při obnově změnit také název PC? Pokud zvolíš Ne, ostatní data ze zálohy se přesto obnoví."
+  },
+  "deviceNameRestoreYes": {
+    "message": "Ano, změnit název"
+  },
+  "deviceNameRestoreNo": {
+    "message": "Ne, ponechat současný"
+  },
+  "deviceNameRestoreError": {
+    "message": "Data byla obnovena, ale označení počítače se nepodařilo změnit: "
   }
 }
