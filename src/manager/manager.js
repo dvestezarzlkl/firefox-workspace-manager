@@ -426,8 +426,8 @@ function resolveImportNames(payloads) {
   const resolved = [];
 
   for (const payload of payloads) {
-    const original = String(payload?.name || "Importovaný workspace").trim() ||
-      "Importovaný workspace";
+    const original = String(payload?.name || t("importedWorkspaceDefault")).trim() ||
+      t("importedWorkspaceDefault");
     let candidate = original;
 
     while (
@@ -435,12 +435,11 @@ function resolveImportNames(payloads) {
       reserved.has(normalizeWorkspaceName(candidate))
     ) {
       const conflict = candidate
-        ? 'Workspace s názvem "' + candidate + '" už existuje.'
-        : "Název workspace nesmí být prázdný.";
+        ? t("duplicateWorkspaceName", candidate)
+        : t("emptyWorkspaceName");
 
       const entered = prompt(
-        conflict + "\n\n" +
-        "Zadej nový název, nebo dej Storno pro zrušení celého importu:",
+        conflict + "\n\n" + t("importNewNamePrompt"),
         original + " import"
       );
 
@@ -470,12 +469,12 @@ function workspaceProvenanceText(workspace) {
 
   if (workspace?.importedAt) {
     let imported = t("importedAt") + formatDateTime(workspace.importedAt);
-    if (workspace.importSource) imported += " z " + workspace.importSource;
+    if (workspace.importSource) imported += t("provenanceSource", workspace.importSource);
     if (
       workspace.originalName &&
       workspace.originalName !== workspace.name
     ) {
-      imported += ' · původně "' + workspace.originalName + '"';
+      imported += t("provenanceOriginal", workspace.originalName);
     }
     parts.push(imported);
   }
@@ -903,7 +902,7 @@ function renderWorkspaceTree(workspace) {
       H.el(
         "summary",
         {},
-        H.el("span", {}, "Debug log (" + relatedLog.length + ")"),
+        H.el("span", {}, t("debugLogCount", relatedLog.length))"),
         H.el(
           "button",
           {
@@ -911,7 +910,7 @@ function renderWorkspaceTree(workspace) {
             className: "workspace-debug-copy",
             dataset: { copyWorkspaceLog: workspace.id }
           },
-          "Copy"
+          t("copy")
         )
       ),
       debugList
@@ -1265,7 +1264,7 @@ function renderPanels() {
 
 async function load() {
   panelExplorer.captureOpenState();
-  app.textContent = "Načítám…";
+  app.textContent = t("loading");
 
   const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY, URL_POLICIES_KEY, HOST_POLICIES_KEY, WORKSPACES_KEY, ACTIVE_WORKSPACE_KEY, WORKSPACE_DEBUG_KEY]);
   lifecycleMap = stored[TAB_LIFECYCLE_KEY] ?? {};
@@ -1425,8 +1424,8 @@ app.addEventListener("click", async event => {
 
     const exists = urlPolicies.some(rule => rule?.mode === "KEEP" && rule?.url === url);
     const question = exists
-      ? "Opravdu vyjmout tuto přesnou URL z výjimek?\n\n" + url
-      : "Opravdu vložit tuto přesnou URL do výjimek?\n\n" + url;
+      ? t("keepExceptionRemove") + url
+      : t("keepExceptionAdd") + url;
 
     if (!confirm(question)) return;
 
@@ -1538,7 +1537,7 @@ workspaceListEl.addEventListener("click", async event => {
     const workspaceId = windowButton.dataset.workspaceId;
     const logicalWindowId = windowButton.dataset.logicalWindowId;
     if (windowButton.dataset.workspaceWindowAction === "remove") {
-      if (!confirm("Vyřadit toto uložené okno z workspace?\n\nAktuálně otevřené Firefox okno se nezavře.")) return;
+      if (!confirm(t("removeWorkspaceWindow"))) return;
       await browser.runtime.sendMessage({
         type: "removeWorkspaceWindow",
         workspaceId,
@@ -1592,24 +1591,10 @@ workspaceListEl.addEventListener("click", async event => {
       !!preview?.pendingApplicationRestore && preview.liveContentWindows > 0;
 
     const message = hasActiveWorkspace
-      ? (
-          "Přepnout na workspace \"" + (workspace.name || "Workspace") +
-          "\"?\n\nAktuální stav se uloží a okna současného workspace se zavřou."
-        )
+      ? t("confirmSwitchWorkspace", workspace.name || "Workspace")
       : potentialDuplicates
-        ? (
-            "POZOR: Otevřená Firefox okna nebylo možné bezpečně přiřadit " +
-            "k právě obnovené záloze aplikace. Obsah oken se mohl změnit.\n\n" +
-            "Právě je otevřeno " + preview.liveContentWindows +
-            " obsahových oken. Recover vytvoří DALŠÍCH " +
-            preview.restoreWindowCount +
-            " oken a původní ponechá. Mohou vzniknout duplicity.\n\n" +
-            "Chceš výslovně vytvořit další okna? Storno ponechá současný stav."
-          )
-        : (
-            "Obnovit session workspace \"" + (workspace.name || "Workspace") +
-            "\"?\n\nOtevřou se jeho uložená okna, skupiny a panely."
-          );
+        ? t("confirmRecoverAdditionalWindows", preview.liveContentWindows, preview.restoreWindowCount)
+        : t("confirmRecoverWorkspace", workspace.name || "Workspace");
 
     if (!confirm(message)) return;
 
@@ -1638,8 +1623,8 @@ workspaceListEl.addEventListener("click", async event => {
   if (button.dataset.workspaceAction === "delete") {
     const active = workspaceId === activeWorkspaceId;
     const message = active
-      ? "Smazat aktivní workspace \"" + (workspace.name || "Workspace") + "\"?\n\nOtevřená okna zůstanou a budou převedena do nového workspace."
-      : "Opravdu smazat workspace \"" + (workspace.name || "Workspace") + "\"?";
+      ? t("confirmDeleteActiveWorkspace", workspace.name || "Workspace")
+      : t("confirmDeleteWorkspace", workspace.name || "Workspace");
     if (!confirm(message)) return;
     await browser.runtime.sendMessage({ type: "deleteWorkspace", workspaceId });
     await load();
@@ -1720,9 +1705,7 @@ restoreWorkspacesFile.addEventListener("change", async () => {
 
     if (
       !confirm(
-        "Importovat " + payload.workspaces.length +
-        " workspace z backupu?\n\n" +
-        "Existující workspace zůstanou beze změny."
+        t("confirmImportCollection", payload.workspaces.length)
       )
     ) {
       return;
@@ -1738,7 +1721,7 @@ restoreWorkspacesFile.addEventListener("change", async () => {
     });
 
     await load();
-    alert("Importováno workspace: " + (result?.imported ?? 0));
+    alert(t("importCollectionSuccess", result?.imported ?? 0));
   } catch (error) {
     console.error("Workspace collection restore failed", error);
     alert(t("restoreWorkspacesError") + (error?.message ?? error));
@@ -1791,14 +1774,7 @@ restoreApplicationFile.addEventListener("change", async () => {
       ? payload.data.workspaces.workspaces.length
       : 0;
 
-    const accepted = confirm(
-      "Obnovit kompletní stav Workspace Manageru ze zálohy?\n\n" +
-      "Tato akce NAHRADÍ uložené nastavení a workspaces.\n" +
-      "Otevřená Firefox okna zůstanou beze změny.\n" +
-      "Pokud se otevřená okna se zálohou přesně shodují, workspace se znovu připojí automaticky.\n" +
-      "Při rozdílu zůstanou původní okna otevřená a Recover vyžaduje potvrzení dalších oken.\n\n" +
-      "Workspace v záloze: " + workspaceCount
-    );
+    const accepted = confirm(t("confirmRestoreApplication", workspaceCount));
 
     if (!accepted) return;
 
@@ -1820,24 +1796,12 @@ restoreApplicationFile.addEventListener("change", async () => {
     }
 
     const attachmentMessage = result?.reattached
-      ? (
-          "Existující okna byla jednoznačně rozpoznána a znovu připojena.\n" +
-          "Aktivní workspace: " +
-          (workspaces[result.workspaceId]?.name || "obnovený workspace") +
-          " (" + result.windowCount + " oken)."
-        )
-      : (
-          "Otevřená okna se se zálohou neshodují úplně nebo nelze shodu určit.\n" +
-          "Žádné původní okno nebylo zavřeno ani změněno.\n" +
-          "Recover session může vytvářet další okna; při riziku duplicit " +
-          "se zobrazí výslovné upozornění."
-        );
+      ? t("restoredAttached",
+          workspaces[result.workspaceId]?.name || t("restoredWorkspaceName"),
+          formatCount(result.windowCount ?? 0, "countWindow"))
+      : t("restoredNotAttached");
 
-    alert(
-      "Restore aplikace dokončen.\n\n" +
-      "Obnoveno workspace: " + (result?.workspaces ?? 0) + "\n\n" +
-      attachmentMessage
-    );
+    alert(t("restoreApplicationSuccess", result?.workspaces ?? 0, attachmentMessage));
   } catch (error) {
     console.error("Application restore failed", error);
     alert(t("restoreApplicationError") + (error?.message ?? error));
@@ -1898,7 +1862,7 @@ addUrlKeep.addEventListener("click", async () => {
   const url = urlPattern.value.trim();
   if (!/^https?:\/\//i.test(url)) return;
 
-  if (!confirm("Opravdu vložit tuto přesnou URL do výjimek?\n\n" + url)) return;
+  if (!confirm(t("keepExceptionAdd") + url)) return;
 
   urlPolicies = urlPolicies.filter(rule => rule.url !== url);
   urlPolicies.push({ url, mode: "KEEP" });
@@ -1974,5 +1938,5 @@ setInterval(() => {
   await load();
 })().catch(error => {
   console.error(error);
-  app.textContent = "Chyba při načítání. Podrobnosti jsou v konzoli rozšíření.";
+  app.textContent = t("loadedErrorDetail");
 });

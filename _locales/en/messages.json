@@ -501,7 +501,7 @@
     "message": "Workspace recovery did not create any window"
   },
   "recoverDuplicatePopup": {
-    "message": "WARNING: Open windows differ from the restored backup.\n\nRecovery will open $1 additional windows alongside $2 existing windows. Duplicates may result.\n\nCreate new windows?"
+    "message": "WARNING: Open windows differ from the restored backup.\n\nNew windows: $1.\nExisting windows: $2.\nDuplicates may result.\n\nCreate additional windows?"
   },
   "countWindowOne": {
     "message": "window"
@@ -568,5 +568,68 @@
   },
   "usageStats": {
     "message": "$1 activations · average $2 · $3 · total $4"
+  },
+  "importedWorkspaceDefault": {
+    "message": "Imported workspace"
+  },
+  "duplicateWorkspaceName": {
+    "message": "A workspace named \"$1\" already exists."
+  },
+  "emptyWorkspaceName": {
+    "message": "Workspace name cannot be empty."
+  },
+  "importNewNamePrompt": {
+    "message": "Enter a new name or cancel the entire import."
+  },
+  "provenanceSource": {
+    "message": " from $1"
+  },
+  "provenanceOriginal": {
+    "message": " · originally \"$1\""
+  },
+  "confirmSwitchWorkspace": {
+    "message": "Switch to workspace \"$1\"?\n\nThe current state will be saved and the previous workspace's windows will be closed."
+  },
+  "confirmRecoverAdditionalWindows": {
+    "message": "WARNING: Open Firefox windows could not be safely matched to the restored backup. Their content may have changed.\n\nOpen content windows: $1.\nADDITIONAL windows to create: $2.\nExisting windows will remain open; duplicates may result.\n\nExplicitly create additional windows? Cancel leaves the current state unchanged."
+  },
+  "confirmRecoverWorkspace": {
+    "message": "Recover the session for workspace \"$1\"?\n\nIts saved windows, groups and tabs will be opened."
+  },
+  "confirmDeleteActiveWorkspace": {
+    "message": "Delete active workspace \"$1\"?\n\nOpen windows will remain and will be adopted by a new workspace."
+  },
+  "confirmDeleteWorkspace": {
+    "message": "Delete workspace \"$1\"?"
+  },
+  "confirmImportCollection": {
+    "message": "Import workspaces from backup?\n\nCount: $1.\nExisting workspaces will remain unchanged."
+  },
+  "importCollectionSuccess": {
+    "message": "Imported workspaces: $1"
+  },
+  "confirmRestoreApplication": {
+    "message": "Restore the entire Workspace Manager state from backup?\n\nThis REPLACES saved settings and workspaces.\nOpen Firefox windows remain unchanged.\nExact window matches are reattached automatically.\nIf content differs, existing windows stay open and session recovery will require confirmation before opening additional windows.\n\nWorkspaces in backup: $1"
+  },
+  "restoredAttached": {
+    "message": "Existing windows were uniquely identified and reattached.\nActive workspace: $1 ($2)."
+  },
+  "restoredNotAttached": {
+    "message": "Open windows do not match the backup exactly or the match is ambiguous.\nNo original window was closed or modified.\nSession recovery may create additional windows and will ask for confirmation if duplicates are possible."
+  },
+  "restoreApplicationSuccess": {
+    "message": "Application restore complete.\n\nRestored workspaces: $1\n\n$2"
+  },
+  "restoredWorkspaceName": {
+    "message": "restored workspace"
+  },
+  "loadedErrorDetail": {
+    "message": "Loading failed. See the extension console for details."
+  },
+  "debugLogCount": {
+    "message": "Debug log ($1)"
+  },
+  "importSourceNote": {
+    "message": "Import source: $1"
   }
 }

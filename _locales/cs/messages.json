@@ -408,10 +408,10 @@
     "message": "Přepnout"
   },
   "copy": {
-    "message": "Copy"
+    "message": "Kopírovat"
   },
   "copied": {
-    "message": "Copied"
+    "message": "Zkopírováno"
   },
   "remove": {
     "message": "Vyřadit"
@@ -501,7 +501,7 @@
     "message": "Workspace recovery nevytvořilo žádné okno"
   },
   "recoverDuplicatePopup": {
-    "message": "POZOR: Obsah otevřených oken se liší od obnovené zálohy.\n\nRecover vytvoří dalších $1 oken vedle $2 existujících. Mohou vzniknout duplicity.\n\nVytvořit nová okna?"
+    "message": "POZOR: Obsah otevřených oken se liší od obnovené zálohy.\n\nPočet nových oken: $1.\nPočet existujících oken: $2.\nMohou vzniknout duplicity.\n\nVytvořit další okna?"
   },
   "countWindowOne": {
     "message": "okno"
@@ -568,5 +568,68 @@
   },
   "usageStats": {
     "message": "$1× aktivní · průměr $2 · $3 · celkem $4"
+  },
+  "importedWorkspaceDefault": {
+    "message": "Importovaný workspace"
+  },
+  "duplicateWorkspaceName": {
+    "message": "Workspace s názvem „$1“ už existuje."
+  },
+  "emptyWorkspaceName": {
+    "message": "Název workspace nesmí být prázdný."
+  },
+  "importNewNamePrompt": {
+    "message": "Zadej nový název, nebo zruš celý import."
+  },
+  "provenanceSource": {
+    "message": " z $1"
+  },
+  "provenanceOriginal": {
+    "message": " · původně „$1“"
+  },
+  "confirmSwitchWorkspace": {
+    "message": "Přepnout na workspace „$1“?\n\nAktuální stav se uloží a okna současného workspace se zavřou."
+  },
+  "confirmRecoverAdditionalWindows": {
+    "message": "POZOR: Otevřená okna Firefoxu se nepodařilo bezpečně přiřadit k právě obnovené záloze. Jejich obsah se mohl změnit.\n\nNyní otevřených obsahových oken: $1.\nObnova vytvoří DALŠÍCH oken: $2.\nPůvodní okna zůstanou otevřená a mohou vzniknout duplicity.\n\nVýslovně vytvořit další okna? Storno ponechá současný stav."
+  },
+  "confirmRecoverWorkspace": {
+    "message": "Obnovit relaci workspace „$1“?\n\nOtevřou se jeho uložená okna, skupiny a panely."
+  },
+  "confirmDeleteActiveWorkspace": {
+    "message": "Smazat aktivní workspace „$1“?\n\nOtevřená okna zůstanou a převezme je nový workspace."
+  },
+  "confirmDeleteWorkspace": {
+    "message": "Opravdu smazat workspace „$1“?"
+  },
+  "confirmImportCollection": {
+    "message": "Importovat workspaces ze zálohy?\n\nPočet: $1.\nExistující workspaces zůstanou beze změny."
+  },
+  "importCollectionSuccess": {
+    "message": "Importováno workspaces: $1"
+  },
+  "confirmRestoreApplication": {
+    "message": "Obnovit kompletní stav Workspace Manageru ze zálohy?\n\nTato akce NAHRADÍ uložené nastavení a workspaces.\nOtevřená okna Firefoxu zůstanou beze změny.\nPřesné shody oken se znovu připojí automaticky.\nPři rozdílu zůstanou původní okna otevřená a obnova relace bude vyžadovat potvrzení dalších oken.\n\nPočet workspaces v záloze: $1"
+  },
+  "restoredAttached": {
+    "message": "Existující okna byla jednoznačně rozpoznána a znovu připojena.\nAktivní workspace: $1 ($2)."
+  },
+  "restoredNotAttached": {
+    "message": "Otevřená okna se se zálohou úplně neshodují nebo nelze shodu určit.\nŽádné původní okno nebylo zavřeno ani změněno.\nObnova relace může vytvořit další okna a při riziku duplicit vyžádá potvrzení."
+  },
+  "restoreApplicationSuccess": {
+    "message": "Obnova aplikace dokončena.\n\nObnoveno workspaces: $1\n\n$2"
+  },
+  "restoredWorkspaceName": {
+    "message": "obnovený workspace"
+  },
+  "loadedErrorDetail": {
+    "message": "Chyba při načítání. Podrobnosti jsou v konzoli rozšíření."
+  },
+  "debugLogCount": {
+    "message": "Ladicí záznamy ($1)"
+  },
+  "importSourceNote": {
+    "message": "Zdroj importu: $1"
   }
 }
