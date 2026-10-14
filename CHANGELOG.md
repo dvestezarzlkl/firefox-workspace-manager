@@ -7,6 +7,11 @@ source for release notes and AMO Version Notes.
 
 ## Unreleased
 
+### 1.0.0 localization (work in progress; not released)
+- Began native Firefox CZ/EN UI localization with paired message catalogs and a shared DOM translator.
+- Added translations for static manager/popup views and selected dynamic labels.
+- Full dialog coverage and regression tests are still pending; do not publish this draft.
+
 ## 0.8.1 - 2026-10-09
 
 ### Fixed
