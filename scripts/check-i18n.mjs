@@ -61,6 +61,12 @@ for (const match of JSON.stringify(manifest).matchAll(/__MSG_([a-z0-9_]+)__/gi))
   }
 }
 for (const file of ["src/manager/manager.js", "src/popup/popup.js"]) {
+  const code = read(file);
+  if (/\b(?:alert|confirm|prompt)\s*\(/.test(code)) {
+    failures.push("Suppressible native browser dialog found: " + file);
+  }
+}
+for (const file of ["src/manager/manager.js", "src/popup/popup.js"]) {
   const data = read(file);
   if (/[áčďéěíňóřšťúůýž]/i.test(data)) {
     failures.push("Untranslated Czech literal in runtime UI: " + file);
@@ -72,7 +78,7 @@ function jsFiles(dir) {
     return item.isDirectory() ? jsFiles(child) : item.name.endsWith(".js") ? [child] : [];
   });
 }
-for (const path of [...jsFiles("src"), "scripts/check-i18n.mjs", "scripts/test-i18n.mjs"]) {
+for (const path of [...jsFiles("src"), "scripts/check-i18n.mjs", "scripts/test-i18n.mjs", "scripts/test-backup-label.mjs"]) {
   try {
     execFileSync(process.execPath, ["--input-type=module", "--check"], {
       input: read(path),
