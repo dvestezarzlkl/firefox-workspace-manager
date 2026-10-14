@@ -152,6 +152,29 @@ auto-refresh are UI preferences stored in `localStorage`.
 
 They must never be written into workspace snapshots or affect fingerprints.
 
+### Extension-owned confirmation dialogs (1.0.0)
+
+The user can suppress Firefox native JavaScript dialogs through a browser checkbox.
+Never use `window.confirm()`, `alert()`, or `prompt()` for safety-critical
+workspace actions. Manager and popup share `src/shared/dialogs.js` and
+`dialogs.css`, implement DOM-only localized `<dialog>.showModal()`, default to
+Cancel on Escape, and preserve explicit confirmation for restoration that can
+create duplicate windows. Do not use `innerHTML` or remote UI dependencies.
+
+### Per-device export label (1.0.0)
+
+`fwm.ui.deviceName` is a local-only, explicitly entered label (1-40 ASCII
+letters, digits, dot, underscore or dash, starting with an alphanumeric).
+There is no machine fingerprint or OS hostname lookup. Without a valid saved
+label, manager disables single-workspace export, collection backup and full
+application backup; all imports and restores continue to work. Export files
+are `yyyyMMddHHmmss_<device>_<workspace>.json`,
+`yyyyMMddHHmmss_<device>_workspaces.json`, or
+`yyyyMMddHHmmss_<device>_workspace_manager.json`.
+The label is neither synced through Firefox Sync nor imported from application
+backups, which avoids silently replacing the recipient PC's identity.
+Application backup JSON format/version is unchanged.
+
 ### UI language override (1.0.0)
 
 `fwm.ui.language` is a local-only setting with allowed values `auto`, `cs`, `en`.

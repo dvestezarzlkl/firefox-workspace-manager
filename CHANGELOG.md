@@ -8,6 +8,8 @@ source for release notes and AMO Version Notes.
 ## Unreleased
 
 ### 1.0.0 localization (work in progress; not released)
+- Removed suppressible browser-native alert/confirm/prompt dialogs; extension-owned accessible dialogs handle confirmations, names and errors in manager and popup.
+- Added explicit per-computer label in Settings; export of all JSON backup types is unavailable until configured. Filenames now include timestamp + local device label, without changing JSON backup version or transferring device identity.
 - Began native Firefox CZ/EN UI localization with paired message catalogs and a shared DOM translator.
 - Added translations for static manager/popup views and selected dynamic labels.
 - Added Czech plural inflection for tab/window/group counts and translated dynamic workspaces, activity summaries and confirmation dialogs.
