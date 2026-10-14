@@ -4,12 +4,17 @@ memory.issueIdentity = firefox.workspace-manager
 
 ## Status
 
-phase = bootstrap
-branch = dev
+phase = i18n-implementation
+branch = feature/i18n-1.0.0
 
 ## Current focus
 
-- CZ/EN separation/localization of the manager and popup UI is the active discussion as of 2026-10-14. This supersedes the historical 1.0 deferral for current work. The exact decisions from the active project conversation are not present in persistent notes and must be reconciled before implementation. The current `dev` source at 0.8.1 has no `_locales/*/messages.json` or manifest `default_locale`; the AMO listing is already bilingual in `amo-metadata.json`.
+- Version 1.0.0 has been chosen as the first stable release, with a complete CZ/EN UI as a release gate (user decision 2026-10-14).
+- Implementation is IN PROGRESS on `feature/i18n-1.0.0`, forked from `dev` at `a0abed99e4ff996cb941eee3b62548f95604aeac`. Do NOT publish or merge without regression testing and explicit approval.
+- Completed foundation: native manifest `default_locale=en`, `_locales/cs/messages.json` and `_locales/en/messages.json`, shared `src/shared/i18n.js`, static manager/popup localization and selected dynamic labels/messages. Translation catalogs have 168 matching keys.
+- TODO BEFORE RELEASE: complete dynamic manager/popup dialogs and composite labels, verify background-originated user-visible errors, check all help text and untranslated HTML fragments, test both browser locale settings, run checkJs, web-ext lint, and full recovery/backup/lifecycle regression in an isolated Firefox development profile.
+- The manifest version is 1.0.0 IN THE FEATURE BRANCH ONLY and does not imply a released version. Published 0.8.1 and dev/main remain unchanged.
+- Remote environment cannot access a local Firefox profile or npm dependencies; coordinate local validation through the established localCommand protocol if needed.
 
 ## Done
 
