@@ -392,14 +392,18 @@ branch = feature/i18n-1.0.0
 
 ## localCommand
 
-status = done
-owner = local-user
-task = Pull latest dev and test DEEP ALL EXCEPT ACTIVE. Verify active, pinned and audible tabs stay loaded while other eligible tabs become discarded and remain in their groups.
+status = pending
+owner = local-codex
+branch = feature/i18n-1.0.0
+task = Verify FF-WM 1.0.0 CZ/EN localization release candidate in the isolated development environment.
+steps = Fetch the feature branch; run npm ci, npm run lint:i18n, npm run lint, and npm run build. Confirm i18n catalogs are included in built XPI and scripts/check-i18n.mjs and amo-metadata.json are excluded. Load extension in dedicated Firefox dev profile, verify Czech and English popup + all manager sections, window/tab/group plural forms at 0/1/2/5, runtime rendering, tooltips, status badges and recovery/import/backup confirmation text. Regression-check AUTO/KEEP/DEEP, protected active/pinned/audio, workspace switching, exact fingerprint reattachment and duplicate-window warnings; backup/restore only against isolated test data.
+safety = Do not run destructive tests against the production Firefox profile. Do not publish, sign, merge to dev/main, or alter persisted backup formats. Scope is validation and necessary i18n-only fixes in feature branch.
+result = Write exact commands and outcomes to localResult, changed files/commits and any unresolved test failures.
 
 ## localResult
 
-status = success
-summary = DEEP ALL EXCEPT ACTIVE ověřeno v sandbox Firefoxu. Při aktivním nic.cz byly ostatní vhodné taby uvolněny z paměti; about:processes po akci ukazoval prakticky jen aktivní nic.cz, service worker YouTube a systémové Firefox procesy. Skupiny/taby zůstaly zachované.
+status = pending
+previous_success = DEEP ALL EXCEPT ACTIVE was verified in sandbox Firefox earlier: active/pinned/audio protections and group preservation worked.
 
 
 ## Backlog
