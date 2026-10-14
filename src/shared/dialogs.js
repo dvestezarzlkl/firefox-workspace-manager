@@ -10,9 +10,10 @@ let queue = Promise.resolve();
  * @param {string} message
  * @param {string} initialValue
  * @param {boolean} danger
- * @returns {Promise<string|boolean|null>}
+ * @param {{acceptLabel?:string,cancelLabel?:string}} [labels]
+ * @returns {Promise<string|boolean|null>]
  */
-function present(kind, message, initialValue, danger) {
+function present(kind, message, initialValue, danger, labels = {}) {
   const pending = queue.catch(() => {}).then(() => new Promise((resolve, reject) => {
     const dialog = document.createElement("dialog");
     dialog.className = "fwm-dialog";
@@ -58,9 +59,9 @@ function present(kind, message, initialValue, danger) {
     };
 
     const cancel = kind === "message" ? null :
-      button(t("dialogCancelButton"), "fwm-dialog-cancel", () => finish(null));
+      button(labels.cancelLabel || t("dialogCancelButton"), "fwm-dialog-cancel", () => finish(null));
     const accept = button(
-      t(kind === "message" ? "dialogOkButton" : "dialogConfirmButton"),
+      labels.acceptLabel || t(kind === "message" ? "dialogOkButton" : "dialogConfirmButton"),
       "fwm-dialog-accept" + (danger ? " fwm-dialog-danger" : ""),
       () => finish(kind === "prompt" ? input.value : true)
     );
@@ -92,9 +93,9 @@ function present(kind, message, initialValue, danger) {
   return pending;
 }
 
-/** @param {string} message @param {{danger?:boolean}} [options] */
+/** @param {string} message @param {{danger?:boolean,acceptLabel?:string,cancelLabel?:string}} [options] */
 export async function confirmDialog(message, options = {}) {
-  return await present("confirm", message, "", !!options.danger) === true;
+  return await present("confirm", message, "", !!options.danger, options) === true;
 }
 
 /** @param {string} message @param {string} [value] */
