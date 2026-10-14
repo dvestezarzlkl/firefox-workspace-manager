@@ -22,7 +22,10 @@ import { H } from "../shared/H.js";
 import { t, uiLocale, localizeDocument, formatCount, initializeLocale, languagePreference, normalizeLanguage } from "../shared/i18n.js";
 import { PanelExplorerController } from "./PanelExplorerController.js";
 import { confirmDialog, promptDialog, messageDialog } from "../shared/dialogs.js";
-import { normalizeDeviceName, backupFilename } from "../shared/backupFilename.js";
+import {
+  normalizeDeviceName, backupFilename, generateDeviceName,
+  isGeneratedDeviceName, planDeviceNameRestore
+} from "../shared/backupFilename.js";
 
 const app = document.getElementById("app");
 const summary = document.getElementById("summary");
@@ -412,15 +415,28 @@ function refreshExportControls() {
       button.title = available ? "" : t("deviceNameExportNotice");
     });
   deviceNameStatus.textContent = available
-    ? t("deviceNameSaved", deviceName)
+    ? t(isGeneratedDeviceName(deviceName) ? "deviceNameGenerated" : "deviceNameSaved", deviceName)
     : t("deviceNameMissing");
   deviceNameStatus.dataset.error = "false";
 }
 
-/** Read a local device label without ever generating a fingerprint. */
+/**
+ * Auto-assign a stable random identifier once per Firefox profile. An invalid
+ * or absent local label is not treated as a permanent no-export condition.
+ */
 async function loadDeviceName() {
-  const stored = await browser.storage.local.get(UI_DEVICE_NAME_KEY);
-  deviceName = normalizeDeviceName(stored[UI_DEVICE_NAME_KEY]);
+  try {
+    const stored = await browser.storage.local.get(UI_DEVICE_NAME_KEY);
+    let saved = normalizeDeviceName(stored[UI_DEVICE_NAME_KEY]);
+    if (!saved) {
+      saved = generateDeviceName();
+      await browser.storage.local.set({ [UI_DEVICE_NAME_KEY]: saved });
+    }
+    deviceName = saved;
+  } catch (error) {
+    console.error("Failed to initialize device name", error);
+    deviceName = "";
+  }
   deviceNameInput.value = deviceName;
   refreshExportControls();
 }
@@ -1409,10 +1425,11 @@ deviceNameSave.addEventListener("click", async () => {
 
   deviceNameSave.disabled = true;
   try {
-    if (parsed) await browser.storage.local.set({ [UI_DEVICE_NAME_KEY]: parsed });
-    else await browser.storage.local.remove(UI_DEVICE_NAME_KEY);
-    deviceName = parsed;
-    deviceNameInput.value = parsed;
+    // Saving an empty field creates a fresh random label.
+    const nextName = parsed || generateDeviceName();
+    await browser.storage.local.set({ [UI_DEVICE_NAME_KEY]: nextName });
+    deviceName = nextName;
+    deviceNameInput.value = nextName;
     refreshExportControls();
   } catch (error) {
     await messageDialog(t("deviceNameSaveError") + (error?.message ?? error));
@@ -1862,8 +1879,23 @@ restoreApplicationFile.addEventListener("change", async () => {
       : 0;
 
     const accepted = await confirmDialog(t("confirmRestoreApplication", workspaceCount), { danger: true });
-
     if (!accepted) return;
+
+    // Optional field: legacy (0.8.x/early 1.0) backups have no deviceName.
+    // An auto-generated local label may adopt it; customized labels require
+    // separate opt-in. Declining the rename must NOT cancel application restore.
+    const labelPlan = planDeviceNameRestore(deviceName, payload?.ui?.deviceName);
+    let selectedRestoredName = null;
+    if (labelPlan.action === "adopt") {
+      selectedRestoredName = labelPlan.name;
+    } else if (labelPlan.action === "ask") {
+      const renameAccepted = await confirmDialog(
+        t("deviceNameRestoreAsk", deviceName, labelPlan.name),
+        { acceptLabel: t("deviceNameRestoreYes"),
+          cancelLabel: t("deviceNameRestoreNo") }
+      );
+      if (renameAccepted) selectedRestoredName = labelPlan.name;
+    }
 
     restoreApplicationButton.disabled = true;
     applicationRestoreInProgress = true;
@@ -1883,13 +1915,30 @@ restoreApplicationFile.addEventListener("change", async () => {
       await setPage(result.page);
     }
 
+    // Apply the selected PC identity only AFTER a successful restore. Failure
+    // to write this optional preference cannot undo the restored workspaces.
+    let deviceRestoreWarning = "";
+    if (selectedRestoredName && selectedRestoredName !== deviceName) {
+      try {
+        await browser.storage.local.set({ [UI_DEVICE_NAME_KEY]: selectedRestoredName });
+        deviceName = selectedRestoredName;
+        deviceNameInput.value = deviceName;
+        refreshExportControls();
+      } catch (error) {
+        console.error("Application data restored, device name not updated", error);
+        deviceRestoreWarning = "\n\n" + t("deviceNameRestoreError") +
+          String(error?.message ?? error);
+      }
+    }
+
     const attachmentMessage = result?.reattached
       ? t("restoredAttached",
           workspaces[result.workspaceId]?.name || t("restoredWorkspaceName"),
           formatCount(result.windowCount ?? 0, "countWindow"))
       : t("restoredNotAttached");
 
-    await messageDialog(t("restoreApplicationSuccess", result?.workspaces ?? 0, attachmentMessage));
+    await messageDialog(t("restoreApplicationSuccess", result?.workspaces ?? 0, attachmentMessage) +
+      deviceRestoreWarning);
   } catch (error) {
     console.error("Application restore failed", error);
     await messageDialog(t("restoreApplicationError") + (error?.message ?? error));
