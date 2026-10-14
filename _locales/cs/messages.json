@@ -631,5 +631,11 @@
   },
   "importSourceNote": {
     "message": "Zdroj importu: $1"
+  },
+  "savedWindowLabel": {
+    "message": "Okno $1"
+  },
+  "savedGroupLabel": {
+    "message": "Skupina $1"
   }
 }

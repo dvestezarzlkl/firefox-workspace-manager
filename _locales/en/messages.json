@@ -631,5 +631,11 @@
   },
   "importSourceNote": {
     "message": "Import source: $1"
+  },
+  "savedWindowLabel": {
+    "message": "Window $1"
+  },
+  "savedGroupLabel": {
+    "message": "Group $1"
   }
 }

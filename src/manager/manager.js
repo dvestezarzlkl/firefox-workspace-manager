@@ -787,7 +787,7 @@ function renderWorkspaceTree(workspace) {
       H.el(
         "div",
         { className: "workspace-tree-window-head" },
-        H.el("strong", {}, "window" + windowIndex),
+        H.el("strong", {}, t("savedWindowLabel", windowIndex)),
         H.el(
           "button",
           {
@@ -828,7 +828,7 @@ function renderWorkspaceTree(workspace) {
         H.el(
           "div",
           { className: "workspace-tree-group" },
-          H.el("strong", {}, group.title || ("group" + groupIndex)),
+          H.el("strong", {}, group.title || t("savedGroupLabel", groupIndex)),
           list
         )
       );
