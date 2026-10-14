@@ -20,6 +20,7 @@ import { hostnameFromUrl, isExtensionUrl } from "../shared/url.js";
 import { H } from "../shared/H.js";
 import { t, uiLocale, localizeDocument, formatCount, initializeLocale, languagePreference, normalizeLanguage } from "../shared/i18n.js";
 import { PanelExplorerController } from "./PanelExplorerController.js";
+import { confirmDialog, promptDialog, messageDialog } from "../shared/dialogs.js";
 
 const app = document.getElementById("app");
 const summary = document.getElementById("summary");
@@ -419,9 +420,9 @@ function normalizeWorkspaceName(value) {
  * Returning null means the user cancelled the complete import operation.
  *
  * @param {any[]} payloads
- * @returns {string[]|null}
+ * @returns {Promise<string[]|null>}
  */
-function resolveImportNames(payloads) {
+async function resolveImportNames(payloads) {
   const reserved = new Set(
     Object.values(workspaces ?? {})
       .map(workspace => normalizeWorkspaceName(workspace?.name))
@@ -442,7 +443,7 @@ function resolveImportNames(payloads) {
         ? t("duplicateWorkspaceName", candidate)
         : t("emptyWorkspaceName");
 
-      const entered = prompt(
+      const entered = await promptDialog(
         conflict + "\n\n" + t("importNewNamePrompt"),
         original + " import"
       );
@@ -1449,7 +1450,7 @@ app.addEventListener("click", async event => {
       ? t("keepExceptionRemove") + url
       : t("keepExceptionAdd") + url;
 
-    if (!confirm(question)) return;
+    if (!await confirmDialog(question)) return;
 
     urlPolicies = urlPolicies.filter(rule => rule.url !== url);
     if (!exists) urlPolicies.push({ url, mode: "KEEP" });
@@ -1549,7 +1550,7 @@ workspaceListEl.addEventListener("click", async event => {
       }, 1200);
     } catch (error) {
       console.error("Copy debug log failed", error);
-      alert(t("copiedLogError") + (error?.message ?? error));
+      await messageDialog(t("copiedLogError") + (error?.message ?? error));
     }
     return;
   }
@@ -1559,7 +1560,7 @@ workspaceListEl.addEventListener("click", async event => {
     const workspaceId = windowButton.dataset.workspaceId;
     const logicalWindowId = windowButton.dataset.logicalWindowId;
     if (windowButton.dataset.workspaceWindowAction === "remove") {
-      if (!confirm(t("removeWorkspaceWindow"))) return;
+      if (!await confirmDialog(t("removeWorkspaceWindow"), { danger: true })) return;
       await browser.runtime.sendMessage({
         type: "removeWorkspaceWindow",
         workspaceId,
@@ -1618,7 +1619,7 @@ workspaceListEl.addEventListener("click", async event => {
         ? t("confirmRecoverAdditionalWindows", preview.liveContentWindows, preview.restoreWindowCount)
         : t("confirmRecoverWorkspace", workspace.name || "Workspace");
 
-    if (!confirm(message)) return;
+    if (!await confirmDialog(message, { danger: true })) return;
 
     button.disabled = true;
     try {
@@ -1635,7 +1636,7 @@ workspaceListEl.addEventListener("click", async event => {
   }
 
   if (button.dataset.workspaceAction === "rename") {
-    const name = prompt(t("workspaceNamePrompt"), workspace.name || "Workspace");
+    const name = await promptDialog(t("workspaceNamePrompt"), workspace.name || "Workspace");
     if (name == null || !name.trim()) return;
     await browser.runtime.sendMessage({ type: "renameWorkspace", workspaceId, name: name.trim() });
     await load();
@@ -1647,7 +1648,7 @@ workspaceListEl.addEventListener("click", async event => {
     const message = active
       ? t("confirmDeleteActiveWorkspace", workspace.name || "Workspace")
       : t("confirmDeleteWorkspace", workspace.name || "Workspace");
-    if (!confirm(message)) return;
+    if (!await confirmDialog(message, { danger: true })) return;
     await browser.runtime.sendMessage({ type: "deleteWorkspace", workspaceId });
     await load();
   }
@@ -1664,7 +1665,7 @@ importWorkspaceFile.addEventListener("change", async () => {
 
   try {
     const payload = JSON.parse(await file.text());
-    const names = resolveImportNames([payload]);
+    const names = await resolveImportNames([payload]);
     if (!names) return;
 
     await browser.runtime.sendMessage({
@@ -1677,7 +1678,7 @@ importWorkspaceFile.addEventListener("change", async () => {
     await load();
   } catch (error) {
     console.error("Workspace import failed", error);
-    alert(t("importWorkspaceError") + (error?.message ?? error));
+    await messageDialog(t("importWorkspaceError") + (error?.message ?? error));
   } finally {
     importWorkspaceFile.value = "";
   }
@@ -1697,7 +1698,7 @@ backupWorkspacesButton.addEventListener("click", async () => {
     );
   } catch (error) {
     console.error("Workspace collection backup failed", error);
-    alert(t("backupWorkspacesError") + (error?.message ?? error));
+    await messageDialog(t("backupWorkspacesError") + (error?.message ?? error));
   } finally {
     backupWorkspacesButton.disabled = false;
   }
@@ -1722,11 +1723,11 @@ restoreWorkspacesFile.addEventListener("change", async () => {
       throw new Error(t("fileNotCollection"));
     }
 
-    const names = resolveImportNames(payload.workspaces);
+    const names = await resolveImportNames(payload.workspaces);
     if (!names) return;
 
     if (
-      !confirm(
+      !await confirmDialog(
         t("confirmImportCollection", payload.workspaces.length)
       )
     ) {
@@ -1743,10 +1744,10 @@ restoreWorkspacesFile.addEventListener("change", async () => {
     });
 
     await load();
-    alert(t("importCollectionSuccess", result?.imported ?? 0));
+    await messageDialog(t("importCollectionSuccess", result?.imported ?? 0));
   } catch (error) {
     console.error("Workspace collection restore failed", error);
-    alert(t("restoreWorkspacesError") + (error?.message ?? error));
+    await messageDialog(t("restoreWorkspacesError") + (error?.message ?? error));
   } finally {
     restoreWorkspacesButton.disabled = false;
     restoreWorkspacesFile.value = "";
@@ -1768,7 +1769,7 @@ backupApplicationButton.addEventListener("click", async () => {
     );
   } catch (error) {
     console.error("Application backup failed", error);
-    alert(t("backupApplicationError") + (error?.message ?? error));
+    await messageDialog(t("backupApplicationError") + (error?.message ?? error));
   } finally {
     backupApplicationButton.disabled = false;
   }
@@ -1796,7 +1797,7 @@ restoreApplicationFile.addEventListener("change", async () => {
       ? payload.data.workspaces.workspaces.length
       : 0;
 
-    const accepted = confirm(t("confirmRestoreApplication", workspaceCount));
+    const accepted = await confirmDialog(t("confirmRestoreApplication", workspaceCount), { danger: true });
 
     if (!accepted) return;
 
@@ -1824,10 +1825,10 @@ restoreApplicationFile.addEventListener("change", async () => {
           formatCount(result.windowCount ?? 0, "countWindow"))
       : t("restoredNotAttached");
 
-    alert(t("restoreApplicationSuccess", result?.workspaces ?? 0, attachmentMessage));
+    await messageDialog(t("restoreApplicationSuccess", result?.workspaces ?? 0, attachmentMessage));
   } catch (error) {
     console.error("Application restore failed", error);
-    alert(t("restoreApplicationError") + (error?.message ?? error));
+    await messageDialog(t("restoreApplicationError") + (error?.message ?? error));
   } finally {
     applicationRestoreInProgress = false;
     restoreApplicationButton.disabled = false;
@@ -1848,7 +1849,7 @@ snapshotWorkspaceButton.addEventListener("click", async () => {
 
 cloneWorkspaceButton.addEventListener("click", async () => {
   const defaultName = "Workspace " + (Object.keys(workspaces ?? {}).length + 1);
-  const name = prompt(t("workspaceNewNamePrompt"), defaultName);
+  const name = await promptDialog(t("workspaceNewNamePrompt"), defaultName);
   if (name == null || !name.trim()) return;
 
   cloneWorkspaceButton.disabled = true;
@@ -1866,7 +1867,7 @@ cloneWorkspaceButton.addEventListener("click", async () => {
     await load();
   } catch (error) {
     console.error("Create workspace from current state failed", error);
-    alert(t("createWorkspaceError") + (error?.message ?? error));
+    await messageDialog(t("createWorkspaceError") + (error?.message ?? error));
   } finally {
     cloneWorkspaceButton.disabled = false;
   }
@@ -1887,7 +1888,7 @@ addUrlKeep.addEventListener("click", async () => {
   const url = urlPattern.value.trim();
   if (!/^https?:\/\//i.test(url)) return;
 
-  if (!confirm(t("keepExceptionAdd") + url)) return;
+  if (!await confirmDialog(t("keepExceptionAdd") + url)) return;
 
   urlPolicies = urlPolicies.filter(rule => rule.url !== url);
   urlPolicies.push({ url, mode: "KEEP" });

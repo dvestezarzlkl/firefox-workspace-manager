@@ -12,6 +12,7 @@ import {
 import { hostnameFromUrl, isExtensionUrl } from "../shared/url.js";
 import { H } from "../shared/H.js";
 import { t, localizeDocument, pluralLabel, initializeLocale } from "../shared/i18n.js";
+import { confirmDialog } from "../shared/dialogs.js";
 
 const stats = document.getElementById("stats");
 const refreshButton = document.getElementById("refresh");
@@ -188,7 +189,7 @@ recoverSessionButton.addEventListener("click", async () => {
     const duplicateRisk =
       !!preview?.pendingApplicationRestore && preview.liveContentWindows > 0;
 
-    if (duplicateRisk && !confirm(
+    if (duplicateRisk && !await confirmDialog(
       t("recoverDuplicatePopup", preview.restoreWindowCount, preview.liveContentWindows)
     )) {
       recoverSessionButton.textContent = originalText;
