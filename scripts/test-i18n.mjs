@@ -105,13 +105,20 @@ const importedConstants = {
   })
 };
 globalThis.__testBackupConstants = importedConstants;
+const nameHelperURL = "data:text/javascript;base64," +
+  Buffer.from(read("src/shared/backupFilename.js")).toString("base64");
+globalThis.__testNormalizeDeviceName = (await import(nameHelperURL)).normalizeDeviceName;
 const backupSource = backupImports.replace(
   importHeader,
   "const { " +
     [...backupImports.match(importHeader)[0].matchAll(/\b([A-Z][A-Z0-9_]*|defaultAutoSettings)\b/g)]
       .map(match => match[1]).filter(name => name !== "OBJECT").join(", ") +
     " } = globalThis.__testBackupConstants;"
+).replace(
+  'import { normalizeDeviceName } from "../shared/backupFilename.js";',
+  "const normalizeDeviceName = globalThis.__testNormalizeDeviceName;"
 );
+assert(!backupSource.includes('from "../shared/backupFilename.js"'));
 const backupURL = "data:text/javascript;base64," +
   Buffer.from(backupSource).toString("base64");
 const { AppBackupService } = await import(backupURL);
@@ -121,7 +128,11 @@ const collection = {
   workspaces: []
 };
 for (const choice of ["auto", "cs", "en"]) {
-  const store = { [constants.UI_LANGUAGE_KEY]: choice, [constants.UI_PAGE_KEY]: "settings" };
+  const store = {
+    [constants.UI_LANGUAGE_KEY]: choice,
+    [constants.UI_PAGE_KEY]: "settings",
+    [constants.UI_DEVICE_NAME_KEY]: "SOURCE-PC"
+  };
   globalThis.browser = {
     runtime: { getManifest: () => ({ version: "1.0.0" }) },
     storage: { local: {
@@ -134,14 +145,20 @@ for (const choice of ["auto", "cs", "en"]) {
   const payload = await service.exportBackup({ workspaceCollection: collection });
   assert.equal(payload.version, 1);
   assert.equal(payload.ui.language, choice);
+  assert.equal(payload.ui.deviceName, "SOURCE-PC");
+  store[constants.UI_DEVICE_NAME_KEY] = "TARGET-PC";
   const restored = await service.restoreBackup(payload, {}, []);
   assert.equal(restored.language, choice);
   assert.equal(store[constants.UI_LANGUAGE_KEY], choice);
+  assert.equal(store[constants.UI_DEVICE_NAME_KEY], "TARGET-PC",
+    "Background restore must never silently overwrite the target device name");
   const legacy = JSON.parse(JSON.stringify(payload));
   delete legacy.ui.language;
+  delete legacy.ui.deviceName;
   const legacyResult = await service.restoreBackup(legacy, {}, []);
   assert.equal(legacyResult.language, "auto");
   assert.equal(store[constants.UI_LANGUAGE_KEY], "auto");
+  assert.equal(store[constants.UI_DEVICE_NAME_KEY], "TARGET-PC");
 }
 console.log("i18n behavior OK: " + passed +
   " language cases, plural forms and portable v1 backup compatibility.");
