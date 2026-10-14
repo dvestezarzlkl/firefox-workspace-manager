@@ -1,0 +1,26 @@
+/* Extension-owned confirmations cannot be suppressed via Firefox alert blocking. */
+.fwm-dialog {
+  box-sizing: border-box;
+  width: min(520px, calc(100vw - 20px));
+  max-height: min(80vh, 580px);
+  padding: 18px;
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, CanvasText 28%, transparent);
+  border-radius: 10px;
+  background: Canvas;
+  color: CanvasText;
+  box-shadow: 0 14px 48px rgb(0 0 0 / .4);
+  font: 14px/1.5 system-ui, sans-serif;
+}
+.fwm-dialog::backdrop { background: rgb(0 0 0 / .65); }
+.fwm-dialog h2 { font-size: 16px; margin: 0 0 12px; }
+.fwm-dialog-message {
+  margin: 0 0 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.fwm-dialog-input { box-sizing: border-box; width: 100%; margin: 0 0 16px; padding: 8px; font: inherit; }
+.fwm-dialog-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.fwm-dialog-actions button { padding: 7px 14px; font: inherit; }
+.fwm-dialog-accept { font-weight: 600; }
+.fwm-dialog-danger { border-color: #cd4b4b; }
