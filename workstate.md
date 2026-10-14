@@ -7,6 +7,10 @@ memory.issueIdentity = firefox.workspace-manager
 phase = bootstrap
 branch = dev
 
+## Current focus
+
+- CZ/EN separation/localization of the manager and popup UI is the active discussion as of 2026-10-14. This supersedes the historical 1.0 deferral for current work. The exact decisions from the active project conversation are not present in persistent notes and must be reconciled before implementation. The current `dev` source at 0.8.1 has no `_locales/*/messages.json` or manifest `default_locale`; the AMO listing is already bilingual in `amo-metadata.json`.
+
 ## Done
 
 - 0.8.1 restore regression fix: a full-application restore in 0.8.0 left workspaces inactive even when the original Firefox windows were still open; subsequent Recover created additional duplicate windows. 0.8.1 now performs complete, unique, exact fingerprint reattachment and sets the matching workspace active. If live window content has changed, no silent fuzzy mapping is permitted; manager/popup warn and require explicit confirmation before creating more windows. Pending restore safeguard persists across restarts.
@@ -53,7 +57,7 @@ branch = dev
 - AMO category is Tabs; license MPL-2.0; reviewer notes document plain JS/native modules, no remote code and no data collection.
 - Added npm script sign:listed and VS Code task "FF: Publikovat listed na AMO", reusing local ../.dev/amo-sign.cmd credentials.
 - Build, listed sign and unlisted sign explicitly exclude amo-metadata.json from the packaged extension.
-- UI localization remains deferred to the 1.0-era backlog; only the AMO store listing is localized now.
+- Historical state (before 2026-10-14): UI localization was deferred to the 1.0-era backlog while only the AMO listing was bilingual. The user reopened CZ/EN UI separation on 2026-10-14; see Current focus.
 
 - 0.6.2: Hardened workspace switching after a Firefox 157 profile-specific failure where switching could close all Firefox windows.
 - Switch no longer marks/detaches the current workspace before target restore. Existing windows remain live and mapped until the target is proven alive.
