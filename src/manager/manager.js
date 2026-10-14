@@ -17,7 +17,7 @@ import {
 } from "../shared/constants.js";
 import { hostnameFromUrl, isExtensionUrl } from "../shared/url.js";
 import { H } from "../shared/H.js";
-import { t, uiLocale, localizeDocument } from "../shared/i18n.js";
+import { t, uiLocale, localizeDocument, formatCount } from "../shared/i18n.js";
 localizeDocument();
 import { PanelExplorerController } from "./PanelExplorerController.js";
 
@@ -108,7 +108,7 @@ function stateBadge(tab) {
   if (tab.active) {
     return H.el("span", {
       className: "state state-active",
-      title: "Aktivní"
+      title: t("tooltipActive")
     }, "●");
   }
 
@@ -332,8 +332,8 @@ function updatePanelFilterUi(allTabs, visibleTabs) {
   if (panelFilterReset) panelFilterReset.hidden = !filtered;
   if (panelFilterInfo) {
     panelFilterInfo.textContent = filtered
-      ? visibleTabs + " z " + allTabs.length + " panelů"
-      : allTabs.length + " panelů";
+      ? t("panelFilterResult", visibleTabs, formatCount(allTabs.length, "countTab"))
+      : formatCount(allTabs.length, "countTab");
   }
 }
 
@@ -676,8 +676,7 @@ async function renderHostPolicies() {
           ? formatDuration(usage.activeMs / activations)
           : "—";
         const pct = usage.total
-          ? Math.round(usage.activePct) + "% aktivní / " +
-            Math.round(usage.inactivePct) + "% pozadí"
+          ? t("usageRatio", Math.round(usage.activePct), Math.round(usage.inactivePct))
           : t("noHistory");
 
         H.append(
@@ -685,8 +684,7 @@ async function renderHostPolicies() {
           H.el(
             "span",
             { className: "host-stats" },
-            activations + "× aktivní · průměr " + avg +
-              " · " + pct + " · z " + formatDuration(usage.total)
+            t("usageStats", activations, avg, pct, formatDuration(usage.total))
           )
         );
       }
@@ -719,8 +717,8 @@ async function renderHostPolicies() {
 
   const total = baseHosts.length;
   hostResultInfo.textContent = filter
-    ? `Nalezeno ${total}; zobrazeno max. ${Math.min(total, HOST_RESULT_LIMIT)}.`
-    : `Zobrazeny pouze hostname z aktuálně otevřených panelů; max. ${HOST_RESULT_LIMIT}.`;
+    ? t("hostnameSearchResult", total, Math.min(total, HOST_RESULT_LIMIT))
+    : t("hostnameDefaultResult", HOST_RESULT_LIMIT);
 }
 
 function workspaceStats(workspace) {
@@ -977,10 +975,10 @@ function renderWorkspaces() {
       H.el(
         "div",
         { className: "workspace-meta" },
-        stat.openWindows + " otevřená / " +
-          stat.windows + " uložená okna · " +
-          stat.tabs + " panelů · " +
-          stat.groups + " skupin"
+        formatCount(stat.openWindows, "countOpenWindow") + " / " +
+          formatCount(stat.windows, "countSavedWindow") + " · " +
+          formatCount(stat.tabs, "countTab") + " · " +
+          formatCount(stat.groups, "countGroup")
       ),
       provenanceText
         ? H.el(
@@ -1017,7 +1015,7 @@ function renderWorkspaces() {
       action("export", "Export JSON"),
       action(
         "switch",
-        activeWorkspaceId ? t("switch") : "Recover session",
+        activeWorkspaceId ? t("switch") : t("recoverSession"),
         active
       ),
       action("rename", t("rename")),
@@ -1075,15 +1073,15 @@ function renderPanels() {
       const shownTabs = filtering ? visibleTabs : groupTabs;
       const deepCount = shownTabs.filter(tab => tab.discarded).length;
       const countText = filtering
-        ? shownTabs.length + "/" + groupTabs.length + " panelů"
-        : groupTabs.length + " panelů";
+        ? t("filteredPanelCounts", shownTabs.length, groupTabs.length)
+        : formatCount(groupTabs.length, "countTab");
 
       const titleNode = H.el(
         "span",
         { className: "disclosure-title" },
         H.el("strong", {}, title),
         H.el("span", { className: "header-meta" },
-          " · " + countText + " · " + deepCount + " DEEP")
+          " · " + countText + " · DEEP: " + deepCount)
       );
 
       const summaryNode = H.el(
@@ -1155,8 +1153,8 @@ function renderPanels() {
         visibleTabCount += shownTabs.length;
         const deepCount = shownTabs.filter(tab => tab.discarded).length;
         const countText = filtering
-          ? shownTabs.length + "/" + ungrouped.length + " panelů"
-          : ungrouped.length + " panelů";
+          ? t("filteredPanelCounts", shownTabs.length, ungrouped.length)
+          : formatCount(ungrouped.length, "countTab");
 
         const detailsNode = H.el(
           "details",
@@ -1182,7 +1180,7 @@ function renderPanels() {
                 H.el(
                   "span",
                   { className: "header-meta" },
-                  " · " + countText + " · " + deepCount + " DEEP"
+                  " · " + countText + " · DEEP: " + deepCount
                 )
               )
             )
@@ -1210,8 +1208,8 @@ function renderPanels() {
     const windowOpen = filtering || panelExplorer.shouldOpenWindow(windowKey);
     const windowDeep = tabs.filter(tab => tab.discarded).length;
     const countText = filtering
-      ? visibleInWindow + "/" + tabs.length + " panelů"
-      : tabs.length + " panelů";
+      ? t("filteredPanelCounts", visibleInWindow, tabs.length)
+      : formatCount(tabs.length, "countTab");
 
     const windowNode = H.el(
       "details",
@@ -1235,8 +1233,8 @@ function renderPanels() {
             "span",
             { className: "header-meta" },
             " · " + countText +
-              " · " + groups.length +
-              " skupin · " + windowDeep + " DEEP"
+              " · " + formatCount(groups.length, "countGroup") +
+              " · DEEP: " + windowDeep
           )
         )
       ),
@@ -1292,7 +1290,7 @@ async function load() {
   const activeTabs = allTabs.filter(tab => tab.active).length;
   const loadedTabs = allTabs.filter(tab => !tab.discarded).length;
 
-  summary.textContent = `${currentWindows.length} oken · ${allTabs.length} panelů · ${loadedTabs} loaded · ${deepTabs} deep · ${activeTabs} active`;
+  summary.textContent = t("summaryLive", formatCount(currentWindows.length, "countWindow"), formatCount(allTabs.length, "countTab"), loadedTabs, deepTabs, activeTabs);
   renderPanels();
 
   currentOpenHosts = [...new Set(

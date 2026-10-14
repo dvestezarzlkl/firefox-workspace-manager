@@ -10,7 +10,7 @@ import {
 } from "../shared/constants.js";
 import { hostnameFromUrl, isExtensionUrl } from "../shared/url.js";
 import { H } from "../shared/H.js";
-import { t, localizeDocument } from "../shared/i18n.js";
+import { t, localizeDocument, pluralLabel } from "../shared/i18n.js";
 localizeDocument();
 
 const stats = document.getElementById("stats");
@@ -117,9 +117,9 @@ async function load() {
   const groups = groupLists.reduce((sum, list) => sum + list.length, 0);
 
   const statItems = [
-    [windows.length, t("statWindows")],
-    [tabs.length, t("statTabs")],
-    [groups, t("statGroups")],
+    [windows.length, pluralLabel(windows.length, "countWindow")],
+    [tabs.length, pluralLabel(tabs.length, "countTab")],
+    [groups, pluralLabel(groups, "countGroup")],
     [active, t("statActive")],
     [loaded, t("statLoaded")],
     [deep, t("statDeep")],

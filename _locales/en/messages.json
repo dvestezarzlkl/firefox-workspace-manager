@@ -502,5 +502,71 @@
   },
   "recoverDuplicatePopup": {
     "message": "WARNING: Open windows differ from the restored backup.\n\nRecovery will open $1 additional windows alongside $2 existing windows. Duplicates may result.\n\nCreate new windows?"
+  },
+  "countWindowOne": {
+    "message": "window"
+  },
+  "countWindowFew": {
+    "message": "windows"
+  },
+  "countWindowOther": {
+    "message": "windows"
+  },
+  "countTabOne": {
+    "message": "tab"
+  },
+  "countTabFew": {
+    "message": "tabs"
+  },
+  "countTabOther": {
+    "message": "tabs"
+  },
+  "countGroupOne": {
+    "message": "group"
+  },
+  "countGroupFew": {
+    "message": "groups"
+  },
+  "countGroupOther": {
+    "message": "groups"
+  },
+  "countOpenWindowOne": {
+    "message": "open window"
+  },
+  "countOpenWindowFew": {
+    "message": "open windows"
+  },
+  "countOpenWindowOther": {
+    "message": "open windows"
+  },
+  "countSavedWindowOne": {
+    "message": "saved window"
+  },
+  "countSavedWindowFew": {
+    "message": "saved windows"
+  },
+  "countSavedWindowOther": {
+    "message": "saved windows"
+  },
+  "summaryLive": {
+    "message": "$1 · $2 · loaded: $3 · discarded: $4 · active: $5"
+  },
+  "panelFilterResult": {
+    "message": "$1 of $2"
+  },
+  "filteredPanelCounts": {
+    "message": "Tabs: $1/$2"
+  },
+  "hostnameSearchResult": {
+    "message": "Found $1; showing up to $2."
+  },
+  "hostnameDefaultResult": {
+    "message": "Only hostnames from currently open tabs are shown; maximum $1."
+  },
+  "usageRatio": {
+    "message": "$1% foreground / $2% background"
+  },
+  "usageStats": {
+    "message": "$1 activations · average $2 · $3 · total $4"
   }
 }

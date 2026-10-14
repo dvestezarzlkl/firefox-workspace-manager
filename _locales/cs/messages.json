@@ -300,7 +300,7 @@
     "message": "Obnovuji…"
   },
   "recoveryFailed": {
-    "message": "Recovery selhalo"
+    "message": "Obnova selhala"
   },
   "statWindows": {
     "message": "oken"
@@ -315,19 +315,19 @@
     "message": "aktivní"
   },
   "statLoaded": {
-    "message": "loaded"
+    "message": "načtené"
   },
   "statDeep": {
-    "message": "deep"
+    "message": "uvolněné"
   },
   "statAutoPending": {
     "message": "AUTO čeká"
   },
   "statDeepAlways": {
-    "message": "DEEP always"
+    "message": "DEEP vždy"
   },
   "statKeepAlways": {
-    "message": "KEEP always"
+    "message": "KEEP vždy"
   },
   "statUrlExceptions": {
     "message": "URL výjimky"
@@ -502,5 +502,71 @@
   },
   "recoverDuplicatePopup": {
     "message": "POZOR: Obsah otevřených oken se liší od obnovené zálohy.\n\nRecover vytvoří dalších $1 oken vedle $2 existujících. Mohou vzniknout duplicity.\n\nVytvořit nová okna?"
+  },
+  "countWindowOne": {
+    "message": "okno"
+  },
+  "countWindowFew": {
+    "message": "okna"
+  },
+  "countWindowOther": {
+    "message": "oken"
+  },
+  "countTabOne": {
+    "message": "panel"
+  },
+  "countTabFew": {
+    "message": "panely"
+  },
+  "countTabOther": {
+    "message": "panelů"
+  },
+  "countGroupOne": {
+    "message": "skupina"
+  },
+  "countGroupFew": {
+    "message": "skupiny"
+  },
+  "countGroupOther": {
+    "message": "skupin"
+  },
+  "countOpenWindowOne": {
+    "message": "otevřené okno"
+  },
+  "countOpenWindowFew": {
+    "message": "otevřená okna"
+  },
+  "countOpenWindowOther": {
+    "message": "otevřených oken"
+  },
+  "countSavedWindowOne": {
+    "message": "uložené okno"
+  },
+  "countSavedWindowFew": {
+    "message": "uložená okna"
+  },
+  "countSavedWindowOther": {
+    "message": "uložených oken"
+  },
+  "summaryLive": {
+    "message": "$1 · $2 · načtené: $3 · uvolněné: $4 · aktivní: $5"
+  },
+  "panelFilterResult": {
+    "message": "$1 z $2"
+  },
+  "filteredPanelCounts": {
+    "message": "Panely: $1/$2"
+  },
+  "hostnameSearchResult": {
+    "message": "Nalezeno $1; zobrazeno maximálně $2."
+  },
+  "hostnameDefaultResult": {
+    "message": "Zobrazeny pouze hostname z aktuálně otevřených panelů; maximálně $1."
+  },
+  "usageRatio": {
+    "message": "$1 % aktivně / $2 % na pozadí"
+  },
+  "usageStats": {
+    "message": "$1× aktivní · průměr $2 · $3 · celkem $4"
   }
 }

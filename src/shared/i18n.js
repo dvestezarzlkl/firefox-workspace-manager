@@ -19,6 +19,20 @@ export function t(key, ...values) {
 export const uiLocale = browser.i18n.getMessage("@@ui_locale") ||
   browser.i18n.getUILanguage() || "en";
 
+/** Browser-locale grammatical number categories for translated labels. */
+const pluralRules = new Intl.PluralRules(uiLocale);
+
+/** @param {number} count @param {string} stem @returns {string} */
+export function pluralLabel(count, stem) {
+  const category = pluralRules.select(count);
+  return t(stem + category.charAt(0).toUpperCase() + category.slice(1));
+}
+
+/** @param {number} count @param {string} stem @returns {string} */
+export function formatCount(count, stem) {
+  return String(count) + " " + pluralLabel(count, stem);
+}
+
 /**
  * Only replaces static text and literal attributes; no HTML is parsed or inserted.
  * Safe for AMO validation and for markup containing live event handlers / child IDs.
