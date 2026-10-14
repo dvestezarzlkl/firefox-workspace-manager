@@ -9,7 +9,8 @@ source for release notes and AMO Version Notes.
 
 ### 1.0.0 localization (work in progress; not released)
 - Removed suppressible browser-native alert/confirm/prompt dialogs; extension-owned accessible dialogs handle confirmations, names and errors in manager and popup.
-- Added explicit per-computer label in Settings; export of all JSON backup types is unavailable until configured. Filenames now include timestamp + local device label, without changing JSON backup version or transferring device identity.
+- Added persistent per-profile FFWM-XXXXXXXX random device label, editable in Settings. JSON exports are enabled after automatic initialization and include the label after the timestamp.
+- Complete application backups optionally include the device label. Restore keeps local custom labels unless the user explicitly approves adopting the source label; auto-generated labels can be adopted automatically and legacy backups remain compatible, without changing backup format version.
 - Began native Firefox CZ/EN UI localization with paired message catalogs and a shared DOM translator.
 - Added translations for static manager/popup views and selected dynamic labels.
 - Added Czech plural inflection for tab/window/group counts and translated dynamic workspaces, activity summaries and confirmation dialogs.
