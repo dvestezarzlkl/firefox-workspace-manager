@@ -658,5 +658,23 @@
   },
   "helpLanguage": {
     "message": "Jazyk rozhraní lze ponechat podle Firefoxu nebo ručně zvolit češtinu či angličtinu. Volba je lokální a ukládá se do úplné zálohy aplikace."
+  },
+  "dialogConfirmTitle": {
+    "message": "Potvrzení akce"
+  },
+  "dialogPromptTitle": {
+    "message": "Zadej hodnotu"
+  },
+  "dialogMessageTitle": {
+    "message": "Zpráva"
+  },
+  "dialogConfirmButton": {
+    "message": "Potvrdit"
+  },
+  "dialogCancelButton": {
+    "message": "Storno"
+  },
+  "dialogOkButton": {
+    "message": "OK"
   }
 }
