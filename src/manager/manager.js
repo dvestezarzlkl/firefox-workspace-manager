@@ -1906,15 +1906,6 @@ restoreApplicationFile.addEventListener("change", async () => {
       sourceName: file.name
     });
 
-    panelExplorer.restorePreferences(result?.panelExplorer);
-    await loadSyncSetting();
-    await loadAutoSettings();
-    await load();
-
-    if (result?.page) {
-      await setPage(result.page);
-    }
-
     // Apply the selected PC identity only AFTER a successful restore. Failure
     // to write this optional preference cannot undo the restored workspaces.
     let deviceRestoreWarning = "";
@@ -1929,6 +1920,15 @@ restoreApplicationFile.addEventListener("change", async () => {
         deviceRestoreWarning = "\n\n" + t("deviceNameRestoreError") +
           String(error?.message ?? error);
       }
+    }
+
+    panelExplorer.restorePreferences(result?.panelExplorer);
+    await loadSyncSetting();
+    await loadAutoSettings();
+    await load();
+
+    if (result?.page) {
+      await setPage(result.page);
     }
 
     const attachmentMessage = result?.reattached
