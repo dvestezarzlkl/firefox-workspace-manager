@@ -11,8 +11,9 @@ branch = feature/i18n-1.0.0
 
 - Version 1.0.0 has been chosen as the first stable release, with a complete CZ/EN UI as a release gate (user decision 2026-10-14).
 - Implementation is IN PROGRESS on `feature/i18n-1.0.0`, forked from `dev` at `a0abed99e4ff996cb941eee3b62548f95604aeac`. Do NOT publish or merge without regression testing and explicit approval.
-- Completed foundation: native manifest `default_locale=en`, `_locales/cs/messages.json` and `_locales/en/messages.json`, shared `src/shared/i18n.js`, static manager/popup localization and selected dynamic labels/messages. Translation catalogs have 168 matching keys.
-- TODO BEFORE RELEASE: complete dynamic manager/popup dialogs and composite labels, verify background-originated user-visible errors, check all help text and untranslated HTML fragments, test both browser locale settings, run checkJs, web-ext lint, and full recovery/backup/lifecycle regression in an isolated Firefox development profile.
+- Completed foundation: native manifest `default_locale=en`, `_locales/cs/messages.json` and `_locales/en/messages.json`, shared `src/shared/i18n.js`, static manager/popup localization and selected dynamic labels/messages. Translation catalogs have 211 matching keys (further keys added since base).
+- 2026-10-14 UI screenshot review: CZ popup labels were still English and workspace counters were not grammatically inflected. Implemented native count plurals for Czech and English; translated panel/workspace metadata and safety-critical recovery/backup dialogs. Static key/placeholder/JS-syntax validation is in `scripts/check-i18n.mjs` and wired into `npm run lint`.
+- TODO BEFORE RELEASE: run `npm run lint:i18n`, `npm run lint`, `npm run build` in local Node environment, verify remaining background-originated errors, test both browser locales and full recovery/backup/lifecycle regression in an isolated Firefox development profile. Browser screenshots show Czech static pages render, but functionality is NOT yet validated after the new translations.
 - The manifest version is 1.0.0 IN THE FEATURE BRANCH ONLY and does not imply a released version. Published 0.8.1 and dev/main remain unchanged.
 - Remote environment cannot access a local Firefox profile or npm dependencies; coordinate local validation through the established localCommand protocol if needed.
 

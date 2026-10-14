@@ -474,25 +474,25 @@
     "message": "Import workspace selhal: "
   },
   "backupWorkspacesError": {
-    "message": "Backup workspaces selhal: "
+    "message": "Záloha workspaces selhala: "
   },
   "restoreWorkspacesError": {
-    "message": "Restore workspaces selhal: "
+    "message": "Obnova workspaces selhala: "
   },
   "backupApplicationError": {
-    "message": "Backup aplikace selhal: "
+    "message": "Záloha aplikace selhala: "
   },
   "restoreApplicationError": {
-    "message": "Restore aplikace selhal: "
+    "message": "Obnova aplikace selhala: "
   },
   "createWorkspaceError": {
     "message": "Uložení aktuálního stavu jako nového workspace selhalo: "
   },
   "fileNotCollection": {
-    "message": "Soubor není workspace collection backup"
+    "message": "Soubor neobsahuje zálohu kolekce workspaces."
   },
   "fileNotApplication": {
-    "message": "Soubor není kompletní backup Workspace Manageru"
+    "message": "Soubor neobsahuje kompletní zálohu Workspace Manageru."
   },
   "createWorkspaceUnverified": {
     "message": "Nový workspace se nepodařilo ověřit"

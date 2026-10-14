@@ -10,7 +10,9 @@ source for release notes and AMO Version Notes.
 ### 1.0.0 localization (work in progress; not released)
 - Began native Firefox CZ/EN UI localization with paired message catalogs and a shared DOM translator.
 - Added translations for static manager/popup views and selected dynamic labels.
-- Full dialog coverage and regression tests are still pending; do not publish this draft.
+- Added Czech plural inflection for tab/window/group counts and translated dynamic workspaces, activity summaries and confirmation dialogs.
+- Added dependency-free localization regression check (`npm run lint:i18n`), including mirrored keys, placeholders, references and JS syntax.
+- Browser-localization tests and full restore/lifecycle regression tests are still pending; do not publish this draft.
 
 ## 0.8.1 - 2026-10-09
 
