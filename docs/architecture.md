@@ -152,6 +152,62 @@ auto-refresh are UI preferences stored in `localStorage`.
 
 They must never be written into workspace snapshots or affect fingerprints.
 
+### Extension-owned confirmation dialogs (1.0.0)
+
+The user can suppress Firefox native JavaScript dialogs through a browser checkbox.
+Never use `window.confirm()`, `alert()`, or `prompt()` for safety-critical
+workspace actions. Manager and popup share `src/shared/dialogs.js` and
+`dialogs.css`, implement DOM-only localized `<dialog>.showModal()`, default to
+Cancel on Escape, and preserve explicit confirmation for restoration that can
+create duplicate windows. Do not use `innerHTML` or remote UI dependencies.
+
+### Per-device export label (1.0.0)
+
+`fwm.ui.deviceName` is a local-only, persistent label. On first
+opening the manager (or if no valid label exists), four random bytes from
+Web Crypto are formatted as `FFWM-XXXXXXXX` (eight uppercase hex digits).
+This is a random profile identifier, never a hardware fingerprint or the OS
+hostname. The user may replace it with a custom label (1-40 ASCII characters
+A-Z, 0-9, dot, underscore or dash, starting with an alphanumeric). Clearing
+the field and saving generates a fresh random label. The reserved pattern
+`/^FFWM-[0-9A-F]{8}$/i` identifies names considered auto-generated.
+
+All three JSON export actions are gated until a valid label is stored;
+initialization normally unblocks them automatically. Import and restore are
+always available regardless of the label. Filenames are
+`yyyyMMddHHmmss_<device>_<workspace>.json`,
+`yyyyMMddHHmmss_<device>_workspaces.json`, and
+`yyyyMMddHHmmss_<device>_workspace_manager.json`.
+
+The complete application backup v1 now optionally exports `ui.deviceName`.
+Background restore never modifies `fwm.ui.deviceName` itself. After a
+successful Restore app, the manager handles that optional source label:
+- Missing/invalid (legacy) or equal to current: keep current.
+- Current matches generated prefix or is absent: adopt a valid source label.
+- Current was user-customized: ask with explicit "Yes, change" and
+  "No, keep current" options. No/ESC preserves the local name but continues
+  application restore.
+- The chosen label is written only **after** successful data restoration.
+  A failure to write the optional label does not invalidate restored data.
+
+Device names are never sent through Firefox Sync. The application backup
+JSON version, workspaces schema and runtime identity handling are unchanged.
+
+### UI language override (1.0.0)
+
+`fwm.ui.language` is a local-only setting with allowed values `auto`, `cs`, `en`.
+`auto` uses the browser's native `browser.i18n.getMessage()` and Firefox
+locale fallback; explicit choices load only the bundled `_locales/<lang>/messages.json`
+from the extension's own URL. No remote service, injected HTML, Firefox restart
+or modification of the workspace/lifecycle model is required. Manager and popup
+reload their own extension page on changes and preserve manager page selection.
+The chosen locale drives plural forms and date/time formatting.
+
+Application backup version 1 optionally includes `ui.language`; older backups
+without that field restore `auto`. Runtime storage keys, workspace structure
+and Sync scope are unchanged. The extension's manifest name/description remain
+localized by Firefox, independently of the manual in-page preference.
+
 ### Sync scope is intentionally small
 
 Firefox `storage.sync` contains only lightweight configuration:

@@ -13,6 +13,8 @@ import {
   SYNC_ENABLED_KEY,
   TAB_LIFECYCLE_KEY,
   UI_PAGE_KEY,
+  UI_LANGUAGE_KEY,
+  UI_DEVICE_NAME_KEY,
   URL_POLICIES_KEY,
   WINDOW_WORKSPACE_MAP_KEY,
   WORKSPACES_KEY,
@@ -20,10 +22,12 @@ import {
   WORKSPACE_SNAPSHOT_LOCK_KEY,
   defaultAutoSettings
 } from "../shared/constants.js";
+import { normalizeDeviceName } from "../shared/backupFilename.js";
 
 const APPLICATION_BACKUP_FORMAT = "firefox-workspace-manager.application";
 const APPLICATION_BACKUP_VERSION = 1;
 const VALID_PAGES = new Set(["panels", "workspaces", "settings", "help"]);
+const VALID_LANGUAGES = new Set(["auto", "cs", "en"]);
 
 /**
  * Durable disaster-recovery backup boundary.
@@ -53,7 +57,9 @@ export class AppBackupService {
       KNOWN_HOSTS_KEY,
       HOST_STATS_KEY,
       WORKSPACE_DEBUG_KEY,
-      UI_PAGE_KEY
+      UI_PAGE_KEY,
+      UI_LANGUAGE_KEY,
+      UI_DEVICE_NAME_KEY
     ]);
 
     const workspaceIds = Object.keys(stored[WORKSPACES_KEY] ?? {});
@@ -89,7 +95,11 @@ export class AppBackupService {
         page: VALID_PAGES.has(stored[UI_PAGE_KEY])
           ? stored[UI_PAGE_KEY]
           : "panels",
-        panelExplorer: this.#sanitizePanelExplorer(panelExplorer)
+        panelExplorer: this.#sanitizePanelExplorer(panelExplorer),
+        language: VALID_LANGUAGES.has(stored[UI_LANGUAGE_KEY])
+          ? stored[UI_LANGUAGE_KEY] : "auto",
+        // Optional backup metadata. Never imported without a UI decision.
+        deviceName: normalizeDeviceName(stored[UI_DEVICE_NAME_KEY]) || null
       },
       diagnostics: {
         workspaceDebugLog: Array.isArray(stored[WORKSPACE_DEBUG_KEY])
@@ -140,7 +150,7 @@ export class AppBackupService {
    * @param {any} payload
    * @param {Record<string, any>} restoredWorkspaces
    * @param {string[]} restoredWorkspaceIds Workspace IDs in bundle order.
-   * @returns {Promise<{panelExplorer:any,page:string,lastWorkspaceId:string|null}>}
+   * @returns {Promise<{panelExplorer:any,page:string,language:string,lastWorkspaceId:string|null}>}
    */
   async restoreBackup(payload, restoredWorkspaces, restoredWorkspaceIds) {
     this.validate(payload);
@@ -159,6 +169,11 @@ export class AppBackupService {
       : null;
 
     const page = VALID_PAGES.has(ui.page) ? ui.page : "panels";
+    // Optional in v1: restores of earlier 0.8.x backups remain compatible.
+    const language = VALID_LANGUAGES.has(ui.language) ? ui.language : "auto";
+    // ui.deviceName is deliberately excluded here. The manager may restore
+    // it only after the workspace restore succeeds and the user has approved
+    // overwriting an explicitly customized local device name.
 
     await browser.storage.local.set({
       [WORKSPACES_KEY]: restoredWorkspaces,
@@ -195,7 +210,8 @@ export class AppBackupService {
       [WORKSPACE_DEBUG_KEY]: Array.isArray(diagnostics.workspaceDebugLog)
         ? diagnostics.workspaceDebugLog.slice(-200)
         : [],
-      [UI_PAGE_KEY]: page
+      [UI_PAGE_KEY]: page,
+      [UI_LANGUAGE_KEY]: language
     });
 
     // A persisted restore lock from another profile/session would block future
@@ -205,6 +221,7 @@ export class AppBackupService {
     return {
       panelExplorer: this.#sanitizePanelExplorer(ui.panelExplorer),
       page,
+      language,
       lastWorkspaceId
     };
   }

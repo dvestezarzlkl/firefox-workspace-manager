@@ -11,13 +11,21 @@ import {
   SYNC_ENABLED_KEY,
   TAB_LIFECYCLE_KEY,
   UI_PAGE_KEY,
+  UI_LANGUAGE_KEY,
+  UI_DEVICE_NAME_KEY,
   URL_POLICIES_KEY,
   WORKSPACES_KEY,
   WORKSPACE_DEBUG_KEY
 } from "../shared/constants.js";
 import { hostnameFromUrl, isExtensionUrl } from "../shared/url.js";
 import { H } from "../shared/H.js";
+import { t, uiLocale, localizeDocument, formatCount, initializeLocale, languagePreference, normalizeLanguage } from "../shared/i18n.js";
 import { PanelExplorerController } from "./PanelExplorerController.js";
+import { confirmDialog, promptDialog, messageDialog } from "../shared/dialogs.js";
+import {
+  normalizeDeviceName, backupFilename, generateDeviceName,
+  isGeneratedDeviceName, planDeviceNameRestore
+} from "../shared/backupFilename.js";
 
 const app = document.getElementById("app");
 const summary = document.getElementById("summary");
@@ -58,6 +66,11 @@ const panelAutoRefresh = document.getElementById("panelAutoRefresh");
 const backupApplicationButton = document.getElementById("backupApplication");
 const restoreApplicationButton = document.getElementById("restoreApplication");
 const restoreApplicationFile = document.getElementById("restoreApplicationFile");
+const languageSelect = document.getElementById("uiLanguage");
+const deviceNameInput = /** @type {HTMLInputElement} */ (document.getElementById("deviceName"));
+const deviceNameStatus = document.getElementById("deviceNameStatus");
+const deviceNameSave = /** @type {HTMLButtonElement} */ (document.getElementById("saveDeviceName"));
+const exportDeviceHint = document.getElementById("exportDeviceHint");
 
 let managerTabId = null;
 let managerWindowId = null;
@@ -76,6 +89,10 @@ let expandedWorkspaceId = null;
 let workspaceDebugLog = [];
 let panelStateFilterSet = new Set();
 let panelPolicyFilterSet = new Set();
+let languageWritePending = false;
+let applicationRestoreInProgress = false;
+let pendingLanguageReload = false;
+let deviceName = "";
 
 const panelExplorer = new PanelExplorerController({
   root: app,
@@ -106,20 +123,20 @@ function stateBadge(tab) {
   if (tab.active) {
     return H.el("span", {
       className: "state state-active",
-      title: "Aktivní"
+      title: t("tooltipActive")
     }, "●");
   }
 
   if (tab.discarded) {
     return H.el("span", {
       className: "state state-deep",
-      title: "DEEP / uvolněno z paměti"
+      title: t("tooltipDiscarded")
     }, "○");
   }
 
   return H.el("span", {
     className: "state state-loaded",
-    title: "Načteno v paměti"
+    title: t("tooltipLoaded")
   }, "✓");
 }
 
@@ -222,7 +239,7 @@ function policyBadge(tab) {
   if (exactUrlException(tab)) {
     return H.el("span", {
       className: "policy-badge policy-keep",
-      title: "Přesná URL je výjimka KEEP"
+      title: t("tooltipExactKeep")
     }, "EXCEPT");
   }
 
@@ -232,14 +249,14 @@ function policyBadge(tab) {
   if (mode === "DEEP") {
     return H.el("span", {
       className: "policy-badge policy-deep",
-      title: "Hostname má politiku DEEP"
+      title: t("tooltipHostnameDeep")
     }, "DEEP ALWAYS");
   }
 
   if (mode === "KEEP") {
     return H.el("span", {
       className: "policy-badge policy-keep",
-      title: "Hostname má politiku KEEP"
+      title: t("tooltipHostnameKeep")
     }, "KEEP ALWAYS");
   }
 
@@ -330,14 +347,14 @@ function updatePanelFilterUi(allTabs, visibleTabs) {
   if (panelFilterReset) panelFilterReset.hidden = !filtered;
   if (panelFilterInfo) {
     panelFilterInfo.textContent = filtered
-      ? visibleTabs + " z " + allTabs.length + " panelů"
-      : allTabs.length + " panelů";
+      ? t("panelFilterResult", visibleTabs, formatCount(allTabs.length, "countTab"))
+      : formatCount(allTabs.length, "countTab");
   }
 }
 
 function formatClock(ts) {
   if (!ts) return "—";
-  return new Date(ts).toLocaleTimeString("cs-CZ", { hour12: false });
+  return new Date(ts).toLocaleTimeString(uiLocale, { hour12: false });
 }
 
 
@@ -349,7 +366,7 @@ function formatClock(ts) {
  */
 function formatDateTime(ts) {
   if (!ts) return "—";
-  return new Date(ts).toLocaleString("cs-CZ", { hour12: false });
+  return new Date(ts).toLocaleString(uiLocale, { hour12: false });
 }
 
 /**
@@ -383,6 +400,48 @@ function safeFilenamePart(value) {
 }
 
 /**
+ * UI-only export gating; imports/restores must always remain available.
+ * Device identity is deliberately kept out of Firefox Sync and backup restore.
+ */
+function refreshExportControls() {
+  const available = !!deviceName;
+  backupWorkspacesButton.disabled = !available;
+  backupApplicationButton.disabled = !available;
+  exportDeviceHint.hidden = available;
+  workspaceListEl.querySelectorAll('button[data-workspace-action="export"]')
+    .forEach(element => {
+      const button = /** @type {HTMLButtonElement} */ (element);
+      button.disabled = !available;
+      button.title = available ? "" : t("deviceNameExportNotice");
+    });
+  deviceNameStatus.textContent = available
+    ? t(isGeneratedDeviceName(deviceName) ? "deviceNameGenerated" : "deviceNameSaved", deviceName)
+    : t("deviceNameMissing");
+  deviceNameStatus.dataset.error = "false";
+}
+
+/**
+ * Auto-assign a stable random identifier once per Firefox profile. An invalid
+ * or absent local label is not treated as a permanent no-export condition.
+ */
+async function loadDeviceName() {
+  try {
+    const stored = await browser.storage.local.get(UI_DEVICE_NAME_KEY);
+    let saved = normalizeDeviceName(stored[UI_DEVICE_NAME_KEY]);
+    if (!saved) {
+      saved = generateDeviceName();
+      await browser.storage.local.set({ [UI_DEVICE_NAME_KEY]: saved });
+    }
+    deviceName = saved;
+  } catch (error) {
+    console.error("Failed to initialize device name", error);
+    deviceName = "";
+  }
+  deviceNameInput.value = deviceName;
+  refreshExportControls();
+}
+
+/**
  * Download one JSON payload without introducing an additional extension API.
  *
  * @param {unknown} payload
@@ -413,9 +472,9 @@ function normalizeWorkspaceName(value) {
  * Returning null means the user cancelled the complete import operation.
  *
  * @param {any[]} payloads
- * @returns {string[]|null}
+ * @returns {Promise<string[]|null>}
  */
-function resolveImportNames(payloads) {
+async function resolveImportNames(payloads) {
   const reserved = new Set(
     Object.values(workspaces ?? {})
       .map(workspace => normalizeWorkspaceName(workspace?.name))
@@ -424,8 +483,8 @@ function resolveImportNames(payloads) {
   const resolved = [];
 
   for (const payload of payloads) {
-    const original = String(payload?.name || "Importovaný workspace").trim() ||
-      "Importovaný workspace";
+    const original = String(payload?.name || t("importedWorkspaceDefault")).trim() ||
+      t("importedWorkspaceDefault");
     let candidate = original;
 
     while (
@@ -433,12 +492,11 @@ function resolveImportNames(payloads) {
       reserved.has(normalizeWorkspaceName(candidate))
     ) {
       const conflict = candidate
-        ? 'Workspace s názvem "' + candidate + '" už existuje.'
-        : "Název workspace nesmí být prázdný.";
+        ? t("duplicateWorkspaceName", candidate)
+        : t("emptyWorkspaceName");
 
-      const entered = prompt(
-        conflict + "\n\n" +
-        "Zadej nový název, nebo dej Storno pro zrušení celého importu:",
+      const entered = await promptDialog(
+        conflict + "\n\n" + t("importNewNamePrompt"),
         original + " import"
       );
 
@@ -463,17 +521,17 @@ function workspaceProvenanceText(workspace) {
   const parts = [];
 
   if (workspace?.createdAt) {
-    parts.push("Vytvořeno " + formatDateTime(workspace.createdAt));
+    parts.push(t("createdAt") + formatDateTime(workspace.createdAt));
   }
 
   if (workspace?.importedAt) {
-    let imported = "Importováno " + formatDateTime(workspace.importedAt);
-    if (workspace.importSource) imported += " z " + workspace.importSource;
+    let imported = t("importedAt") + formatDateTime(workspace.importedAt);
+    if (workspace.importSource) imported += t("provenanceSource", workspace.importSource);
     if (
       workspace.originalName &&
       workspace.originalName !== workspace.name
     ) {
-      imported += ' · původně "' + workspace.originalName + '"';
+      imported += t("provenanceOriginal", workspace.originalName);
     }
     parts.push(imported);
   }
@@ -493,7 +551,7 @@ function discardDebugText(tab) {
 
   return H.el("span", {
     className: "discard-debug",
-    title: "Poslední pokus o discard"
+    title: t("tooltipDiscardAttempt")
   },
   "discard ",
   formatClock(item.lastDiscardAttemptAt),
@@ -516,7 +574,7 @@ function lifecycleText(tab) {
   return H.el("span", {
     className: "countdown",
     dataset: { deadline: item.deadline }
-  }, "DEEP za " + formatRemaining(item.deadline));
+  }, t("deepIn") + formatRemaining(item.deadline));
 }
 
 function renderTab(tab) {
@@ -532,7 +590,7 @@ function renderTab(tab) {
       "span",
       {
         className: "flags",
-        title: "Další stavové příznaky"
+        title: t("tooltipOtherFlags")
       },
       extraFlags(tab).join(" ")
     ),
@@ -557,7 +615,7 @@ function renderTab(tab) {
           className: "tab-title",
           title: tab.url ?? ""
         },
-        tab.title || tab.url || "(bez názvu)"
+        tab.title || tab.url || t("noTitle")
       )
     ),
     H.el(
@@ -653,7 +711,7 @@ async function renderHostPolicies() {
   const hosts = baseHosts.slice(0, HOST_RESULT_LIMIT);
 
   if (!hosts.length) {
-    H.replace(hostPoliciesEl, H.el("div", { className: "empty" }, "Nic nenalezeno."));
+    H.replace(hostPoliciesEl, H.el("div", { className: "empty" }, t("emptyHostList")));
   } else {
     const grid = H.el("div", { className: "policy-grid" });
 
@@ -674,17 +732,15 @@ async function renderHostPolicies() {
           ? formatDuration(usage.activeMs / activations)
           : "—";
         const pct = usage.total
-          ? Math.round(usage.activePct) + "% aktivní / " +
-            Math.round(usage.inactivePct) + "% pozadí"
-          : "bez historie";
+          ? t("usageRatio", Math.round(usage.activePct), Math.round(usage.inactivePct))
+          : t("noHistory");
 
         H.append(
           hostLabel,
           H.el(
             "span",
             { className: "host-stats" },
-            activations + "× aktivní · průměr " + avg +
-              " · " + pct + " · z " + formatDuration(usage.total)
+            t("usageStats", activations, avg, pct, formatDuration(usage.total))
           )
         );
       }
@@ -717,8 +773,8 @@ async function renderHostPolicies() {
 
   const total = baseHosts.length;
   hostResultInfo.textContent = filter
-    ? `Nalezeno ${total}; zobrazeno max. ${Math.min(total, HOST_RESULT_LIMIT)}.`
-    : `Zobrazeny pouze hostname z aktuálně otevřených panelů; max. ${HOST_RESULT_LIMIT}.`;
+    ? t("hostnameSearchResult", total, Math.min(total, HOST_RESULT_LIMIT))
+    : t("hostnameDefaultResult", HOST_RESULT_LIMIT);
 }
 
 function workspaceStats(workspace) {
@@ -747,7 +803,7 @@ function workspaceDebugText(workspace) {
   ];
 
   for (const item of relatedLog) {
-    const ts = item?.at ? new Date(item.at).toLocaleTimeString("cs-CZ", { hour12: false }) : "--:--:--";
+    const ts = item?.at ? new Date(item.at).toLocaleTimeString(uiLocale, { hour12: false }) : "--:--:--";
     lines.push(ts + " | " + (item?.event || "event") + " | " + JSON.stringify(item?.data ?? {}));
   }
 
@@ -761,7 +817,7 @@ function renderWorkspaceTree(workspace) {
     return H.el(
       "div",
       { className: "workspace-tree-empty" },
-      "Workspace nemá uložená okna."
+      t("workspaceNoWindows")
     );
   }
 
@@ -788,7 +844,7 @@ function renderWorkspaceTree(workspace) {
       H.el(
         "div",
         { className: "workspace-tree-window-head" },
-        H.el("strong", {}, "window" + windowIndex),
+        H.el("strong", {}, t("savedWindowLabel", windowIndex)),
         H.el(
           "button",
           {
@@ -799,7 +855,7 @@ function renderWorkspaceTree(workspace) {
               logicalWindowId
             }
           },
-          "Vyřadit"
+          t("remove")
         )
       )
     );
@@ -818,7 +874,7 @@ function renderWorkspaceTree(workspace) {
           H.el(
             "li",
             {},
-            H.el("span", {}, tab.title || "(bez názvu)"),
+            H.el("span", {}, tab.title || t("noTitle")),
             " ",
             H.el("code", {}, tab.url || "")
           )
@@ -829,7 +885,7 @@ function renderWorkspaceTree(workspace) {
         H.el(
           "div",
           { className: "workspace-tree-group" },
-          H.el("strong", {}, group.title || ("group" + groupIndex)),
+          H.el("strong", {}, group.title || t("savedGroupLabel", groupIndex)),
           list
         )
       );
@@ -847,7 +903,7 @@ function renderWorkspaceTree(workspace) {
           H.el(
             "li",
             {},
-            H.el("span", {}, tab.title || "(bez názvu)"),
+            H.el("span", {}, tab.title || t("noTitle")),
             " ",
             H.el("code", {}, tab.url || "")
           )
@@ -858,7 +914,7 @@ function renderWorkspaceTree(workspace) {
         H.el(
           "div",
           { className: "workspace-tree-group" },
-          H.el("strong", {}, "Bez skupiny"),
+          H.el("strong", {}, t("groupNone")),
           list
         )
       );
@@ -891,7 +947,7 @@ function renderWorkspaceTree(workspace) {
       H.el(
         "div",
         { className: "empty" },
-        "Pro tento workspace zatím není debug záznam."
+        t("workspaceNoLog")
       )
     );
   }
@@ -903,7 +959,7 @@ function renderWorkspaceTree(workspace) {
       H.el(
         "summary",
         {},
-        H.el("span", {}, "Debug log (" + relatedLog.length + ")"),
+        H.el("span", {}, t("debugLogCount", relatedLog.length)),
         H.el(
           "button",
           {
@@ -911,7 +967,7 @@ function renderWorkspaceTree(workspace) {
             className: "workspace-debug-copy",
             dataset: { copyWorkspaceLog: workspace.id }
           },
-          "Copy"
+          t("copy")
         )
       ),
       debugList
@@ -934,7 +990,7 @@ function renderWorkspaces() {
       H.el(
         "div",
         { className: "empty" },
-        "Zatím není uložený žádný workspace."
+        t("emptyWorkspace")
       )
     );
     return;
@@ -946,8 +1002,8 @@ function renderWorkspaces() {
       workspace.id === activeWorkspaceId &&
       stat.openWindows > 0;
     const status = active
-      ? "AKTIVNÍ"
-      : (stat.openWindows > 0 ? "OTEVŘENÝ" : "ZAVŘENÝ");
+      ? t("statusActive")
+      : (stat.openWindows > 0 ? t("statusOpen") : t("statusClosed"));
     const statusClass = active
       ? "active"
       : (stat.openWindows > 0 ? "open" : "closed");
@@ -975,10 +1031,10 @@ function renderWorkspaces() {
       H.el(
         "div",
         { className: "workspace-meta" },
-        stat.openWindows + " otevřená / " +
-          stat.windows + " uložená okna · " +
-          stat.tabs + " panelů · " +
-          stat.groups + " skupin"
+        formatCount(stat.openWindows, "countOpenWindow") + " / " +
+          formatCount(stat.windows, "countSavedWindow") + " · " +
+          formatCount(stat.tabs, "countTab") + " · " +
+          formatCount(stat.groups, "countGroup")
       ),
       provenanceText
         ? H.el(
@@ -1009,17 +1065,17 @@ function renderWorkspaces() {
       action(
         "details",
         expandedWorkspaceId === workspace.id
-          ? "Skrýt"
-          : "👁 Detail"
+          ? t("hide")
+          : t("detail")
       ),
-      action("export", "Export JSON"),
+      action("export", t("exportJson"), !deviceName),
       action(
         "switch",
-        activeWorkspaceId ? "Přepnout" : "Recover session",
+        activeWorkspaceId ? t("switch") : t("recoverSession"),
         active
       ),
-      action("rename", "Přejmenovat"),
-      action("delete", "Smazat")
+      action("rename", t("rename")),
+      action("delete", t("delete"))
     );
 
     const card = H.el(
@@ -1045,6 +1101,7 @@ function renderWorkspaces() {
   });
 
   H.replace(workspaceListEl, ...cards);
+  refreshExportControls();
 }
 
 function renderPanels() {
@@ -1063,7 +1120,7 @@ function renderPanels() {
       const groupTabs = tabs.filter(tab => tab.groupId === group.id);
       groupTabs.forEach(tab => groupedIds.add(tab.id));
 
-      const title = group.title || "(skupina bez názvu)";
+      const title = group.title || t("groupUntitled");
       const visibleTabs = groupTabs.filter(tab => tabMatchesPanelFilters(tab, title));
       if (filtering && !visibleTabs.length) continue;
 
@@ -1073,15 +1130,15 @@ function renderPanels() {
       const shownTabs = filtering ? visibleTabs : groupTabs;
       const deepCount = shownTabs.filter(tab => tab.discarded).length;
       const countText = filtering
-        ? shownTabs.length + "/" + groupTabs.length + " panelů"
-        : groupTabs.length + " panelů";
+        ? t("filteredPanelCounts", shownTabs.length, groupTabs.length)
+        : formatCount(groupTabs.length, "countTab");
 
       const titleNode = H.el(
         "span",
         { className: "disclosure-title" },
         H.el("strong", {}, title),
         H.el("span", { className: "header-meta" },
-          " · " + countText + " · " + deepCount + " DEEP")
+          " · " + countText + " · DEEP: " + deepCount)
       );
 
       const summaryNode = H.el(
@@ -1112,7 +1169,7 @@ function renderPanels() {
               groupId: group.id
             }
           },
-          "DEEP skupinu"
+          t("groupDeep")
         )
       );
 
@@ -1132,7 +1189,7 @@ function renderPanels() {
         }
       } else {
         detailsNode.appendChild(
-          H.el("div", { className: "empty" }, "Prázdná skupina")
+          H.el("div", { className: "empty" }, t("groupEmpty"))
         );
       }
 
@@ -1141,7 +1198,7 @@ function renderPanels() {
 
     const ungrouped = tabs.filter(tab => !groupedIds.has(tab.id));
     const visibleUngrouped = ungrouped.filter(tab =>
-      tabMatchesPanelFilters(tab, "Bez skupiny")
+      tabMatchesPanelFilters(tab, t("groupNone"))
     );
 
     if (!filtering || visibleUngrouped.length) {
@@ -1153,8 +1210,8 @@ function renderPanels() {
         visibleTabCount += shownTabs.length;
         const deepCount = shownTabs.filter(tab => tab.discarded).length;
         const countText = filtering
-          ? shownTabs.length + "/" + ungrouped.length + " panelů"
-          : ungrouped.length + " panelů";
+          ? t("filteredPanelCounts", shownTabs.length, ungrouped.length)
+          : formatCount(ungrouped.length, "countTab");
 
         const detailsNode = H.el(
           "details",
@@ -1176,11 +1233,11 @@ function renderPanels() {
               H.el(
                 "span",
                 { className: "disclosure-title" },
-                H.el("strong", {}, "Bez skupiny"),
+                H.el("strong", {}, t("groupNone")),
                 H.el(
                   "span",
                   { className: "header-meta" },
-                  " · " + countText + " · " + deepCount + " DEEP"
+                  " · " + countText + " · DEEP: " + deepCount
                 )
               )
             )
@@ -1200,7 +1257,7 @@ function renderPanels() {
     const visibleInWindow = filtering
       ? tabs.filter(tab => {
           const group = groups.find(item => item.id === tab.groupId);
-          return tabMatchesPanelFilters(tab, group?.title || "Bez skupiny");
+          return tabMatchesPanelFilters(tab, group?.title || t("groupNone"));
         }).length
       : tabs.length;
 
@@ -1208,8 +1265,8 @@ function renderPanels() {
     const windowOpen = filtering || panelExplorer.shouldOpenWindow(windowKey);
     const windowDeep = tabs.filter(tab => tab.discarded).length;
     const countText = filtering
-      ? visibleInWindow + "/" + tabs.length + " panelů"
-      : tabs.length + " panelů";
+      ? t("filteredPanelCounts", visibleInWindow, tabs.length)
+      : formatCount(tabs.length, "countTab");
 
     const windowNode = H.el(
       "details",
@@ -1228,13 +1285,13 @@ function renderPanels() {
         H.el(
           "span",
           { className: "disclosure-title" },
-          H.el("strong", {}, "Okno #" + win.id),
+          H.el("strong", {}, t("windowPrefix") + win.id),
           H.el(
             "span",
             { className: "header-meta" },
             " · " + countText +
-              " · " + groups.length +
-              " skupin · " + windowDeep + " DEEP"
+              " · " + formatCount(groups.length, "countGroup") +
+              " · DEEP: " + windowDeep
           )
         )
       ),
@@ -1252,7 +1309,7 @@ function renderPanels() {
           H.el(
             "div",
             { className: "empty panel-empty" },
-            "Žádné panely neodpovídají aktuálnímu filtru."
+            t("panelsNoMatch")
           )
         ])
   );
@@ -1265,7 +1322,7 @@ function renderPanels() {
 
 async function load() {
   panelExplorer.captureOpenState();
-  app.textContent = "Načítám…";
+  app.textContent = t("loading");
 
   const stored = await browser.storage.local.get([TAB_LIFECYCLE_KEY, HOST_STATS_KEY, URL_POLICIES_KEY, HOST_POLICIES_KEY, WORKSPACES_KEY, ACTIVE_WORKSPACE_KEY, WORKSPACE_DEBUG_KEY]);
   lifecycleMap = stored[TAB_LIFECYCLE_KEY] ?? {};
@@ -1290,7 +1347,7 @@ async function load() {
   const activeTabs = allTabs.filter(tab => tab.active).length;
   const loadedTabs = allTabs.filter(tab => !tab.discarded).length;
 
-  summary.textContent = `${currentWindows.length} oken · ${allTabs.length} panelů · ${loadedTabs} loaded · ${deepTabs} deep · ${activeTabs} active`;
+  summary.textContent = t("summaryLive", formatCount(currentWindows.length, "countWindow"), formatCount(allTabs.length, "countTab"), loadedTabs, deepTabs, activeTabs);
   renderPanels();
 
   currentOpenHosts = [...new Set(
@@ -1311,7 +1368,7 @@ function renderUrlPolicies() {
   if (!rules.length) {
     H.replace(
       urlPoliciesEl,
-      H.el("div", { className: "empty" }, "Žádné URL výjimky.")
+      H.el("div", { className: "empty" }, t("emptyUrlExceptions"))
     );
     return;
   }
@@ -1327,7 +1384,7 @@ function renderUrlPolicies() {
         type: "button",
         dataset: { removeUrlRule: rule.url }
       },
-      "Smazat"
+      t("delete")
     )
   ));
 
@@ -1353,6 +1410,50 @@ async function setPage(page) {
 document.querySelector(".page-tabs").addEventListener("click", event => {
   const button = event.target.closest(".page-tab");
   if (button) setPage(button.dataset.page).catch(console.error);
+});
+
+// A device label is mandatory for export; never disable import/recovery.
+deviceNameSave.addEventListener("click", async () => {
+  const typed = deviceNameInput.value.trim();
+  const parsed = normalizeDeviceName(typed);
+  if (typed && !parsed) {
+    deviceNameStatus.textContent = t("deviceNameInvalid");
+    deviceNameStatus.dataset.error = "true";
+    deviceNameInput.focus();
+    return;
+  }
+
+  deviceNameSave.disabled = true;
+  try {
+    // Saving an empty field creates a fresh random label.
+    const nextName = parsed || generateDeviceName();
+    await browser.storage.local.set({ [UI_DEVICE_NAME_KEY]: nextName });
+    deviceName = nextName;
+    deviceNameInput.value = nextName;
+    refreshExportControls();
+  } catch (error) {
+    await messageDialog(t("deviceNameSaveError") + (error?.message ?? error));
+  } finally {
+    deviceNameSave.disabled = false;
+  }
+});
+
+// Changing the language reloads only this extension page. The current manager
+// section is persisted in UI_PAGE_KEY and is restored after a page reload.
+languageSelect.addEventListener("change", async () => {
+  const selected = normalizeLanguage(languageSelect.value);
+  languageWritePending = true;
+  languageSelect.disabled = true;
+  try {
+    await browser.storage.local.set({ [UI_LANGUAGE_KEY]: selected });
+    window.location.reload();
+  } catch (error) {
+    console.error("Unable to store UI language preference:", error);
+    languageSelect.value = languagePreference;
+    languageSelect.disabled = false;
+  } finally {
+    languageWritePending = false;
+  }
 });
 
 // Manager event wiring ---------------------------------------------------------
@@ -1425,10 +1526,10 @@ app.addEventListener("click", async event => {
 
     const exists = urlPolicies.some(rule => rule?.mode === "KEEP" && rule?.url === url);
     const question = exists
-      ? "Opravdu vyjmout tuto přesnou URL z výjimek?\n\n" + url
-      : "Opravdu vložit tuto přesnou URL do výjimek?\n\n" + url;
+      ? t("keepExceptionRemove") + url
+      : t("keepExceptionAdd") + url;
 
-    if (!confirm(question)) return;
+    if (!await confirmDialog(question)) return;
 
     urlPolicies = urlPolicies.filter(rule => rule.url !== url);
     if (!exists) urlPolicies.push({ url, mode: "KEEP" });
@@ -1522,13 +1623,13 @@ workspaceListEl.addEventListener("click", async event => {
     try {
       await navigator.clipboard.writeText(text);
       const oldText = copyButton.textContent;
-      copyButton.textContent = "Copied";
+      copyButton.textContent = t("copied");
       setTimeout(() => {
         copyButton.textContent = oldText;
       }, 1200);
     } catch (error) {
       console.error("Copy debug log failed", error);
-      alert("Kopírování logu selhalo: " + (error?.message ?? error));
+      await messageDialog(t("copiedLogError") + (error?.message ?? error));
     }
     return;
   }
@@ -1538,7 +1639,7 @@ workspaceListEl.addEventListener("click", async event => {
     const workspaceId = windowButton.dataset.workspaceId;
     const logicalWindowId = windowButton.dataset.logicalWindowId;
     if (windowButton.dataset.workspaceWindowAction === "remove") {
-      if (!confirm("Vyřadit toto uložené okno z workspace?\n\nAktuálně otevřené Firefox okno se nezavře.")) return;
+      if (!await confirmDialog(t("removeWorkspaceWindow"), { danger: true })) return;
       await browser.runtime.sendMessage({
         type: "removeWorkspaceWindow",
         workspaceId,
@@ -1563,15 +1664,15 @@ workspaceListEl.addEventListener("click", async event => {
   }
 
   if (button.dataset.workspaceAction === "export") {
+    if (!deviceName) return;
     const payload = await browser.runtime.sendMessage({
       type: "exportWorkspace",
       workspaceId
     });
     downloadJson(
       payload,
-      backupTimestamp() + "_" +
-        safeFilenamePart(workspace.name || "workspace") +
-        ".json"
+      backupFilename(backupTimestamp(), deviceName,
+        safeFilenamePart(workspace.name || "workspace"))
     );
     return;
   }
@@ -1592,26 +1693,12 @@ workspaceListEl.addEventListener("click", async event => {
       !!preview?.pendingApplicationRestore && preview.liveContentWindows > 0;
 
     const message = hasActiveWorkspace
-      ? (
-          "Přepnout na workspace \"" + (workspace.name || "Workspace") +
-          "\"?\n\nAktuální stav se uloží a okna současného workspace se zavřou."
-        )
+      ? t("confirmSwitchWorkspace", workspace.name || "Workspace")
       : potentialDuplicates
-        ? (
-            "POZOR: Otevřená Firefox okna nebylo možné bezpečně přiřadit " +
-            "k právě obnovené záloze aplikace. Obsah oken se mohl změnit.\n\n" +
-            "Právě je otevřeno " + preview.liveContentWindows +
-            " obsahových oken. Recover vytvoří DALŠÍCH " +
-            preview.restoreWindowCount +
-            " oken a původní ponechá. Mohou vzniknout duplicity.\n\n" +
-            "Chceš výslovně vytvořit další okna? Storno ponechá současný stav."
-          )
-        : (
-            "Obnovit session workspace \"" + (workspace.name || "Workspace") +
-            "\"?\n\nOtevřou se jeho uložená okna, skupiny a panely."
-          );
+        ? t("confirmRecoverAdditionalWindows", preview.liveContentWindows, preview.restoreWindowCount)
+        : t("confirmRecoverWorkspace", workspace.name || "Workspace");
 
-    if (!confirm(message)) return;
+    if (!await confirmDialog(message, { danger: true })) return;
 
     button.disabled = true;
     try {
@@ -1628,7 +1715,7 @@ workspaceListEl.addEventListener("click", async event => {
   }
 
   if (button.dataset.workspaceAction === "rename") {
-    const name = prompt("Název workspace:", workspace.name || "Workspace");
+    const name = await promptDialog(t("workspaceNamePrompt"), workspace.name || "Workspace");
     if (name == null || !name.trim()) return;
     await browser.runtime.sendMessage({ type: "renameWorkspace", workspaceId, name: name.trim() });
     await load();
@@ -1638,9 +1725,9 @@ workspaceListEl.addEventListener("click", async event => {
   if (button.dataset.workspaceAction === "delete") {
     const active = workspaceId === activeWorkspaceId;
     const message = active
-      ? "Smazat aktivní workspace \"" + (workspace.name || "Workspace") + "\"?\n\nOtevřená okna zůstanou a budou převedena do nového workspace."
-      : "Opravdu smazat workspace \"" + (workspace.name || "Workspace") + "\"?";
-    if (!confirm(message)) return;
+      ? t("confirmDeleteActiveWorkspace", workspace.name || "Workspace")
+      : t("confirmDeleteWorkspace", workspace.name || "Workspace");
+    if (!await confirmDialog(message, { danger: true })) return;
     await browser.runtime.sendMessage({ type: "deleteWorkspace", workspaceId });
     await load();
   }
@@ -1657,7 +1744,7 @@ importWorkspaceFile.addEventListener("change", async () => {
 
   try {
     const payload = JSON.parse(await file.text());
-    const names = resolveImportNames([payload]);
+    const names = await resolveImportNames([payload]);
     if (!names) return;
 
     await browser.runtime.sendMessage({
@@ -1670,13 +1757,14 @@ importWorkspaceFile.addEventListener("change", async () => {
     await load();
   } catch (error) {
     console.error("Workspace import failed", error);
-    alert("Import workspace selhal: " + (error?.message ?? error));
+    await messageDialog(t("importWorkspaceError") + (error?.message ?? error));
   } finally {
     importWorkspaceFile.value = "";
   }
 });
 
 backupWorkspacesButton.addEventListener("click", async () => {
+  if (!deviceName) return;
   backupWorkspacesButton.disabled = true;
 
   try {
@@ -1686,13 +1774,13 @@ backupWorkspacesButton.addEventListener("click", async () => {
 
     downloadJson(
       payload,
-      backupTimestamp() + "_workspaces.json"
+      backupFilename(backupTimestamp(), deviceName, "workspaces")
     );
   } catch (error) {
     console.error("Workspace collection backup failed", error);
-    alert("Backup workspaces selhal: " + (error?.message ?? error));
+    await messageDialog(t("backupWorkspacesError") + (error?.message ?? error));
   } finally {
-    backupWorkspacesButton.disabled = false;
+    backupWorkspacesButton.disabled = !deviceName;
   }
 });
 
@@ -1712,17 +1800,15 @@ restoreWorkspacesFile.addEventListener("change", async () => {
       Number(payload?.version) !== 1 ||
       !Array.isArray(payload?.workspaces)
     ) {
-      throw new Error("Soubor není workspace collection backup");
+      throw new Error(t("fileNotCollection"));
     }
 
-    const names = resolveImportNames(payload.workspaces);
+    const names = await resolveImportNames(payload.workspaces);
     if (!names) return;
 
     if (
-      !confirm(
-        "Importovat " + payload.workspaces.length +
-        " workspace z backupu?\n\n" +
-        "Existující workspace zůstanou beze změny."
+      !await confirmDialog(
+        t("confirmImportCollection", payload.workspaces.length)
       )
     ) {
       return;
@@ -1738,10 +1824,10 @@ restoreWorkspacesFile.addEventListener("change", async () => {
     });
 
     await load();
-    alert("Importováno workspace: " + (result?.imported ?? 0));
+    await messageDialog(t("importCollectionSuccess", result?.imported ?? 0));
   } catch (error) {
     console.error("Workspace collection restore failed", error);
-    alert("Restore workspaces selhal: " + (error?.message ?? error));
+    await messageDialog(t("restoreWorkspacesError") + (error?.message ?? error));
   } finally {
     restoreWorkspacesButton.disabled = false;
     restoreWorkspacesFile.value = "";
@@ -1749,6 +1835,7 @@ restoreWorkspacesFile.addEventListener("change", async () => {
 });
 
 backupApplicationButton.addEventListener("click", async () => {
+  if (!deviceName) return;
   backupApplicationButton.disabled = true;
 
   try {
@@ -1759,13 +1846,13 @@ backupApplicationButton.addEventListener("click", async () => {
 
     downloadJson(
       payload,
-      backupTimestamp() + "_workspace_manager.json"
+      backupFilename(backupTimestamp(), deviceName, "workspace_manager")
     );
   } catch (error) {
     console.error("Application backup failed", error);
-    alert("Backup aplikace selhal: " + (error?.message ?? error));
+    await messageDialog(t("backupApplicationError") + (error?.message ?? error));
   } finally {
-    backupApplicationButton.disabled = false;
+    backupApplicationButton.disabled = !deviceName;
   }
 });
 
@@ -1784,31 +1871,56 @@ restoreApplicationFile.addEventListener("change", async () => {
       payload?.format !== "firefox-workspace-manager.application" ||
       Number(payload?.version) !== 1
     ) {
-      throw new Error("Soubor není kompletní backup Workspace Manageru");
+      throw new Error(t("fileNotApplication"));
     }
 
     const workspaceCount = Array.isArray(payload?.data?.workspaces?.workspaces)
       ? payload.data.workspaces.workspaces.length
       : 0;
 
-    const accepted = confirm(
-      "Obnovit kompletní stav Workspace Manageru ze zálohy?\n\n" +
-      "Tato akce NAHRADÍ uložené nastavení a workspaces.\n" +
-      "Otevřená Firefox okna zůstanou beze změny.\n" +
-      "Pokud se otevřená okna se zálohou přesně shodují, workspace se znovu připojí automaticky.\n" +
-      "Při rozdílu zůstanou původní okna otevřená a Recover vyžaduje potvrzení dalších oken.\n\n" +
-      "Workspace v záloze: " + workspaceCount
-    );
-
+    const accepted = await confirmDialog(t("confirmRestoreApplication", workspaceCount), { danger: true });
     if (!accepted) return;
 
+    // Optional field: legacy (0.8.x/early 1.0) backups have no deviceName.
+    // An auto-generated local label may adopt it; customized labels require
+    // separate opt-in. Declining the rename must NOT cancel application restore.
+    const labelPlan = planDeviceNameRestore(deviceName, payload?.ui?.deviceName);
+    let selectedRestoredName = null;
+    if (labelPlan.action === "adopt") {
+      selectedRestoredName = labelPlan.name;
+    } else if (labelPlan.action === "ask") {
+      const renameAccepted = await confirmDialog(
+        t("deviceNameRestoreAsk", deviceName, labelPlan.name),
+        { acceptLabel: t("deviceNameRestoreYes"),
+          cancelLabel: t("deviceNameRestoreNo") }
+      );
+      if (renameAccepted) selectedRestoredName = labelPlan.name;
+    }
+
     restoreApplicationButton.disabled = true;
+    applicationRestoreInProgress = true;
 
     const result = await browser.runtime.sendMessage({
       type: "restoreApplicationBackup",
       payload,
       sourceName: file.name
     });
+
+    // Apply the selected PC identity only AFTER a successful restore. Failure
+    // to write this optional preference cannot undo the restored workspaces.
+    let deviceRestoreWarning = "";
+    if (selectedRestoredName && selectedRestoredName !== deviceName) {
+      try {
+        await browser.storage.local.set({ [UI_DEVICE_NAME_KEY]: selectedRestoredName });
+        deviceName = selectedRestoredName;
+        deviceNameInput.value = deviceName;
+        refreshExportControls();
+      } catch (error) {
+        console.error("Application data restored, device name not updated", error);
+        deviceRestoreWarning = "\n\n" + t("deviceNameRestoreError") +
+          String(error?.message ?? error);
+      }
+    }
 
     panelExplorer.restorePreferences(result?.panelExplorer);
     await loadSyncSetting();
@@ -1820,30 +1932,21 @@ restoreApplicationFile.addEventListener("change", async () => {
     }
 
     const attachmentMessage = result?.reattached
-      ? (
-          "Existující okna byla jednoznačně rozpoznána a znovu připojena.\n" +
-          "Aktivní workspace: " +
-          (workspaces[result.workspaceId]?.name || "obnovený workspace") +
-          " (" + result.windowCount + " oken)."
-        )
-      : (
-          "Otevřená okna se se zálohou neshodují úplně nebo nelze shodu určit.\n" +
-          "Žádné původní okno nebylo zavřeno ani změněno.\n" +
-          "Recover session může vytvářet další okna; při riziku duplicit " +
-          "se zobrazí výslovné upozornění."
-        );
+      ? t("restoredAttached",
+          workspaces[result.workspaceId]?.name || t("restoredWorkspaceName"),
+          formatCount(result.windowCount ?? 0, "countWindow"))
+      : t("restoredNotAttached");
 
-    alert(
-      "Restore aplikace dokončen.\n\n" +
-      "Obnoveno workspace: " + (result?.workspaces ?? 0) + "\n\n" +
-      attachmentMessage
-    );
+    await messageDialog(t("restoreApplicationSuccess", result?.workspaces ?? 0, attachmentMessage) +
+      deviceRestoreWarning);
   } catch (error) {
     console.error("Application restore failed", error);
-    alert("Restore aplikace selhal: " + (error?.message ?? error));
+    await messageDialog(t("restoreApplicationError") + (error?.message ?? error));
   } finally {
+    applicationRestoreInProgress = false;
     restoreApplicationButton.disabled = false;
     restoreApplicationFile.value = "";
+    if (pendingLanguageReload) window.location.reload();
   }
 });
 
@@ -1859,7 +1962,7 @@ snapshotWorkspaceButton.addEventListener("click", async () => {
 
 cloneWorkspaceButton.addEventListener("click", async () => {
   const defaultName = "Workspace " + (Object.keys(workspaces ?? {}).length + 1);
-  const name = prompt("Název nového workspace z aktuálního stavu Firefoxu:", defaultName);
+  const name = await promptDialog(t("workspaceNewNamePrompt"), defaultName);
   if (name == null || !name.trim()) return;
 
   cloneWorkspaceButton.disabled = true;
@@ -1870,14 +1973,14 @@ cloneWorkspaceButton.addEventListener("click", async () => {
     });
 
     if (!result?.workspaceId || !result?.active || result.windows < 1 || result.tabs < 1) {
-      throw new Error("Nový workspace se nepodařilo ověřit");
+      throw new Error(t("createWorkspaceUnverified"));
     }
 
     expandedWorkspaceId = result.workspaceId;
     await load();
   } catch (error) {
     console.error("Create workspace from current state failed", error);
-    alert("Uložení aktuálního stavu jako nového workspace selhalo: " + (error?.message ?? error));
+    await messageDialog(t("createWorkspaceError") + (error?.message ?? error));
   } finally {
     cloneWorkspaceButton.disabled = false;
   }
@@ -1898,7 +2001,7 @@ addUrlKeep.addEventListener("click", async () => {
   const url = urlPattern.value.trim();
   if (!/^https?:\/\//i.test(url)) return;
 
-  if (!confirm("Opravdu vložit tuto přesnou URL do výjimek?\n\n" + url)) return;
+  if (!await confirmDialog(t("keepExceptionAdd") + url)) return;
 
   urlPolicies = urlPolicies.filter(rule => rule.url !== url);
   urlPolicies.push({ url, mode: "KEEP" });
@@ -1933,6 +2036,15 @@ browser.tabGroups.onRemoved.addListener(() => load().catch(console.error));
 
 browser.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
+  if (changes[UI_DEVICE_NAME_KEY]) {
+    deviceName = normalizeDeviceName(changes[UI_DEVICE_NAME_KEY].newValue);
+    deviceNameInput.value = deviceName;
+    refreshExportControls();
+  }
+  if (changes[UI_LANGUAGE_KEY]) {
+    if (applicationRestoreInProgress) pendingLanguageReload = true;
+    else if (!languageWritePending) window.location.reload();
+  }
   if (changes[TAB_LIFECYCLE_KEY] || changes[HOST_STATS_KEY] || changes[URL_POLICIES_KEY] || changes[HOST_POLICIES_KEY] || changes[WORKSPACES_KEY] || changes[ACTIVE_WORKSPACE_KEY] || changes[WORKSPACE_DEBUG_KEY]) {
     load().catch(console.error);
   }
@@ -1942,12 +2054,17 @@ setInterval(() => {
   document.querySelectorAll(".countdown[data-deadline]").forEach(el => {
     const deadline = Number(el.dataset.deadline);
     el.textContent = deadline > Date.now()
-      ? "DEEP za " + formatRemaining(deadline)
+      ? t("deepIn") + formatRemaining(deadline)
       : "DEEP…";
   });
 }, 1000);
 
 (async () => {
+  await initializeLocale();
+  localizeDocument();
+  languageSelect.value = languagePreference;
+  await loadDeviceName();
+
   const current = await browser.tabs.getCurrent();
   managerTabId = current?.id ?? null;
   managerWindowId = current?.windowId ?? null;
@@ -1974,5 +2091,5 @@ setInterval(() => {
   await load();
 })().catch(error => {
   console.error(error);
-  app.textContent = "Chyba při načítání. Podrobnosti jsou v konzoli rozšíření.";
+  app.textContent = t("loadedErrorDetail");
 });

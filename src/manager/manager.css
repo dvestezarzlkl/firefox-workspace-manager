@@ -164,6 +164,10 @@ main {
 }
 
 #autoMinutes { width: 80px; }
+#uiLanguage { max-width: 100%; min-width: 190px; padding: 5px 7px; }
+@media (max-width: 540px) {
+  #uiLanguage { min-width: 0; }
+}
 
 .settings-title-row {
   display: flex;
@@ -987,3 +991,10 @@ main {
   min-width: 0;
   font-weight: 600;
 }
+
+/* Device name is local-only and required before exporting JSON backups. */
+.device-name-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.device-name-controls input { flex: 1 1 230px; min-width: 0; padding: 7px 9px; }
+.device-name-controls button { white-space: nowrap; }
+#exportDeviceHint { margin-top: 5px !important; }
+#deviceNameStatus[data-error="true"] { color: #e87070; opacity: 1; }

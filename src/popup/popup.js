@@ -4,12 +4,15 @@ import {
   ACTIVE_WORKSPACE_KEY,
   HOST_POLICIES_KEY,
   LAST_WORKSPACE_KEY,
+  UI_LANGUAGE_KEY,
   TAB_LIFECYCLE_KEY,
   URL_POLICIES_KEY,
   WORKSPACES_KEY
 } from "../shared/constants.js";
 import { hostnameFromUrl, isExtensionUrl } from "../shared/url.js";
 import { H } from "../shared/H.js";
+import { t, localizeDocument, pluralLabel, initializeLocale } from "../shared/i18n.js";
+import { confirmDialog } from "../shared/dialogs.js";
 
 const stats = document.getElementById("stats");
 const refreshButton = document.getElementById("refresh");
@@ -75,15 +78,15 @@ async function load() {
 
   if (activeWorkspace) {
     workspaceTitleEl.textContent = activeWorkspace.name || "Workspace";
-    workspaceSubtitleEl.textContent = "Aktivní workspace";
+    workspaceSubtitleEl.textContent = t("activeWorkspace");
     recoverSessionButton.hidden = true;
   } else if (fallbackLastWorkspace) {
     workspaceTitleEl.textContent = fallbackLastWorkspace.name || "Workspace";
-    workspaceSubtitleEl.textContent = "Naposledy použitý · neaktivní";
+    workspaceSubtitleEl.textContent = t("lastWorkspaceInactive");
     recoveryWorkspaceId = fallbackLastWorkspace.id;
     recoverSessionButton.hidden = false;
   } else {
-    workspaceTitleEl.textContent = "Žádný workspace";
+    workspaceTitleEl.textContent = t("noWorkspace");
     workspaceSubtitleEl.textContent = "Workspace Manager";
     recoverSessionButton.hidden = true;
   }
@@ -115,16 +118,16 @@ async function load() {
   const groups = groupLists.reduce((sum, list) => sum + list.length, 0);
 
   const statItems = [
-    [windows.length, "oken"],
-    [tabs.length, "panelů"],
-    [groups, "skupin"],
-    [active, "aktivní"],
-    [loaded, "loaded"],
-    [deep, "deep"],
-    [autoPending, "AUTO čeká"],
-    [deepAlways, "DEEP always"],
-    [keepAlways, "KEEP always"],
-    [except, "URL výjimky"]
+    [windows.length, pluralLabel(windows.length, "countWindow")],
+    [tabs.length, pluralLabel(tabs.length, "countTab")],
+    [groups, pluralLabel(groups, "countGroup")],
+    [active, t("statActive")],
+    [loaded, t("statLoaded")],
+    [deep, t("statDeep")],
+    [autoPending, t("statAutoPending")],
+    [deepAlways, t("statDeepAlways")],
+    [keepAlways, t("statKeepAlways")],
+    [except, t("statUrlExceptions")]
   ];
 
   H.replace(
@@ -176,7 +179,7 @@ recoverSessionButton.addEventListener("click", async () => {
 
   recoverSessionButton.disabled = true;
   const originalText = recoverSessionButton.textContent;
-  recoverSessionButton.textContent = "Obnovuji…";
+  recoverSessionButton.textContent = t("recovering");
 
   try {
     const preview = await browser.runtime.sendMessage({
@@ -186,12 +189,8 @@ recoverSessionButton.addEventListener("click", async () => {
     const duplicateRisk =
       !!preview?.pendingApplicationRestore && preview.liveContentWindows > 0;
 
-    if (duplicateRisk && !confirm(
-      "POZOR: Obsah otevřených oken se liší od obnovené zálohy.\n\n" +
-      "Recover vytvoří dalších " + preview.restoreWindowCount +
-      " oken vedle " + preview.liveContentWindows +
-      " existujících. Mohou vzniknout duplicity.\n\n" +
-      "Vytvořit nová okna?"
+    if (duplicateRisk && !await confirmDialog(
+      t("recoverDuplicatePopup", preview.restoreWindowCount, preview.liveContentWindows)
     )) {
       recoverSessionButton.textContent = originalText;
       recoverSessionButton.disabled = false;
@@ -205,14 +204,14 @@ recoverSessionButton.addEventListener("click", async () => {
     });
 
     if (!result?.windowIds?.length) {
-      throw new Error("Workspace recovery nevytvořilo žádné okno");
+      throw new Error(t("noRecoveredWindow"));
     }
 
     await load();
     window.close();
   } catch (error) {
     console.error("Popup workspace recovery failed", error);
-    recoverSessionButton.textContent = "Recovery selhalo";
+    recoverSessionButton.textContent = t("recoveryFailed");
     setTimeout(() => {
       recoverSessionButton.textContent = originalText;
       recoverSessionButton.disabled = false;
@@ -233,9 +232,16 @@ openManagerButton.addEventListener("click", async () => {
 });
 
 refreshButton.addEventListener("click", () => load().catch(console.error));
-load().catch(error => {
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && changes[UI_LANGUAGE_KEY]) window.location.reload();
+});
+(async () => {
+  await initializeLocale();
+  localizeDocument();
+  await load();
+})().catch(error => {
   console.error(error);
-  stats.textContent = "Chyba při načítání.";
+  stats.textContent = t("loadingError");
 });
 
 versionEl.textContent = "v" + browser.runtime.getManifest().version;
