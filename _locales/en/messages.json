@@ -1,0 +1,734 @@
+{
+  "loading": {
+    "message": "Loading…"
+  },
+  "actionDeepAllExceptActive": {
+    "message": "DEEP ALL EXCEPT ACTIVE"
+  },
+  "refresh": {
+    "message": "Refresh"
+  },
+  "close": {
+    "message": "Close"
+  },
+  "tabs": {
+    "message": "Tabs"
+  },
+  "workspaces": {
+    "message": "Workspaces"
+  },
+  "settings": {
+    "message": "Settings"
+  },
+  "help": {
+    "message": "Help"
+  },
+  "resetFilters": {
+    "message": "Reset filters"
+  },
+  "state": {
+    "message": "State"
+  },
+  "active": {
+    "message": "Active"
+  },
+  "loaded": {
+    "message": "Loaded"
+  },
+  "deep": {
+    "message": "Discarded"
+  },
+  "policy": {
+    "message": "Policy"
+  },
+  "auto": {
+    "message": "AUTO"
+  },
+  "keepAlways": {
+    "message": "KEEP always"
+  },
+  "deepAlways": {
+    "message": "DEEP always"
+  },
+  "except": {
+    "message": "EXCEPT"
+  },
+  "alwaysExpanded": {
+    "message": "Always expanded"
+  },
+  "expandAll": {
+    "message": "Expand all"
+  },
+  "collapseAll": {
+    "message": "Collapse all"
+  },
+  "off": {
+    "message": "Off"
+  },
+  "workspacesDescription": {
+    "message": "A workspace contains all of its windows, groups and tabs."
+  },
+  "saveState": {
+    "message": "Save state"
+  },
+  "saveCurrentAsNew": {
+    "message": "Save current state as new"
+  },
+  "importJson": {
+    "message": "Import JSON"
+  },
+  "backupWorkspaces": {
+    "message": "Back up workspaces"
+  },
+  "restoreWorkspaces": {
+    "message": "Restore workspaces"
+  },
+  "appBackupHeading": {
+    "message": "Application backup"
+  },
+  "appBackupDescription": {
+    "message": "Complete recovery backup of settings, workspaces and portable metadata."
+  },
+  "backupApplication": {
+    "message": "Back up application"
+  },
+  "restoreApplication": {
+    "message": "Restore application"
+  },
+  "appBackupCaveat": {
+    "message": "Firefox runtime IDs, window mappings, countdowns and snapshot locks are not backed up. Restore leaves open Firefox windows unchanged. An exact match reattaches existing windows automatically. Otherwise, workspaces remain inactive and session recovery warns before creating additional windows."
+  },
+  "syncHeading": {
+    "message": "Synchronization"
+  },
+  "syncSetting": {
+    "message": "Synchronize settings using Firefox Sync"
+  },
+  "syncDescription": {
+    "message": "AUTO settings, hostname policies and URL exceptions are synchronized. Runtime tabs, countdowns, statistics and window snapshots remain local."
+  },
+  "autoTimeout": {
+    "message": "Discard after inactivity"
+  },
+  "autoDeepOnLeave": {
+    "message": "Discard immediately when leaving"
+  },
+  "protectPinned": {
+    "message": "Protect pinned tabs"
+  },
+  "protectAudio": {
+    "message": "Protect playing audio"
+  },
+  "autoDescription": {
+    "message": "Settings are saved immediately. AUTO respects the configured timeout and protections."
+  },
+  "urlExceptions": {
+    "message": "URL exceptions"
+  },
+  "urlExceptionsDescription": {
+    "message": "Exact URL exceptions take precedence over hostname policies. Use KEEP for pages that require persistent EventSource or WebSocket connections."
+  },
+  "lastPage": {
+    "message": "Last page"
+  },
+  "addKeep": {
+    "message": "Add KEEP"
+  },
+  "hostnamePolicies": {
+    "message": "Hostname policies"
+  },
+  "hostnameExamplePart": {
+    "message": "A policy applies to the whole host, e.g."
+  },
+  "helpPrincipleHeading": {
+    "message": "Basic principle"
+  },
+  "helpPrinciple": {
+    "message": "Workspace Manager maintains your browsing environment as a set of windows, groups and tabs. Tabs can remain loaded, automatically be discarded or be protected from unloading."
+  },
+  "helpStatesHeading": {
+    "message": "Tab states"
+  },
+  "helpKeep": {
+    "message": "The hostname is protected and stays loaded."
+  },
+  "helpAuto": {
+    "message": "The tab is discarded automatically after the configured inactivity timeout. Its countdown is shown next to the tab."
+  },
+  "helpDeepAlways": {
+    "message": "Inactive tabs for this hostname should always be discarded. A watchdog checks this every 30 seconds."
+  },
+  "helpExactExcept": {
+    "message": "An exact full URL can have a KEEP exception even if its hostname uses DEEP ALWAYS."
+  },
+  "helpTabProtection": {
+    "message": "The active tab in each Firefox window, pinned tabs and tabs playing audio are protected according to settings."
+  },
+  "helpPanels": {
+    "message": "Windows start collapsed. Search matches tab titles, URLs and group names; matching parts expand automatically. State and Policy filters can be combined."
+  },
+  "helpWorkspace": {
+    "message": "A workspace is a saved collection of Firefox windows. Each window preserves its tab order and native tab groups."
+  },
+  "helpSave": {
+    "message": "Saves the current active workspace immediately. In LIVE mode, it is also updated automatically."
+  },
+  "helpSaveNew": {
+    "message": "Creates and activates a new workspace from the currently open Firefox windows, groups and tabs after verification."
+  },
+  "helpImport": {
+    "message": "Imports one workspace. If its name exists, you must rename it or cancel the import."
+  },
+  "helpBackupWs": {
+    "message": "Exports all saved workspaces into a single versioned JSON file."
+  },
+  "helpRestoreWs": {
+    "message": "Imports workspaces from a backup without overwriting existing ones. Conflicting names must be renamed."
+  },
+  "switchOrRecover": {
+    "message": "Switch / Recover"
+  },
+  "helpSwitch": {
+    "message": "Saves the current state, restores the target workspace and closes the current workspace's windows only after verifying the new ones."
+  },
+  "rename": {
+    "message": "Rename"
+  },
+  "helpRename": {
+    "message": "Only changes the user-defined workspace name."
+  },
+  "delete": {
+    "message": "Delete"
+  },
+  "helpDelete": {
+    "message": "Deletes the stored definition. If it was active, its open windows stay open and are adopted by a new workspace."
+  },
+  "helpCloseWindow": {
+    "message": "Closing a window with X does not delete its workspace. Firefox does not expose whether the close was intentional, so the saved state is preserved."
+  },
+  "helpBackupHeading": {
+    "message": "Settings, backup and Sync"
+  },
+  "helpPolicy": {
+    "message": "A hostname policy applies to the exact hostname or subdomain. An exact URL exception takes precedence."
+  },
+  "helpSync": {
+    "message": "Firefox Sync is optional. It synchronizes AUTO settings, hostname policies and URL exceptions. Runtime IDs, countdowns, usage statistics and workspace snapshots stay local."
+  },
+  "helpPopupHeading": {
+    "message": "Popup and statistics"
+  },
+  "helpPopup": {
+    "message": "The popup is a compact dashboard showing the active workspace, numbers of windows, tabs and groups, loaded/discarded states and AUTO, KEEP, DEEP and EXCEPT counts."
+  },
+  "helpStats": {
+    "message": "Hostname statistics track foreground and background time to help decide whether rarely used hosts should switch from AUTO to DEEP ALWAYS."
+  },
+  "helpDevelopmentHeading": {
+    "message": "Development version"
+  },
+  "navAria": {
+    "message": "Manager sections"
+  },
+  "panelFilterAria": {
+    "message": "Tab filters"
+  },
+  "searchPanels": {
+    "message": "Search title, URL or group…"
+  },
+  "searchHostname": {
+    "message": "Search hostname…"
+  },
+  "footerBy": {
+    "message": "by"
+  },
+  "footerFor": {
+    "message": "for ZLKL"
+  },
+  "recoverSession": {
+    "message": "Recover session"
+  },
+  "openManager": {
+    "message": "Open manager"
+  },
+  "extensionName": {
+    "message": "Workspace Manager"
+  },
+  "extensionDescription": {
+    "message": "Persistent Firefox workspaces with tab lifecycle management."
+  },
+  "hostnameExample": {
+    "message": "A policy applies to the entire hostname, for example sub.example.com."
+  },
+  "helpExpand": {
+    "message": "Expand all and Collapse all control the tree. Always expanded keeps all windows and groups open. Optional auto-refresh every 5, 10, 30 or 60 seconds preserves manual expansion state."
+  },
+  "helpManualDeep": {
+    "message": "DEEP manually unloads a tab from memory while preserving its position, group and URL."
+  },
+  "helpGroupDeep": {
+    "message": "DEEP group unloads eligible tabs in a group. DEEP ALL unloads all eligible tabs while respecting protections, KEEP and EXCEPT."
+  },
+  "helpExceptAction": {
+    "message": "The EXCEPT action adds or removes a KEEP exception for the tab's exact current URL after confirmation."
+  },
+  "helpAppBackup": {
+    "message": "Application backup exports workspaces, AUTO settings, hostname policies, URL exceptions, Sync preference, known hosts, statistics and stable UI preferences into one versioned JSON file. Runtime IDs are omitted."
+  },
+  "helpAppRestore": {
+    "message": "Application restore replaces durable state from backup without closing open Firefox windows. A unique exact match reattaches live windows; changed or ambiguous sessions are not attached and recovery asks before creating possible duplicates."
+  },
+  "helpDevWatcher": {
+    "message": "When running through web-ext, changes to runtime files reload the extension. An open manager tab at moz-extension:// may close. The installed release does not run this development watcher."
+  },
+  "activeWorkspace": {
+    "message": "Active workspace"
+  },
+  "lastWorkspaceInactive": {
+    "message": "Last used · inactive"
+  },
+  "noWorkspace": {
+    "message": "No workspace"
+  },
+  "noTitle": {
+    "message": "(untitled)"
+  },
+  "loadingError": {
+    "message": "Failed to load."
+  },
+  "recovering": {
+    "message": "Recovering…"
+  },
+  "recoveryFailed": {
+    "message": "Recovery failed"
+  },
+  "statWindows": {
+    "message": "windows"
+  },
+  "statTabs": {
+    "message": "tabs"
+  },
+  "statGroups": {
+    "message": "groups"
+  },
+  "statActive": {
+    "message": "active"
+  },
+  "statLoaded": {
+    "message": "loaded"
+  },
+  "statDeep": {
+    "message": "discarded"
+  },
+  "statAutoPending": {
+    "message": "AUTO pending"
+  },
+  "statDeepAlways": {
+    "message": "DEEP always"
+  },
+  "statKeepAlways": {
+    "message": "KEEP always"
+  },
+  "statUrlExceptions": {
+    "message": "URL exceptions"
+  },
+  "tooltipActive": {
+    "message": "Active"
+  },
+  "tooltipDiscarded": {
+    "message": "DEEP / discarded from memory"
+  },
+  "tooltipLoaded": {
+    "message": "Loaded in memory"
+  },
+  "tooltipExactKeep": {
+    "message": "Exact URL has a KEEP exception"
+  },
+  "tooltipHostnameDeep": {
+    "message": "Hostname policy is DEEP"
+  },
+  "tooltipHostnameKeep": {
+    "message": "Hostname policy is KEEP"
+  },
+  "tooltipOtherFlags": {
+    "message": "Additional tab flags"
+  },
+  "tooltipDiscardAttempt": {
+    "message": "Last discard attempt"
+  },
+  "deepIn": {
+    "message": "DEEP in "
+  },
+  "groupDeep": {
+    "message": "DEEP group"
+  },
+  "groupNone": {
+    "message": "Ungrouped"
+  },
+  "groupUntitled": {
+    "message": "(untitled group)"
+  },
+  "groupEmpty": {
+    "message": "Empty group"
+  },
+  "panelsNoMatch": {
+    "message": "No tabs match the current filter."
+  },
+  "emptyHostList": {
+    "message": "No matches."
+  },
+  "emptyUrlExceptions": {
+    "message": "No URL exceptions."
+  },
+  "emptyWorkspace": {
+    "message": "No saved workspaces yet."
+  },
+  "workspaceNoWindows": {
+    "message": "Workspace has no saved windows."
+  },
+  "workspaceNoLog": {
+    "message": "No debug records for this workspace yet."
+  },
+  "statusActive": {
+    "message": "ACTIVE"
+  },
+  "statusOpen": {
+    "message": "OPEN"
+  },
+  "statusClosed": {
+    "message": "CLOSED"
+  },
+  "detail": {
+    "message": "Details"
+  },
+  "hide": {
+    "message": "Hide"
+  },
+  "switch": {
+    "message": "Switch"
+  },
+  "copy": {
+    "message": "Copy"
+  },
+  "copied": {
+    "message": "Copied"
+  },
+  "remove": {
+    "message": "Remove"
+  },
+  "noHistory": {
+    "message": "no history"
+  },
+  "importedAt": {
+    "message": "Imported "
+  },
+  "createdAt": {
+    "message": "Created "
+  },
+  "from": {
+    "message": " from "
+  },
+  "originally": {
+    "message": " · originally "
+  },
+  "countTabs": {
+    "message": " tabs"
+  },
+  "countGroups": {
+    "message": " groups"
+  },
+  "windowPrefix": {
+    "message": "Window #"
+  },
+  "workspaceNamePrompt": {
+    "message": "Workspace name:"
+  },
+  "workspaceNewNamePrompt": {
+    "message": "New workspace name from current Firefox state:"
+  },
+  "deletedWorkspaceName": {
+    "message": "Imported workspace"
+  },
+  "filterActiveRatio": {
+    "message": "% active / "
+  },
+  "filterBackgroundRatio": {
+    "message": "% background"
+  },
+  "usageAverage": {
+    "message": "× active · average "
+  },
+  "keepExceptionAdd": {
+    "message": "Add this exact URL to KEEP exceptions?\n\n"
+  },
+  "keepExceptionRemove": {
+    "message": "Remove this exact URL from KEEP exceptions?\n\n"
+  },
+  "removeWorkspaceWindow": {
+    "message": "Remove this saved window from the workspace?\n\nThe currently open Firefox window will remain open."
+  },
+  "copiedLogError": {
+    "message": "Failed to copy log: "
+  },
+  "importWorkspaceError": {
+    "message": "Workspace import failed: "
+  },
+  "backupWorkspacesError": {
+    "message": "Workspace backup failed: "
+  },
+  "restoreWorkspacesError": {
+    "message": "Workspace restore failed: "
+  },
+  "backupApplicationError": {
+    "message": "Application backup failed: "
+  },
+  "restoreApplicationError": {
+    "message": "Application restore failed: "
+  },
+  "createWorkspaceError": {
+    "message": "Could not save current state as a new workspace: "
+  },
+  "fileNotCollection": {
+    "message": "File is not a workspace collection backup"
+  },
+  "fileNotApplication": {
+    "message": "File is not a full Workspace Manager backup"
+  },
+  "createWorkspaceUnverified": {
+    "message": "Could not verify newly created workspace"
+  },
+  "noRecoveredWindow": {
+    "message": "Workspace recovery did not create any window"
+  },
+  "recoverDuplicatePopup": {
+    "message": "WARNING: Open windows differ from the restored backup.\n\nNew windows: $1.\nExisting windows: $2.\nDuplicates may result.\n\nCreate additional windows?"
+  },
+  "countWindowOne": {
+    "message": "window"
+  },
+  "countWindowFew": {
+    "message": "windows"
+  },
+  "countWindowOther": {
+    "message": "windows"
+  },
+  "countTabOne": {
+    "message": "tab"
+  },
+  "countTabFew": {
+    "message": "tabs"
+  },
+  "countTabOther": {
+    "message": "tabs"
+  },
+  "countGroupOne": {
+    "message": "group"
+  },
+  "countGroupFew": {
+    "message": "groups"
+  },
+  "countGroupOther": {
+    "message": "groups"
+  },
+  "countOpenWindowOne": {
+    "message": "open window"
+  },
+  "countOpenWindowFew": {
+    "message": "open windows"
+  },
+  "countOpenWindowOther": {
+    "message": "open windows"
+  },
+  "countSavedWindowOne": {
+    "message": "saved window"
+  },
+  "countSavedWindowFew": {
+    "message": "saved windows"
+  },
+  "countSavedWindowOther": {
+    "message": "saved windows"
+  },
+  "summaryLive": {
+    "message": "$1 · $2 · loaded: $3 · discarded: $4 · active: $5"
+  },
+  "panelFilterResult": {
+    "message": "$1 of $2"
+  },
+  "filteredPanelCounts": {
+    "message": "Tabs: $1/$2"
+  },
+  "hostnameSearchResult": {
+    "message": "Found $1; showing up to $2."
+  },
+  "hostnameDefaultResult": {
+    "message": "Only hostnames from currently open tabs are shown; maximum $1."
+  },
+  "usageRatio": {
+    "message": "$1% foreground / $2% background"
+  },
+  "usageStats": {
+    "message": "$1 activations · average $2 · $3 · total $4"
+  },
+  "importedWorkspaceDefault": {
+    "message": "Imported workspace"
+  },
+  "duplicateWorkspaceName": {
+    "message": "A workspace named \"$1\" already exists."
+  },
+  "emptyWorkspaceName": {
+    "message": "Workspace name cannot be empty."
+  },
+  "importNewNamePrompt": {
+    "message": "Enter a new name or cancel the entire import."
+  },
+  "provenanceSource": {
+    "message": " from $1"
+  },
+  "provenanceOriginal": {
+    "message": " · originally \"$1\""
+  },
+  "confirmSwitchWorkspace": {
+    "message": "Switch to workspace \"$1\"?\n\nThe current state will be saved and the previous workspace's windows will be closed."
+  },
+  "confirmRecoverAdditionalWindows": {
+    "message": "WARNING: Open Firefox windows could not be safely matched to the restored backup. Their content may have changed.\n\nOpen content windows: $1.\nADDITIONAL windows to create: $2.\nExisting windows will remain open; duplicates may result.\n\nExplicitly create additional windows? Cancel leaves the current state unchanged."
+  },
+  "confirmRecoverWorkspace": {
+    "message": "Recover the session for workspace \"$1\"?\n\nIts saved windows, groups and tabs will be opened."
+  },
+  "confirmDeleteActiveWorkspace": {
+    "message": "Delete active workspace \"$1\"?\n\nOpen windows will remain and will be adopted by a new workspace."
+  },
+  "confirmDeleteWorkspace": {
+    "message": "Delete workspace \"$1\"?"
+  },
+  "confirmImportCollection": {
+    "message": "Import workspaces from backup?\n\nCount: $1.\nExisting workspaces will remain unchanged."
+  },
+  "importCollectionSuccess": {
+    "message": "Imported workspaces: $1"
+  },
+  "confirmRestoreApplication": {
+    "message": "Restore the entire Workspace Manager state from backup?\n\nThis REPLACES saved settings and workspaces.\nOpen Firefox windows remain unchanged.\nExact window matches are reattached automatically.\nIf content differs, existing windows stay open and session recovery will require confirmation before opening additional windows.\n\nWorkspaces in backup: $1"
+  },
+  "restoredAttached": {
+    "message": "Existing windows were uniquely identified and reattached.\nActive workspace: $1 ($2)."
+  },
+  "restoredNotAttached": {
+    "message": "Open windows do not match the backup exactly or the match is ambiguous.\nNo original window was closed or modified.\nSession recovery may create additional windows and will ask for confirmation if duplicates are possible."
+  },
+  "restoreApplicationSuccess": {
+    "message": "Application restore complete.\n\nRestored workspaces: $1\n\n$2"
+  },
+  "restoredWorkspaceName": {
+    "message": "restored workspace"
+  },
+  "loadedErrorDetail": {
+    "message": "Loading failed. See the extension console for details."
+  },
+  "debugLogCount": {
+    "message": "Debug log ($1)"
+  },
+  "importSourceNote": {
+    "message": "Import source: $1"
+  },
+  "savedWindowLabel": {
+    "message": "Window $1"
+  },
+  "savedGroupLabel": {
+    "message": "Group $1"
+  },
+  "languageHeading": {
+    "message": "Interface language"
+  },
+  "languageLabel": {
+    "message": "Language"
+  },
+  "languageAutomatic": {
+    "message": "Automatic (Firefox)"
+  },
+  "languageCzech": {
+    "message": "Čeština"
+  },
+  "languageEnglish": {
+    "message": "English"
+  },
+  "languageHint": {
+    "message": "The preference is stored locally, not with Firefox Sync. Changing it reloads only the manager and popup interface; Firefox and open tabs stay unchanged."
+  },
+  "helpLanguage": {
+    "message": "Interface language can follow Firefox or be explicitly set to Czech or English. The choice is local and included in the full application backup."
+  },
+  "dialogConfirmTitle": {
+    "message": "Confirm action"
+  },
+  "dialogPromptTitle": {
+    "message": "Enter a value"
+  },
+  "dialogMessageTitle": {
+    "message": "Message"
+  },
+  "dialogConfirmButton": {
+    "message": "Confirm"
+  },
+  "dialogCancelButton": {
+    "message": "Cancel"
+  },
+  "dialogOkButton": {
+    "message": "OK"
+  },
+  "deviceNameHeading": {
+    "message": "Device name"
+  },
+  "deviceNameLabel": {
+    "message": "Device label"
+  },
+  "deviceNameExplanation": {
+    "message": "A random FFWM-XXXXXXXX label is generated on first use. You can rename it to identify this PC. The local label follows the export timestamp and is included in the full JSON backup. Restoring the backup can also restore its label."
+  },
+  "deviceNameSave": {
+    "message": "Save"
+  },
+  "deviceNameMissing": {
+    "message": "Could not initialize the device label. Exports are temporarily disabled."
+  },
+  "deviceNameSaved": {
+    "message": "Device: $1. Exports are enabled."
+  },
+  "deviceNameInvalid": {
+    "message": "Use 1–40 characters: A–Z, 0–9, hyphen, underscore or dot. The first character must be a letter or digit."
+  },
+  "deviceNameSaveError": {
+    "message": "Failed to save device name: "
+  },
+  "deviceNameExportNotice": {
+    "message": "Loading device label; check Settings if this does not complete."
+  },
+  "helpDeviceName": {
+    "message": "A random local FFWM-XXXXXXXX device label is generated on first use and can be customized. Clear and Save to generate a fresh ID. The label is included in export filenames and the full application backup. Auto-generated labels can be replaced from a backup; customized names require confirmation. Older backups without a name leave the current name unchanged."
+  },
+  "exportJson": {
+    "message": "Export JSON"
+  },
+  "deviceNameGenerated": {
+    "message": "Automatic label: $1. You can rename it."
+  },
+  "deviceNameRestoreAsk": {
+    "message": "This computer has already been named \"$1\" by the user. The backup contains \"$2\".\n\nRestore the PC name as well? Choosing No keeps the current name but still restores all other backup data."
+  },
+  "deviceNameRestoreYes": {
+    "message": "Yes, change name"
+  },
+  "deviceNameRestoreNo": {
+    "message": "No, keep current"
+  },
+  "deviceNameRestoreError": {
+    "message": "The data was restored, but the device name could not be changed: "
+  },
+  "confirmDeleteUrlException": {
+    "message": "Delete the KEEP exception for this exact URL?\n\n$1\n\nThe page will then follow its normal hostname/AUTO policy."
+  },
+  "removeUrlExceptionError": {
+    "message": "Failed to delete the URL exception: "
+  }
+}

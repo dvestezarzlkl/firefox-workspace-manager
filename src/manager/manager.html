@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Workspace Manager</title>
+  <link rel="stylesheet" href="manager.css">
+  <link rel="stylesheet" href="../shared/dialogs.css">
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Workspace Manager</h1>
+      <div id="summary" class="summary" data-i18n="loading">Načítám…</div>
+    </div>
+    <div class="actions">
+      <button id="deepAll" type="button" data-i18n="actionDeepAllExceptActive">DEEP ALL EXCEPT ACTIVE</button>
+      <button id="refresh" type="button" data-i18n="refresh">Refresh</button>
+      <button id="closeManager" type="button" data-i18n="close">Zavřít</button>
+    </div>
+  </header>
+
+  <nav class="page-tabs" aria-label="Sekce správce" data-i18n-aria-label="navAria">
+    <button class="page-tab active" type="button" data-page="panels" data-i18n="tabs">Panely</button>
+    <button class="page-tab" type="button" data-page="workspaces" data-i18n="workspaces">Workspaces</button>
+    <button class="page-tab" type="button" data-page="settings" data-i18n="settings">Nastavení</button>
+    <button class="page-tab" type="button" data-page="help" data-i18n="help">Nápověda</button>
+  </nav>
+
+  <main id="panelsPage" class="page active">
+    <section class="panel-toolbar" aria-label="Filtry panelů" data-i18n-aria-label="panelFilterAria">
+      <div class="panel-search-row">
+        <input id="panelSearch" type="search" placeholder="Hledat v názvu, URL nebo skupině…" data-i18n-placeholder="searchPanels" autocomplete="off">
+        <button id="panelFilterReset" type="button" hidden data-i18n="resetFilters">Reset filtrů</button>
+      </div>
+
+      <div class="panel-toolbar-controls">
+        <div class="panel-filter-stack">
+          <div class="panel-filter-row" id="panelStateFilters">
+            <span class="panel-filter-label" data-i18n="state">Stav</span>
+            <button type="button" class="panel-filter" data-panel-filter-category="state" data-panel-filter="active" aria-pressed="false"><span data-i18n="active">Aktivní</span> <span data-panel-filter-count="active">0</span></button>
+            <button type="button" class="panel-filter" data-panel-filter-category="state" data-panel-filter="loaded" aria-pressed="false"><span data-i18n="loaded">Loaded</span> <span data-panel-filter-count="loaded">0</span></button>
+            <button type="button" class="panel-filter" data-panel-filter-category="state" data-panel-filter="deep" aria-pressed="false"><span data-i18n="deep">Deep</span> <span data-panel-filter-count="deep">0</span></button>
+          </div>
+          <div class="panel-filter-row" id="panelPolicyFilters">
+            <span class="panel-filter-label" data-i18n="policy">Politika</span>
+            <button type="button" class="panel-filter" data-panel-filter-category="policy" data-panel-filter="auto" aria-pressed="false"><span data-i18n="auto">AUTO</span> <span data-panel-filter-count="auto">0</span></button>
+            <button type="button" class="panel-filter" data-panel-filter-category="policy" data-panel-filter="keep" aria-pressed="false"><span data-i18n="keepAlways">KEEP always</span> <span data-panel-filter-count="keep">0</span></button>
+            <button type="button" class="panel-filter" data-panel-filter-category="policy" data-panel-filter="deep-always" aria-pressed="false"><span data-i18n="deepAlways">DEEP always</span> <span data-panel-filter-count="deep-always">0</span></button>
+            <button type="button" class="panel-filter" data-panel-filter-category="policy" data-panel-filter="except" aria-pressed="false"><span data-i18n="except">EXCEPT</span> <span data-panel-filter-count="except">0</span></button>
+            <span id="panelFilterInfo" class="panel-filter-info"></span>
+          </div>
+        </div>
+
+        <div class="panel-tree-controls">
+          <div class="panel-tree-row panel-tree-row-top">
+            <label class="panel-control-check">
+              <input id="panelAlwaysExpanded" type="checkbox">
+              <span data-i18n="alwaysExpanded">Always expanded</span>
+            </label>
+
+            <div class="panel-tree-buttons">
+              <button id="panelExpandAll" type="button" data-i18n="expandAll">Expand all</button>
+              <button id="panelCollapseAll" type="button" data-i18n="collapseAll">Collapse all</button>
+            </div>
+          </div>
+
+          <div class="panel-tree-row panel-tree-row-refresh">
+            <label class="panel-refresh-control">
+              <span data-i18n="refresh">Refresh</span>
+              <select id="panelAutoRefresh">
+                <option value="0" data-i18n="off">Off</option>
+                <option value="5">5 s</option>
+                <option value="10">10 s</option>
+                <option value="30">30 s</option>
+                <option value="60">60 s</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </div>
+    </section>
+    <div id="app" data-i18n="loading">Načítám…</div>
+  </main>
+
+  <main id="workspacesPage" class="page">
+    <section class="settings-card workspace-toolbar">
+      <div>
+        <h2 data-i18n="workspaces">Workspaces</h2>
+        <p data-i18n="workspacesDescription">Workspace obsahuje všechna jeho okna, skupiny a panely.</p>
+        <p id="exportDeviceHint" class="hint" data-i18n="deviceNameExportNotice">Probíhá načtení označení zařízení; při potížích zkontroluj Nastavení.</p>
+      </div>
+      <div class="actions">
+        <button id="snapshotWorkspace" type="button" data-i18n="saveState">Uložit stav</button>
+        <button id="cloneWorkspace" type="button" data-i18n="saveCurrentAsNew">Uložit akt. stav jako nový</button>
+        <button id="importWorkspace" type="button" data-i18n="importJson">Import JSON</button>
+        <button id="backupWorkspaces" type="button" disabled data-i18n="backupWorkspaces">Backup workspaces</button>
+        <button id="restoreWorkspaces" type="button" data-i18n="restoreWorkspaces">Restore workspaces</button>
+        <input id="importWorkspaceFile" type="file" accept=".json,application/json" hidden>
+        <input id="restoreWorkspacesFile" type="file" accept=".json,application/json" hidden>
+      </div>
+    </section>
+    <div id="workspaceList" data-i18n="loading">Načítám…</div>
+  </main>
+
+  <main id="settingsPage" class="page">
+    <section class="settings-card">
+      <h2 data-i18n="deviceNameHeading">Označení počítače</h2>
+      <p data-i18n="deviceNameExplanation">Při prvním spuštění se bezpečně vygeneruje označení FFWM-XXXXXXXX. Můžeš ho přejmenovat podle PC. Označení se ukládá lokálně, vkládá se za timestamp exportu a je součástí kompletní JSON zálohy. Při obnově lze převzít název ze zálohy.</p>
+      <div class="device-name-controls">
+        <label for="deviceName" data-i18n="deviceNameLabel">Název PC</label>
+        <input id="deviceName" type="text" maxlength="40" autocomplete="off" spellcheck="false" placeholder="PC-ZEDNIK">
+        <button id="saveDeviceName" type="button" data-i18n="deviceNameSave">Uložit</button>
+      </div>
+      <p id="deviceNameStatus" class="hint" role="status"></p>
+    </section>
+
+    <section class="settings-card">
+      <h2 data-i18n="languageHeading">Jazyk rozhraní</h2>
+      <div class="auto-grid">
+        <label>
+          <span data-i18n="languageLabel">Jazyk</span>
+          <select id="uiLanguage">
+            <option value="auto" data-i18n="languageAutomatic">Automaticky (podle Firefoxu)</option>
+            <option value="cs" data-i18n="languageCzech">Čeština</option>
+            <option value="en" data-i18n="languageEnglish">English</option>
+          </select>
+        </label>
+      </div>
+      <p class="hint" data-i18n="languageHint">Výběr se ukládá lokálně. Přepnutí znovu načte pouze rozhraní správce a popupu, nikoli Firefox.</p>
+    </section>
+
+    <section class="settings-card">
+      <div class="settings-title-row">
+        <div>
+          <h2 data-i18n="appBackupHeading">Záloha aplikace</h2>
+          <p data-i18n="appBackupDescription">Kompletní disaster-recovery záloha nastavení, workspace a přenositelných metadat.</p>
+        </div>
+        <div class="actions">
+          <button id="backupApplication" type="button" disabled data-i18n="backupApplication">Backup aplikace</button>
+          <button id="restoreApplication" type="button" data-i18n="restoreApplication">Restore aplikace</button>
+          <input id="restoreApplicationFile" type="file" accept=".json,application/json" hidden>
+        </div>
+      </div>
+      <p class="hint" data-i18n="appBackupCaveat">Runtime Firefox ID, aktivní mapování oken, countdowny a snapshot lock se nezálohují. Restore nechá otevřená Firefox okna beze změny. Pokud celý workspace přesně odpovídá živým oknům, automaticky obnoví jejich vazby a aktivní stav. Při rozdílu panelů nebo nejednoznačné shodě zůstanou workspaces neaktivní; Recover session výslovně upozorní, že by vytvořil další okna.</p>
+    </section>
+
+    <section class="settings-card">
+      <h2 data-i18n="syncHeading">Synchronizace</h2>
+      <div class="auto-grid">
+        <label>
+          <span data-i18n="syncSetting">Synchronizovat nastavení přes Firefox Sync</span>
+          <input id="syncEnabled" type="checkbox">
+        </label>
+      </div>
+      <p class="hint" data-i18n="syncDescription">Synchronizují se AUTO nastavení, hostname politiky a URL výjimky. Runtime taby, countdowny, statistiky a snapshoty oken zůstávají lokální.</p>
+    </section>
+
+    <section class="settings-card">
+      <h2 data-i18n="auto">AUTO</h2>
+      <div class="auto-grid">
+        <label>
+          <span data-i18n="autoTimeout">Uspat po neaktivitě</span>
+          <span><input id="autoMinutes" type="number" min="2" max="10080" step="1"> min</span>
+        </label>
+        <label>
+          <span data-i18n="autoDeepOnLeave">Po přepnutí rovnou DEEP</span>
+          <input id="autoDeepOnLeave" type="checkbox">
+        </label>
+        <label>
+          <span data-i18n="protectPinned">Chránit pinned</span>
+          <input id="autoProtectPinned" type="checkbox">
+        </label>
+        <label>
+          <span data-i18n="protectAudio">Chránit audio</span>
+          <input id="autoProtectAudible" type="checkbox">
+        </label>
+      </div>
+      <p class="hint" data-i18n="autoDescription">Hodnoty se ukládají už teď; automatické vyhodnocování AUTO zapojíme v dalším kroku.</p>
+    </section>
+
+    <section class="settings-card">
+      <h2 data-i18n="urlExceptions">URL výjimky</h2>
+      <p data-i18n="urlExceptionsDescription">Nejkonkrétnější pravidlo má přednost před hostname. Pro stránku, která musí držet EventSource/WebSocket, použij přesnou URL výjimku KEEP.</p>
+      <div class="url-rule-add">
+        <input id="urlPattern" type="url" placeholder="https://sub.domena.cz/cesta/ke/strance">
+        <button id="useLastPage" type="button" data-i18n="lastPage">Poslední stránka</button>
+        <button id="addUrlKeep" type="button" data-i18n="addKeep">Přidat KEEP</button>
+      </div>
+      <div id="urlPolicies" class="url-policies"></div>
+    </section>
+
+    <section class="settings-card">
+      <div class="settings-title-row">
+        <div>
+          <h2 data-i18n="hostnamePolicies">Politiky podle hostname</h2>
+          <p data-i18n="hostnameExample">Pravidlo platí pro celý hostname, například sub.domena.cz.</p>
+        </div>
+        <input id="hostFilter" type="search" placeholder="Hledat hostname…" data-i18n-placeholder="searchHostname" autocomplete="off">
+      </div>
+      <div id="hostPolicies" data-i18n="loading">Načítám…</div>
+      <div id="hostResultInfo" class="hint"></div>
+    </section>
+  </main>
+
+  <main id="helpPage" class="page">
+    <section class="settings-card help-card">
+      <h2 data-i18n="helpPrincipleHeading">Základní princip</h2>
+      <p data-i18n="helpPrinciple">Workspace Manager drží pracovní prostředí jako sadu oken, skupin a panelů. Panely mohou zůstat načtené, automaticky přejít do DEEP nebo být chráněné před discardem.</p>
+    </section>
+
+    <section class="settings-card help-card">
+      <h2 data-i18n="helpStatesHeading">Stavy panelů</h2>
+      <dl>
+        <dt data-i18n="keepAlways">KEEP ALWAYS</dt><dd data-i18n="helpKeep">Hostname je chráněný a zůstává načtený.</dd>
+        <dt data-i18n="auto">AUTO</dt><dd data-i18n="helpAuto">Panel se po nastavené době neaktivity automaticky discardne. Odpočet je vidět přímo u panelu.</dd>
+        <dt data-i18n="deepAlways">DEEP ALWAYS</dt><dd data-i18n="helpDeepAlways">Neaktivní panel tohoto hostname má být vždy discarded. 30s watchdog tento stav průběžně kontroluje.</dd>
+        <dt data-i18n="except">EXCEPT</dt><dd data-i18n="helpExactExcept">Přesná celá URL je výjimka KEEP, i když má její hostname například DEEP ALWAYS.</dd>
+      </dl>
+      <p class="hint" data-i18n="helpTabProtection">Aktivní panel v každém Firefox okně, pinned panel a hrající audio jsou podle nastavení chráněné.</p>
+    </section>
+
+    <section class="settings-card help-card">
+      <h2 data-i18n="tabs">Panely</h2>
+      <p data-i18n="helpPanels">Okna jsou ve výchozím stavu sbalená. Fulltext hledá současně v názvu panelu, URL a názvu skupiny; při hledání se odpovídající části automaticky rozbalí. Filtry Stav a Politika lze kombinovat.</p>
+      <p data-i18n="helpExpand">Rozbalit vše a Sbalit vše ovládají strom panelů. Vždy rozbalené drží všechna okna a skupiny otevřené. Automatické obnovování každých 5, 10, 30 nebo 60 sekund zachovává ruční stav rozbalení.</p>
+      <p data-i18n="helpManualDeep">DEEP ručně uvolní obsah panelu z paměti, ale jeho pozice, skupina a URL zůstanou zachované.</p>
+      <p data-i18n="helpGroupDeep">DEEP skupinu uvolní vhodné panely skupiny. DEEP ALL provede hromadné uvolnění s respektem k ochranám, KEEP a EXCEPT.</p>
+      <p data-i18n="helpExceptAction">EXCEPT u panelu po potvrzení přidá nebo odebere výjimku KEEP pro přesnou aktuální URL.</p>
+    </section>
+
+    <section class="settings-card help-card">
+      <h2 data-i18n="workspaces">Workspaces</h2>
+      <p data-i18n="helpWorkspace">Workspace je uložená sada více Firefox oken. Každé okno obsahuje své pořadí panelů a tab groups.</p>
+      <dl>
+        <dt data-i18n="saveState">Uložit stav</dt><dd data-i18n="helpSave">Vynutí okamžité uložení aktuálního stavu aktivního workspace. V současném LIVE režimu se workspace průběžně aktualizuje i automaticky.</dd>
+        <dt data-i18n="saveCurrentAsNew">Uložit akt. stav jako nový</dt><dd data-i18n="helpSaveNew">Vytvoří nový workspace přímo z aktuálně otevřených Firefox oken, skupin a panelů a po kontrole ho aktivuje.</dd>
+        <dt data-i18n="importJson">Import JSON</dt><dd data-i18n="helpImport">Importuje jeden workspace. Pokud už stejné jméno existuje, vyžádá nový název nebo lze import zrušit.</dd>
+        <dt data-i18n="backupWorkspaces">Backup workspaces</dt><dd data-i18n="helpBackupWs">Exportuje všechny uložené workspaces do jednoho verzovaného JSON souboru.</dd>
+        <dt data-i18n="restoreWorkspaces">Restore workspaces</dt><dd data-i18n="helpRestoreWs">Importuje kolekci workspace z backupu. Existující workspaces nepřepisuje a konfliktní názvy se musí přejmenovat.</dd>
+        <dt data-i18n="switchOrRecover">Přepnout / Obnovit</dt><dd data-i18n="helpSwitch">Uloží aktuální stav, obnoví cílový workspace a teprve po ověření jeho oken zavře okna současného workspace.</dd>
+        <dt data-i18n="rename">Přejmenovat</dt><dd data-i18n="helpRename">Změní jen uživatelský název workspace.</dd>
+        <dt data-i18n="delete">Smazat</dt><dd data-i18n="helpDelete">Smaže uloženou definici. Při smazání aktivního workspace zůstanou aktuální okna otevřená a převezme je nový workspace.</dd>
+      </dl>
+      <p class="hint" data-i18n="helpCloseWindow">Zavření jednoho okna přes X workspace nesmaže. Záměr native X Firefox API neumí sdělit, takže bezpečné výchozí chování je stav okna zachovat.</p>
+    </section>
+
+    <section class="settings-card help-card">
+      <h2 data-i18n="helpBackupHeading">Nastavení, Backup a Sync</h2>
+      <p data-i18n="helpPolicy">Politika hostname platí pro celý přesný hostname/subdoménu. URL výjimka má vyšší prioritu než hostname.</p>
+      <p data-i18n="helpAppBackup">Záloha aplikace uloží všechny workspaces, nastavení AUTO, politiky hostname, URL výjimky, volbu Sync, známé hosty, statistiky a stabilní předvolby UI do jednoho verzovaného souboru JSON. Runtime ID se neexportují.</p>
+      <p data-i18n="helpAppRestore">Obnova aplikace nahradí trvalý stav ze zálohy, ale nezavírá otevřená Firefox okna. Jednoznačná přesná shoda automaticky připojí existující okna; nejednoznačné nebo změněné relace se nepřipojí a Recover před možnými duplicitami vyžádá potvrzení.</p>
+      <p data-i18n="helpSync">Firefox Sync je volitelný. Synchronizuje AUTO nastavení, hostname politiky a URL výjimky. Runtime ID, countdowny, statistiky používání a snapshoty workspace zůstávají lokální.</p>
+      <p data-i18n="helpLanguage">Jazyk rozhraní lze ponechat podle Firefoxu nebo ručně zvolit češtinu či angličtinu. Volba je lokální a ukládá se do úplné zálohy aplikace.</p>
+      <p data-i18n="helpDeviceName">Při prvním spuštění dostane rozšíření náhodné lokální označení FFWM-XXXXXXXX, které lze přejmenovat. Smazání hodnoty a Uložit vytvoří nové ID. Exporty používají označení v názvu souboru i v kompletní záloze. Při obnově se automatické ID může převzít ze zálohy; uživatelsky změněný název se přepíše jen po potvrzení. Starší zálohy bez názvu ho nemění.</p>
+    </section>
+
+    <section class="settings-card help-card">
+      <h2 data-i18n="helpPopupHeading">Popup a statistiky</h2>
+      <p data-i18n="helpPopup">Popup je rychlý dashboard: aktivní workspace, počet oken, panelů a skupin, loaded/deep stav a počty AUTO, KEEP, DEEP ALWAYS a EXCEPT.</p>
+      <p data-i18n="helpStats">Statistika hostname sleduje aktivní a neaktivní čas. Slouží jako podklad pro budoucí návrhy, zda má být málo používaný hostname převeden z AUTO na DEEP ALWAYS.</p>
+    </section>
+
+    <section class="settings-card help-card">
+      <h2 data-i18n="helpDevelopmentHeading">Vývojová verze</h2>
+      <p data-i18n="helpDevWatcher">Při spuštění přes web-ext se rozšíření při změně souborů automaticky znovu načte. Otevřený panel správce na moz-extension:// se může zavřít. Nainstalovaná verze tyto vývojové hlídače nepoužívá.</p>
+    </section>
+  </main>
+
+  <footer class="manager-footer"><span id="managerVersion"></span> · <span data-i18n="footerBy">od</span> <a id="managerDeveloper" href="#" target="_blank" rel="noreferrer"></a> · <span data-i18n="footerFor">pro ZLKL</span></footer>
+  <script type="module" src="manager.js"></script>
+</body>
+</html>

@@ -1,0 +1,734 @@
+{
+  "loading": {
+    "message": "Načítám…"
+  },
+  "actionDeepAllExceptActive": {
+    "message": "DEEP VŠE KROMĚ AKTIVNÍCH"
+  },
+  "refresh": {
+    "message": "Obnovit"
+  },
+  "close": {
+    "message": "Zavřít"
+  },
+  "tabs": {
+    "message": "Panely"
+  },
+  "workspaces": {
+    "message": "Workspaces"
+  },
+  "settings": {
+    "message": "Nastavení"
+  },
+  "help": {
+    "message": "Nápověda"
+  },
+  "resetFilters": {
+    "message": "Reset filtrů"
+  },
+  "state": {
+    "message": "Stav"
+  },
+  "active": {
+    "message": "Aktivní"
+  },
+  "loaded": {
+    "message": "Načtené"
+  },
+  "deep": {
+    "message": "Uvolněné"
+  },
+  "policy": {
+    "message": "Politika"
+  },
+  "auto": {
+    "message": "AUTO"
+  },
+  "keepAlways": {
+    "message": "KEEP vždy"
+  },
+  "deepAlways": {
+    "message": "DEEP vždy"
+  },
+  "except": {
+    "message": "EXCEPT"
+  },
+  "alwaysExpanded": {
+    "message": "Vždy rozbalené"
+  },
+  "expandAll": {
+    "message": "Rozbalit vše"
+  },
+  "collapseAll": {
+    "message": "Sbalit vše"
+  },
+  "off": {
+    "message": "Vypnuto"
+  },
+  "workspacesDescription": {
+    "message": "Workspace obsahuje všechna jeho okna, skupiny a panely."
+  },
+  "saveState": {
+    "message": "Uložit stav"
+  },
+  "saveCurrentAsNew": {
+    "message": "Uložit aktuální stav jako nový"
+  },
+  "importJson": {
+    "message": "Import JSON"
+  },
+  "backupWorkspaces": {
+    "message": "Záloha workspaces"
+  },
+  "restoreWorkspaces": {
+    "message": "Obnova workspaces"
+  },
+  "appBackupHeading": {
+    "message": "Záloha aplikace"
+  },
+  "appBackupDescription": {
+    "message": "Kompletní záloha nastavení, workspaces a přenositelných metadat."
+  },
+  "backupApplication": {
+    "message": "Zálohovat aplikaci"
+  },
+  "restoreApplication": {
+    "message": "Obnovit aplikaci"
+  },
+  "appBackupCaveat": {
+    "message": "Runtime ID Firefoxu, mapování oken, odpočty a zámek snímku se nezálohují. Obnova nechá otevřená okna beze změny. Při přesné shodě s živými okny automaticky obnoví vazby. Pokud se obsah liší nebo není shoda jednoznačná, workspaces zůstanou neaktivní a obnova relace upozorní na možná duplicitní okna."
+  },
+  "syncHeading": {
+    "message": "Synchronizace"
+  },
+  "syncSetting": {
+    "message": "Synchronizovat nastavení přes Firefox Sync"
+  },
+  "syncDescription": {
+    "message": "Synchronizují se nastavení AUTO, politiky hostname a URL výjimky. Runtime panely, odpočty, statistiky a snímky oken zůstávají lokální."
+  },
+  "autoTimeout": {
+    "message": "Uspat po neaktivitě"
+  },
+  "autoDeepOnLeave": {
+    "message": "Po přepnutí rovnou DEEP"
+  },
+  "protectPinned": {
+    "message": "Chránit připnuté panely"
+  },
+  "protectAudio": {
+    "message": "Chránit audio"
+  },
+  "autoDescription": {
+    "message": "Nastavení se ukládá ihned. Režim AUTO respektuje nastavený časový limit a ochrany."
+  },
+  "urlExceptions": {
+    "message": "URL výjimky"
+  },
+  "urlExceptionsDescription": {
+    "message": "Přesná URL výjimka má přednost před politikou hostname. Pro stránky vyžadující trvalé spojení EventSource nebo WebSocket použij KEEP."
+  },
+  "lastPage": {
+    "message": "Poslední stránka"
+  },
+  "addKeep": {
+    "message": "Přidat KEEP"
+  },
+  "hostnamePolicies": {
+    "message": "Politiky podle hostname"
+  },
+  "hostnameExamplePart": {
+    "message": "Pravidlo platí pro celý host, např."
+  },
+  "helpPrincipleHeading": {
+    "message": "Základní princip"
+  },
+  "helpPrinciple": {
+    "message": "Workspace Manager uchovává pracovní prostředí jako sadu oken, skupin a panelů. Panely mohou zůstat načtené, automaticky se uvolnit nebo být chráněné před uvolněním."
+  },
+  "helpStatesHeading": {
+    "message": "Stavy panelů"
+  },
+  "helpKeep": {
+    "message": "Hostname je chráněný a zůstává načtený."
+  },
+  "helpAuto": {
+    "message": "Panel se po zvolené době neaktivity automaticky uvolní. Odpočet je zobrazen přímo u panelu."
+  },
+  "helpDeepAlways": {
+    "message": "Neaktivní panely tohoto hostname mají být vždy uvolněné. Hlídač kontroluje stav každých 30 sekund."
+  },
+  "helpExactExcept": {
+    "message": "Výjimka KEEP platí pro přesnou celou URL, i když má její hostname politiku DEEP ALWAYS."
+  },
+  "helpTabProtection": {
+    "message": "Aktivní panel v každém okně Firefoxu, připnuté panely a přehrávané audio jsou chráněné podle nastavení."
+  },
+  "helpPanels": {
+    "message": "Okna jsou ve výchozím stavu sbalená. Hledání prochází názvy panelů, URL a skupiny; odpovídající části se automaticky rozbalí. Filtry Stav a Politika lze kombinovat."
+  },
+  "helpWorkspace": {
+    "message": "Workspace je uložená sada více oken Firefoxu. Každé okno uchovává pořadí panelů a jejich skupiny."
+  },
+  "helpSave": {
+    "message": "Okamžitě uloží stav aktivního workspace. V režimu LIVE se stav průběžně aktualizuje i automaticky."
+  },
+  "helpSaveNew": {
+    "message": "Vytvoří a po kontrole aktivuje nový workspace z aktuálně otevřených oken, skupin a panelů."
+  },
+  "helpImport": {
+    "message": "Importuje jeden workspace. Při konfliktu názvu nabídne přejmenování nebo zrušení celého importu."
+  },
+  "helpBackupWs": {
+    "message": "Uloží všechny workspaces do jednoho verzovaného souboru JSON."
+  },
+  "helpRestoreWs": {
+    "message": "Importuje kolekci workspaces ze zálohy. Existující položky nepřepisuje a konfliktní názvy je nutné přejmenovat."
+  },
+  "switchOrRecover": {
+    "message": "Přepnout / Obnovit"
+  },
+  "helpSwitch": {
+    "message": "Uloží aktuální stav, obnoví cílový workspace a až po ověření jeho oken zavře okna původního workspace."
+  },
+  "rename": {
+    "message": "Přejmenovat"
+  },
+  "helpRename": {
+    "message": "Změní pouze název workspace."
+  },
+  "delete": {
+    "message": "Smazat"
+  },
+  "helpDelete": {
+    "message": "Smaže uloženou definici. Otevřená okna aktivního workspace zůstanou a převezme je nový workspace."
+  },
+  "helpCloseWindow": {
+    "message": "Zavření okna tlačítkem X neodstraní workspace. Firefox nerozlišuje úmyslné zavření od jiných příčin, proto uložený stav bezpečně zachováváme."
+  },
+  "helpBackupHeading": {
+    "message": "Nastavení, zálohy a synchronizace"
+  },
+  "helpPolicy": {
+    "message": "Politika hostname platí pro přesný hostname či subdoménu. URL výjimka má vyšší prioritu."
+  },
+  "helpSync": {
+    "message": "Firefox Sync je volitelný. Synchronizuje nastavení AUTO, politiky hostname a URL výjimky. Runtime ID, odpočty, statistiky a snímky workspace zůstávají lokální."
+  },
+  "helpPopupHeading": {
+    "message": "Vyskakovací okno a statistiky"
+  },
+  "helpPopup": {
+    "message": "Vyskakovací okno nabízí přehled aktivního workspace, počtu oken, panelů a skupin, načtených/uvolněných panelů a pravidel AUTO, KEEP, DEEP a EXCEPT."
+  },
+  "helpStats": {
+    "message": "Statistiky hostname sledují aktivní i neaktivní čas a pomáhají rozhodnout, zda má být málo používaný host převeden z AUTO na DEEP ALWAYS."
+  },
+  "helpDevelopmentHeading": {
+    "message": "Vývojová verze"
+  },
+  "navAria": {
+    "message": "Sekce správce"
+  },
+  "panelFilterAria": {
+    "message": "Filtry panelů"
+  },
+  "searchPanels": {
+    "message": "Hledat v názvu, URL nebo skupině…"
+  },
+  "searchHostname": {
+    "message": "Hledat hostname…"
+  },
+  "footerBy": {
+    "message": "od"
+  },
+  "footerFor": {
+    "message": "pro ZLKL"
+  },
+  "recoverSession": {
+    "message": "Obnovit relaci"
+  },
+  "openManager": {
+    "message": "Otevřít správce"
+  },
+  "extensionName": {
+    "message": "Workspace Manager"
+  },
+  "extensionDescription": {
+    "message": "Trvalé workspaces Firefoxu se správou životního cyklu panelů."
+  },
+  "hostnameExample": {
+    "message": "Pravidlo platí pro celý hostname, například sub.domena.cz."
+  },
+  "helpExpand": {
+    "message": "Rozbalit vše a Sbalit vše ovládají strom panelů. Vždy rozbalené drží všechna okna a skupiny otevřené. Automatické obnovování každých 5, 10, 30 nebo 60 sekund zachovává ruční stav rozbalení."
+  },
+  "helpManualDeep": {
+    "message": "DEEP ručně uvolní obsah panelu z paměti, ale jeho pozice, skupina a URL zůstanou zachované."
+  },
+  "helpGroupDeep": {
+    "message": "DEEP skupinu uvolní vhodné panely skupiny. DEEP ALL provede hromadné uvolnění s respektem k ochranám, KEEP a EXCEPT."
+  },
+  "helpExceptAction": {
+    "message": "EXCEPT u panelu po potvrzení přidá nebo odebere výjimku KEEP pro přesnou aktuální URL."
+  },
+  "helpAppBackup": {
+    "message": "Záloha aplikace uloží všechny workspaces, nastavení AUTO, politiky hostname, URL výjimky, volbu Sync, známé hosty, statistiky a stabilní předvolby UI do jednoho verzovaného souboru JSON. Runtime ID se neexportují."
+  },
+  "helpAppRestore": {
+    "message": "Obnova aplikace nahradí trvalý stav ze zálohy, ale nezavírá otevřená Firefox okna. Jednoznačná přesná shoda automaticky připojí existující okna; nejednoznačné nebo změněné relace se nepřipojí a Recover před možnými duplicitami vyžádá potvrzení."
+  },
+  "helpDevWatcher": {
+    "message": "Při spuštění přes web-ext se rozšíření při změně souborů automaticky znovu načte. Otevřený panel správce na moz-extension:// se může zavřít. Nainstalovaná verze tyto vývojové hlídače nepoužívá."
+  },
+  "activeWorkspace": {
+    "message": "Aktivní workspace"
+  },
+  "lastWorkspaceInactive": {
+    "message": "Naposledy použitý · neaktivní"
+  },
+  "noWorkspace": {
+    "message": "Žádný workspace"
+  },
+  "noTitle": {
+    "message": "(bez názvu)"
+  },
+  "loadingError": {
+    "message": "Chyba při načítání."
+  },
+  "recovering": {
+    "message": "Obnovuji…"
+  },
+  "recoveryFailed": {
+    "message": "Obnova selhala"
+  },
+  "statWindows": {
+    "message": "oken"
+  },
+  "statTabs": {
+    "message": "panelů"
+  },
+  "statGroups": {
+    "message": "skupin"
+  },
+  "statActive": {
+    "message": "aktivní"
+  },
+  "statLoaded": {
+    "message": "načtené"
+  },
+  "statDeep": {
+    "message": "uvolněné"
+  },
+  "statAutoPending": {
+    "message": "AUTO čeká"
+  },
+  "statDeepAlways": {
+    "message": "DEEP vždy"
+  },
+  "statKeepAlways": {
+    "message": "KEEP vždy"
+  },
+  "statUrlExceptions": {
+    "message": "URL výjimky"
+  },
+  "tooltipActive": {
+    "message": "Aktivní"
+  },
+  "tooltipDiscarded": {
+    "message": "DEEP / uvolněno z paměti"
+  },
+  "tooltipLoaded": {
+    "message": "Načteno v paměti"
+  },
+  "tooltipExactKeep": {
+    "message": "Přesná URL je výjimka KEEP"
+  },
+  "tooltipHostnameDeep": {
+    "message": "Hostname má politiku DEEP"
+  },
+  "tooltipHostnameKeep": {
+    "message": "Hostname má politiku KEEP"
+  },
+  "tooltipOtherFlags": {
+    "message": "Další stavové příznaky"
+  },
+  "tooltipDiscardAttempt": {
+    "message": "Poslední pokus o discard"
+  },
+  "deepIn": {
+    "message": "DEEP za "
+  },
+  "groupDeep": {
+    "message": "DEEP skupinu"
+  },
+  "groupNone": {
+    "message": "Bez skupiny"
+  },
+  "groupUntitled": {
+    "message": "(skupina bez názvu)"
+  },
+  "groupEmpty": {
+    "message": "Prázdná skupina"
+  },
+  "panelsNoMatch": {
+    "message": "Žádné panely neodpovídají aktuálnímu filtru."
+  },
+  "emptyHostList": {
+    "message": "Nic nenalezeno."
+  },
+  "emptyUrlExceptions": {
+    "message": "Žádné URL výjimky."
+  },
+  "emptyWorkspace": {
+    "message": "Zatím není uložený žádný workspace."
+  },
+  "workspaceNoWindows": {
+    "message": "Workspace nemá uložená okna."
+  },
+  "workspaceNoLog": {
+    "message": "Pro tento workspace zatím není debug záznam."
+  },
+  "statusActive": {
+    "message": "AKTIVNÍ"
+  },
+  "statusOpen": {
+    "message": "OTEVŘENÝ"
+  },
+  "statusClosed": {
+    "message": "ZAVŘENÝ"
+  },
+  "detail": {
+    "message": "👁 Detail"
+  },
+  "hide": {
+    "message": "Skrýt"
+  },
+  "switch": {
+    "message": "Přepnout"
+  },
+  "copy": {
+    "message": "Kopírovat"
+  },
+  "copied": {
+    "message": "Zkopírováno"
+  },
+  "remove": {
+    "message": "Vyřadit"
+  },
+  "noHistory": {
+    "message": "bez historie"
+  },
+  "importedAt": {
+    "message": "Importováno "
+  },
+  "createdAt": {
+    "message": "Vytvořeno "
+  },
+  "from": {
+    "message": " z "
+  },
+  "originally": {
+    "message": " · původně "
+  },
+  "countTabs": {
+    "message": " panelů"
+  },
+  "countGroups": {
+    "message": " skupin"
+  },
+  "windowPrefix": {
+    "message": "Okno #"
+  },
+  "workspaceNamePrompt": {
+    "message": "Název workspace:"
+  },
+  "workspaceNewNamePrompt": {
+    "message": "Název nového workspace z aktuálního stavu Firefoxu:"
+  },
+  "deletedWorkspaceName": {
+    "message": "Importovaný workspace"
+  },
+  "filterActiveRatio": {
+    "message": "% aktivní / "
+  },
+  "filterBackgroundRatio": {
+    "message": "% pozadí"
+  },
+  "usageAverage": {
+    "message": "× aktivní · průměr "
+  },
+  "keepExceptionAdd": {
+    "message": "Opravdu vložit tuto přesnou URL do výjimek?\n\n"
+  },
+  "keepExceptionRemove": {
+    "message": "Opravdu vyjmout tuto přesnou URL z výjimek?\n\n"
+  },
+  "removeWorkspaceWindow": {
+    "message": "Vyřadit toto uložené okno z workspace?\n\nAktuálně otevřené Firefox okno se nezavře."
+  },
+  "copiedLogError": {
+    "message": "Kopírování logu selhalo: "
+  },
+  "importWorkspaceError": {
+    "message": "Import workspace selhal: "
+  },
+  "backupWorkspacesError": {
+    "message": "Záloha workspaces selhala: "
+  },
+  "restoreWorkspacesError": {
+    "message": "Obnova workspaces selhala: "
+  },
+  "backupApplicationError": {
+    "message": "Záloha aplikace selhala: "
+  },
+  "restoreApplicationError": {
+    "message": "Obnova aplikace selhala: "
+  },
+  "createWorkspaceError": {
+    "message": "Uložení aktuálního stavu jako nového workspace selhalo: "
+  },
+  "fileNotCollection": {
+    "message": "Soubor neobsahuje zálohu kolekce workspaces."
+  },
+  "fileNotApplication": {
+    "message": "Soubor neobsahuje kompletní zálohu Workspace Manageru."
+  },
+  "createWorkspaceUnverified": {
+    "message": "Nový workspace se nepodařilo ověřit"
+  },
+  "noRecoveredWindow": {
+    "message": "Workspace recovery nevytvořilo žádné okno"
+  },
+  "recoverDuplicatePopup": {
+    "message": "POZOR: Obsah otevřených oken se liší od obnovené zálohy.\n\nPočet nových oken: $1.\nPočet existujících oken: $2.\nMohou vzniknout duplicity.\n\nVytvořit další okna?"
+  },
+  "countWindowOne": {
+    "message": "okno"
+  },
+  "countWindowFew": {
+    "message": "okna"
+  },
+  "countWindowOther": {
+    "message": "oken"
+  },
+  "countTabOne": {
+    "message": "panel"
+  },
+  "countTabFew": {
+    "message": "panely"
+  },
+  "countTabOther": {
+    "message": "panelů"
+  },
+  "countGroupOne": {
+    "message": "skupina"
+  },
+  "countGroupFew": {
+    "message": "skupiny"
+  },
+  "countGroupOther": {
+    "message": "skupin"
+  },
+  "countOpenWindowOne": {
+    "message": "otevřené okno"
+  },
+  "countOpenWindowFew": {
+    "message": "otevřená okna"
+  },
+  "countOpenWindowOther": {
+    "message": "otevřených oken"
+  },
+  "countSavedWindowOne": {
+    "message": "uložené okno"
+  },
+  "countSavedWindowFew": {
+    "message": "uložená okna"
+  },
+  "countSavedWindowOther": {
+    "message": "uložených oken"
+  },
+  "summaryLive": {
+    "message": "$1 · $2 · načtené: $3 · uvolněné: $4 · aktivní: $5"
+  },
+  "panelFilterResult": {
+    "message": "$1 z $2"
+  },
+  "filteredPanelCounts": {
+    "message": "Panely: $1/$2"
+  },
+  "hostnameSearchResult": {
+    "message": "Nalezeno $1; zobrazeno maximálně $2."
+  },
+  "hostnameDefaultResult": {
+    "message": "Zobrazeny pouze hostname z aktuálně otevřených panelů; maximálně $1."
+  },
+  "usageRatio": {
+    "message": "$1 % aktivně / $2 % na pozadí"
+  },
+  "usageStats": {
+    "message": "$1× aktivní · průměr $2 · $3 · celkem $4"
+  },
+  "importedWorkspaceDefault": {
+    "message": "Importovaný workspace"
+  },
+  "duplicateWorkspaceName": {
+    "message": "Workspace s názvem „$1“ už existuje."
+  },
+  "emptyWorkspaceName": {
+    "message": "Název workspace nesmí být prázdný."
+  },
+  "importNewNamePrompt": {
+    "message": "Zadej nový název, nebo zruš celý import."
+  },
+  "provenanceSource": {
+    "message": " z $1"
+  },
+  "provenanceOriginal": {
+    "message": " · původně „$1“"
+  },
+  "confirmSwitchWorkspace": {
+    "message": "Přepnout na workspace „$1“?\n\nAktuální stav se uloží a okna současného workspace se zavřou."
+  },
+  "confirmRecoverAdditionalWindows": {
+    "message": "POZOR: Otevřená okna Firefoxu se nepodařilo bezpečně přiřadit k právě obnovené záloze. Jejich obsah se mohl změnit.\n\nNyní otevřených obsahových oken: $1.\nObnova vytvoří DALŠÍCH oken: $2.\nPůvodní okna zůstanou otevřená a mohou vzniknout duplicity.\n\nVýslovně vytvořit další okna? Storno ponechá současný stav."
+  },
+  "confirmRecoverWorkspace": {
+    "message": "Obnovit relaci workspace „$1“?\n\nOtevřou se jeho uložená okna, skupiny a panely."
+  },
+  "confirmDeleteActiveWorkspace": {
+    "message": "Smazat aktivní workspace „$1“?\n\nOtevřená okna zůstanou a převezme je nový workspace."
+  },
+  "confirmDeleteWorkspace": {
+    "message": "Opravdu smazat workspace „$1“?"
+  },
+  "confirmImportCollection": {
+    "message": "Importovat workspaces ze zálohy?\n\nPočet: $1.\nExistující workspaces zůstanou beze změny."
+  },
+  "importCollectionSuccess": {
+    "message": "Importováno workspaces: $1"
+  },
+  "confirmRestoreApplication": {
+    "message": "Obnovit kompletní stav Workspace Manageru ze zálohy?\n\nTato akce NAHRADÍ uložené nastavení a workspaces.\nOtevřená okna Firefoxu zůstanou beze změny.\nPřesné shody oken se znovu připojí automaticky.\nPři rozdílu zůstanou původní okna otevřená a obnova relace bude vyžadovat potvrzení dalších oken.\n\nPočet workspaces v záloze: $1"
+  },
+  "restoredAttached": {
+    "message": "Existující okna byla jednoznačně rozpoznána a znovu připojena.\nAktivní workspace: $1 ($2)."
+  },
+  "restoredNotAttached": {
+    "message": "Otevřená okna se se zálohou úplně neshodují nebo nelze shodu určit.\nŽádné původní okno nebylo zavřeno ani změněno.\nObnova relace může vytvořit další okna a při riziku duplicit vyžádá potvrzení."
+  },
+  "restoreApplicationSuccess": {
+    "message": "Obnova aplikace dokončena.\n\nObnoveno workspaces: $1\n\n$2"
+  },
+  "restoredWorkspaceName": {
+    "message": "obnovený workspace"
+  },
+  "loadedErrorDetail": {
+    "message": "Chyba při načítání. Podrobnosti jsou v konzoli rozšíření."
+  },
+  "debugLogCount": {
+    "message": "Ladicí záznamy ($1)"
+  },
+  "importSourceNote": {
+    "message": "Zdroj importu: $1"
+  },
+  "savedWindowLabel": {
+    "message": "Okno $1"
+  },
+  "savedGroupLabel": {
+    "message": "Skupina $1"
+  },
+  "languageHeading": {
+    "message": "Jazyk rozhraní"
+  },
+  "languageLabel": {
+    "message": "Jazyk"
+  },
+  "languageAutomatic": {
+    "message": "Automaticky (podle Firefoxu)"
+  },
+  "languageCzech": {
+    "message": "Čeština"
+  },
+  "languageEnglish": {
+    "message": "English"
+  },
+  "languageHint": {
+    "message": "Výběr se ukládá lokálně, nikoli přes Firefox Sync. Změna načte znovu jen rozhraní správce a popupu; otevřené panely a Firefox zůstanou beze změny."
+  },
+  "helpLanguage": {
+    "message": "Jazyk rozhraní lze ponechat podle Firefoxu nebo ručně zvolit češtinu či angličtinu. Volba je lokální a ukládá se do úplné zálohy aplikace."
+  },
+  "dialogConfirmTitle": {
+    "message": "Potvrzení akce"
+  },
+  "dialogPromptTitle": {
+    "message": "Zadej hodnotu"
+  },
+  "dialogMessageTitle": {
+    "message": "Zpráva"
+  },
+  "dialogConfirmButton": {
+    "message": "Potvrdit"
+  },
+  "dialogCancelButton": {
+    "message": "Storno"
+  },
+  "dialogOkButton": {
+    "message": "OK"
+  },
+  "deviceNameHeading": {
+    "message": "Označení počítače"
+  },
+  "deviceNameLabel": {
+    "message": "Název PC"
+  },
+  "deviceNameExplanation": {
+    "message": "Při prvním spuštění se bezpečně vygeneruje označení FFWM-XXXXXXXX. Můžeš ho přejmenovat podle PC. Označení se ukládá lokálně, vkládá se za timestamp exportu a je součástí kompletní JSON zálohy. Při obnově lze převzít název ze zálohy."
+  },
+  "deviceNameSave": {
+    "message": "Uložit"
+  },
+  "deviceNameMissing": {
+    "message": "Označení PC se nepodařilo inicializovat. Exporty jsou dočasně nedostupné."
+  },
+  "deviceNameSaved": {
+    "message": "Zařízení: $1. Exporty jsou povolené."
+  },
+  "deviceNameInvalid": {
+    "message": "Zadej 1–40 znaků: A–Z, 0–9, pomlčka, podtržítko nebo tečka. První znak musí být písmeno nebo číslice."
+  },
+  "deviceNameSaveError": {
+    "message": "Název počítače se nepodařilo uložit: "
+  },
+  "deviceNameExportNotice": {
+    "message": "Probíhá načtení označení zařízení; při potížích zkontroluj Nastavení."
+  },
+  "helpDeviceName": {
+    "message": "Při prvním spuštění dostane rozšíření náhodné lokální označení FFWM-XXXXXXXX, které lze přejmenovat. Smazání hodnoty a Uložit vytvoří nové ID. Exporty používají označení v názvu souboru i v kompletní záloze. Při obnově se automatické ID může převzít ze zálohy; uživatelsky změněný název se přepíše jen po potvrzení. Starší zálohy bez názvu ho nemění."
+  },
+  "exportJson": {
+    "message": "Export JSON"
+  },
+  "deviceNameGenerated": {
+    "message": "Automatické označení: $1. Můžeš ho přejmenovat."
+  },
+  "deviceNameRestoreAsk": {
+    "message": "Tento počítač už byl uživatelsky pojmenován „$1“. Záloha obsahuje název „$2“.\n\nChceš při obnově změnit také název PC? Pokud zvolíš Ne, ostatní data ze zálohy se přesto obnoví."
+  },
+  "deviceNameRestoreYes": {
+    "message": "Ano, změnit název"
+  },
+  "deviceNameRestoreNo": {
+    "message": "Ne, ponechat současný"
+  },
+  "deviceNameRestoreError": {
+    "message": "Data byla obnovena, ale označení počítače se nepodařilo změnit: "
+  },
+  "confirmDeleteUrlException": {
+    "message": "Opravdu smazat výjimku KEEP pro tuto přesnou URL?\n\n$1\n\nNa tuto stránku se potom bude vztahovat běžná politika hostname/AUTO."
+  },
+  "removeUrlExceptionError": {
+    "message": "Nepodařilo se smazat URL výjimku: "
+  }
+}

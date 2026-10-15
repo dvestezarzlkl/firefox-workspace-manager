@@ -1,0 +1,21 @@
+{
+  "name": "firefox-workspace-manager",
+  "version": "0.5.1",
+  "private": true,
+  "description": "Development tooling for Workspace Manager",
+  "scripts": {
+    "predev": "node -e \"require('fs').mkdirSync('../.dev',{recursive:true})\"",
+    "dev": "web-ext run --source-dir=. --firefox-profile=../.dev/firefox-profile --profile-create-if-missing --keep-profile-changes --browser-console --watch-ignored=node_modules/** --watch-ignored=.git/** --watch-ignored=.vscode/** --watch-ignored=docs/** --watch-ignored=workstate.md --watch-ignored=AGENTS.md --watch-ignored=README.md --watch-ignored=package-lock.json --watch-ignored=scripts/**",
+    "lint": "npm run lint:i18n && web-ext lint --source-dir=. --ignore-files scripts",
+    "build": "web-ext build --source-dir=. --overwrite-dest --ignore-files amo-metadata.json scripts workstate.md AGENTS.md README.md CHANGELOG.md docs jsconfig.json package.json package-lock.json",
+    "sign:unlisted": "web-ext sign --source-dir=. --channel=unlisted --ignore-files amo-metadata.json scripts workstate.md AGENTS.md README.md CHANGELOG.md docs jsconfig.json package.json package-lock.json",
+    "sign:listed": "web-ext sign --source-dir=. --channel=listed --amo-metadata=amo-metadata.json --ignore-files amo-metadata.json scripts workstate.md AGENTS.md README.md CHANGELOG.md docs jsconfig.json package.json package-lock.json",
+    "lint:i18n": "node scripts/check-i18n.mjs && node scripts/test-i18n.mjs && npm run test:backup-label && npm run test:destructive",
+    "test:i18n": "node scripts/test-i18n.mjs",
+    "test:backup-label": "node scripts/test-backup-label.mjs",
+    "test:destructive": "node scripts/test-destructive-actions.mjs"
+  },
+  "devDependencies": {
+    "web-ext": "^10.5.0"
+  }
+}

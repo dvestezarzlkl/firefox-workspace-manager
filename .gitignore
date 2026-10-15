@@ -1,0 +1,6 @@
+web-ext-artifacts/
+*.xpi
+node_modules/
+.DS_Store
+/.dev/firefox-profile
+/.amo-upload-uuid
