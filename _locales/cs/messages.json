@@ -724,5 +724,11 @@
   },
   "deviceNameRestoreError": {
     "message": "Data byla obnovena, ale označení počítače se nepodařilo změnit: "
+  },
+  "confirmDeleteUrlException": {
+    "message": "Opravdu smazat výjimku KEEP pro tuto přesnou URL?\n\n$1\n\nNa tuto stránku se potom bude vztahovat běžná politika hostname/AUTO."
+  },
+  "removeUrlExceptionError": {
+    "message": "Nepodařilo se smazat URL výjimku: "
   }
 }

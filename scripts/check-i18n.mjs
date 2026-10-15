@@ -78,7 +78,7 @@ function jsFiles(dir) {
     return item.isDirectory() ? jsFiles(child) : item.name.endsWith(".js") ? [child] : [];
   });
 }
-for (const path of [...jsFiles("src"), "scripts/check-i18n.mjs", "scripts/test-i18n.mjs", "scripts/test-backup-label.mjs"]) {
+for (const path of [...jsFiles("src"), "scripts/check-i18n.mjs", "scripts/test-i18n.mjs", "scripts/test-backup-label.mjs", "scripts/test-destructive-actions.mjs"]) {
   try {
     execFileSync(process.execPath, ["--input-type=module", "--check"], {
       input: read(path),

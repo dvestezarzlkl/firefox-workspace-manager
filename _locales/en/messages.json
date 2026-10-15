@@ -724,5 +724,11 @@
   },
   "deviceNameRestoreError": {
     "message": "The data was restored, but the device name could not be changed: "
+  },
+  "confirmDeleteUrlException": {
+    "message": "Delete the KEEP exception for this exact URL?\n\n$1\n\nThe page will then follow its normal hostname/AUTO policy."
+  },
+  "removeUrlExceptionError": {
+    "message": "Failed to delete the URL exception: "
   }
 }

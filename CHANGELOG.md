@@ -9,6 +9,7 @@ source for release notes and AMO Version Notes.
 
 ### 1.0.0 (release candidate; AMO publication pending)
 - Removed suppressible browser-native alert/confirm/prompt dialogs; extension-owned accessible dialogs handle confirmations, names and errors in manager and popup.
+- Deleting a KEEP URL exception now requires an explicit confirmation. Cancel/Escape leaves the rule unchanged, and concurrent policy edits are preserved.
 - Added persistent per-profile FFWM-XXXXXXXX random device label, editable in Settings. JSON exports are enabled after automatic initialization and include the label after the timestamp.
 - Complete application backups optionally include the device label. Restore keeps local custom labels unless the user explicitly approves adopting the source label; auto-generated labels can be adopted automatically and legacy backups remain compatible, without changing backup format version.
 - Began native Firefox CZ/EN UI localization with paired message catalogs and a shared DOM translator.
