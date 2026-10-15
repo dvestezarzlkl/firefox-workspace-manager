@@ -1,0 +1,49 @@
+name: Validate Firefox Workspace Manager
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Localization, dialog and extension lint
+        run: npm run lint
+      - name: Package extension
+        run: npm run build
+      - name: Verify distribution payload
+        run: |
+          python3 - <<'PY'
+          import glob, json, sys, zipfile
+          candidates = glob.glob("web-ext-artifacts/*.zip") + glob.glob("web-ext-artifacts/*.xpi")
+          assert len(candidates) == 1, f"Expected exactly one built package: {candidates}"
+          with zipfile.ZipFile(candidates[0]) as bundle:
+              paths = set(bundle.namelist())
+              required = {
+                  "manifest.json",
+                  "_locales/cs/messages.json",
+                  "_locales/en/messages.json",
+                  "src/shared/dialogs.js",
+                  "src/shared/backupFilename.js",
+              }
+              assert required.issubset(paths), f"Missing WebExtension content: {required - paths}"
+              assert not any(p.startswith("scripts/") for p in paths), "Test scripts leaked into package"
+              assert "amo-metadata.json" not in paths, "AMO metadata leaked into package"
+              manifest = json.loads(bundle.read("manifest.json"))
+              assert manifest["version"] == "1.0.0", manifest["version"]
+          print("Built package verified:", candidates[0])
+          PY
