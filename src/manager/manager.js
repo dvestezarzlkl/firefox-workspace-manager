@@ -2012,9 +2012,31 @@ addUrlKeep.addEventListener("click", async () => {
 
 urlPoliciesEl.addEventListener("click", async event => {
   const button = event.target.closest("button[data-remove-url-rule]");
-  if (!button) return;
-  urlPolicies = urlPolicies.filter(rule => rule.url !== button.dataset.removeUrlRule);
-  await saveUrlPolicies();
+  if (!button || button.disabled) return;
+
+  const url = button.dataset.removeUrlRule;
+  if (!url || !urlPolicies.some(rule => rule?.url === url)) return;
+
+  button.disabled = true;
+  try {
+    // Removing a KEEP exception may change the protection of a live tab.
+    // Require an explicit decision; ESC and Cancel must never mutate storage.
+    if (!await confirmDialog(t("confirmDeleteUrlException", url), { danger: true })) return;
+
+    // Refresh after the dialog: another view/Sync might have updated the list.
+    // Never overwrite unrelated rules with an old in-memory snapshot.
+    const stored = await browser.storage.local.get(URL_POLICIES_KEY);
+    const current = Array.isArray(stored[URL_POLICIES_KEY])
+      ? stored[URL_POLICIES_KEY] : [];
+    if (!current.some(rule => rule?.url === url)) return;
+    urlPolicies = current.filter(rule => rule?.url !== url);
+    await saveUrlPolicies();
+  } catch (error) {
+    console.error("Failed to remove URL exception", error);
+    await messageDialog(t("removeUrlExceptionError") + String(error?.message ?? error));
+  } finally {
+    button.disabled = false;
+  }
 });
 [autoMinutes, autoDeepOnLeave, autoProtectPinned, autoProtectAudible].forEach(el => {
   el.addEventListener("change", () => saveAutoSettings().catch(console.error));
