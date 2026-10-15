@@ -96,7 +96,7 @@ for (const [index, testcase] of cases.entries()) {
 // Verify that the original v1 application backup accepts the optional
 // language preference without changing the backup version or persisted IDs.
 const backupImports = read("src/background/AppBackupService.js");
-const importHeader = /^import\s+\{[\s\S]*?\}\s+from\s+"\.\.\/shared\/constants\.js";/;
+const importHeader = /^import\s+\{[\s\S]*?\}\s+from\s+"\.\.\/shared\/constants\.js";/m;
 assert(importHeader.test(backupImports));
 const importedConstants = {
   ...constants,
