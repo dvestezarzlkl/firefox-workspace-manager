@@ -43,6 +43,12 @@ jobs:
               assert required.issubset(paths), f"Missing WebExtension content: {required - paths}"
               assert not any(p.startswith("scripts/") for p in paths), "Test scripts leaked into package"
               assert "amo-metadata.json" not in paths, "AMO metadata leaked into package"
+              allowed = ("_locales/", "assets/", "src/")
+              excluded = sorted(p for p in paths
+                                if p != "manifest.json" and
+                                not p.startswith(allowed) and
+                                not p.endswith("/"))
+              assert not excluded, f"Non-runtime files in package: {excluded}"
               manifest = json.loads(bundle.read("manifest.json"))
               assert manifest["version"] == "1.0.0", manifest["version"]
           print("Built package verified:", candidates[0])

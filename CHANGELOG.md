@@ -7,7 +7,7 @@ source for release notes and AMO Version Notes.
 
 ## Unreleased
 
-### 1.0.0 localization (work in progress; not released)
+### 1.0.0 (release candidate; AMO publication pending)
 - Removed suppressible browser-native alert/confirm/prompt dialogs; extension-owned accessible dialogs handle confirmations, names and errors in manager and popup.
 - Added persistent per-profile FFWM-XXXXXXXX random device label, editable in Settings. JSON exports are enabled after automatic initialization and include the label after the timestamp.
 - Complete application backups optionally include the device label. Restore keeps local custom labels unless the user explicitly approves adopting the source label; auto-generated labels can be adopted automatically and legacy backups remain compatible, without changing backup format version.
@@ -16,7 +16,7 @@ source for release notes and AMO Version Notes.
 - Added Czech plural inflection for tab/window/group counts and translated dynamic workspaces, activity summaries and confirmation dialogs.
 - Added Settings > Interface language (Auto/Čeština/English) with local persistence, immediate extension-page reload, and backward-compatible optional language preference in application backup v1.
 - Added dependency-free localization regression check (`npm run lint:i18n`), including mirrored keys, placeholders, references and JS syntax.
-- Browser-localization tests and full restore/lifecycle regression tests are still pending; do not publish this draft.
+- CZ/EN interface, session recovery, full application restore, safe window reattachment, and device-name conflict handling were verified in Firefox. Release packaging and localization are checked by GitHub Actions.
 
 ## 0.8.1 - 2026-10-09
 
